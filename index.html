@@ -1,42 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TeraMatch — Earth Analog Sites for Moon & Mars Bases</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-
-<header>
-  <h1>TeraMatch</h1>
-  <p>Finding Earth locations that best simulate future Moon and Mars base sites.</p>
-</header>
-
-<main>
-  <div id="map-wrap">
-    <div id="filters">
-      <button class="filter-btn active" data-target="all">All Sites</button>
-      <button class="filter-btn" data-target="mars">Mars Analogs</button>
-      <button class="filter-btn" data-target="moon">Moon Analogs</button>
-    </div>
-    <div id="map"></div>
-  </div>
-
-  <aside id="sidebar">
-    <h2>Candidate Sites</h2>
-    <div id="site-list"></div>
-
-    <h2>Site Details</h2>
-    <div id="site-details">
-      <p class="placeholder">Click a marker or a site in the list to see its full analog score.</p>
-    </div>
-  </aside>
-</main>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="data.js"></script>
-<script src="script.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TeraMatch — Earth Analog Sites for Moon & Mars Bases</title>
+    <meta name="description" content="Finding Earth locations that best simulate future Moon and Mars base sites." />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

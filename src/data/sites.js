@@ -3,7 +3,7 @@
 // Sources: NASA HMP (Devon Island), HI-SEAS (Mauna Kea), Atacama astrobiology
 // studies, McMurdo Dry Valleys research, Rio Tinto extremophile studies.
 
-const SITES = [
+export const SITES = [
   {
     id: "devon-island",
     name: "Devon Island, Canada",
