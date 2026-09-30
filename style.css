@@ -1,0 +1,103 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: #1c1c1c;
+  background: #f7f7f5;
+}
+
+header {
+  padding: 16px 24px;
+  background: #10233f;
+  color: white;
+}
+
+header h1 {
+  margin: 0 0 4px 0;
+  font-size: 22px;
+}
+
+header p {
+  margin: 0;
+  font-size: 14px;
+  color: #c9d4e3;
+}
+
+main {
+  display: flex;
+  height: calc(100vh - 76px);
+}
+
+#map {
+  flex: 2;
+  height: 100%;
+}
+
+#sidebar {
+  flex: 1;
+  min-width: 280px;
+  max-width: 360px;
+  padding: 16px;
+  overflow-y: auto;
+  background: white;
+  border-left: 1px solid #ddd;
+}
+
+#sidebar h2 {
+  font-size: 15px;
+  margin: 16px 0 8px 0;
+  color: #10233f;
+}
+
+.site-item {
+  padding: 8px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.site-item:hover {
+  background: #f0f4f9;
+}
+
+.placeholder {
+  color: #888;
+  font-size: 13px;
+}
+
+.score-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 3px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.overall-score {
+  font-size: 18px;
+  font-weight: bold;
+  margin: 10px 0;
+  color: #10233f;
+}
+
+.target-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  color: white;
+  margin-left: 6px;
+}
+
+.target-mars {
+  background: #b5442e;
+}
+
+.target-moon {
+  background: #555;
+}
