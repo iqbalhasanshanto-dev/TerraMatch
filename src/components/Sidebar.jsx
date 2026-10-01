@@ -33,7 +33,7 @@ export default function Sidebar() {
           <span className="text-2xl">🪐</span>
           <div>
             <div className="text-sm font-semibold text-lightText dark:text-darkText leading-tight">
-              Earth-Moon-Mars
+              TerraMatch
             </div>
             <div className="text-xs text-lightTextSecondary dark:text-darkTextSecondary">
               Analog Sites Explorer
