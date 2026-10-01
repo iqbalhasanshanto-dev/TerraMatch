@@ -6,10 +6,11 @@ Built for NASA Space Apps Challenge 2026 — Rajshahi, Bangladesh.
 
 ## Tech stack
 
-- React 18
-- Tailwind CSS
+- React 18 + React Router (multi-page: Dashboard, Explore Map, Saved Locations, Compare, Data Sources, About)
+- Tailwind CSS (dark/light mode via `darkMode: 'class'`, color tokens in `tailwind.config.js` match the design system)
 - Vite (build tool / dev server)
 - Leaflet + React-Leaflet (interactive map)
+- lucide-react (icons)
 - NASA POWER API (real climate data — see "Today's plan" below)
 
 ## Getting started
@@ -43,21 +44,49 @@ teramatch/
 ├── public/
 │   └── favicon.svg
 └── src/
-    ├── main.jsx                React root, imports Leaflet CSS + Tailwind
-    ├── App.jsx                 top-level layout, holds filter/selection state
-    ├── index.css               Tailwind directives + map sizing fix
+    ├── main.jsx                 React root — wraps App in ThemeProvider, SavedLocationsProvider, BrowserRouter
+    ├── App.jsx                  Sidebar + route table
+    ├── index.css                Tailwind directives, Inter font import, map sizing fix
+    ├── context/
+    │   ├── ThemeContext.jsx         dark/light mode, persisted to localStorage
+    │   └── SavedLocationsContext.jsx "Save location" state, persisted to localStorage (basic — swap for an API later)
     ├── data/
-    │   └── sites.js            the 5 candidate analog sites + scores
+    │   ├── sites.js             the 5 candidate Earth analog sites — scores + mock display fields (weather, elevation, etc.)
+    │   └── targets.js           searchable off-Earth targets: Mars, Moon, named craters/features
     ├── utils/
-    │   ├── scoring.js          overallScore(), markerColor(), scoreLabel()
-    │   └── nasaPower.js        fetch real climate data from NASA (see below)
-    └── components/
-        ├── Header.jsx
-        ├── FilterBar.jsx       All / Mars / Moon toggle
-        ├── MapView.jsx         Leaflet map, colored markers, pan-to-selected
-        ├── SiteList.jsx        ranked sidebar list
-        └── SiteDetails.jsx     score breakdown panel
+    │   ├── scoring.js           overallScore(), overallScorePercent(), matchColor(), bestMatchesFor()
+    │   └── nasaPower.js         fetch real climate data from NASA POWER (see below)
+    ├── components/
+    │   ├── Sidebar.jsx              nav + theme toggle
+    │   ├── SearchPanel.jsx          search input, autocomplete, example chips
+    │   ├── ReferenceLocationCard.jsx  off-Earth target stats (Mars/Moon/crater)
+    │   ├── EarthLocationCard.jsx     selected site detail: similarity bar, conditions, save/compare buttons
+    │   ├── MapView.jsx              Leaflet map, match-colored markers, pan-to-selected
+    │   ├── MapLegend.jsx            High/Medium/Low match legend overlay
+    │   ├── CriteriaFilterPanel.jsx  humidity/temperature/weather/terrain inputs (Explore Map)
+    │   └── MatchResultsList.jsx     ranked results list for the criteria search (Explore Map)
+    └── pages/
+        ├── Dashboard.jsx         map + search BY TARGET NAME (Mars, Moon, a crater) — the default landing screen
+        ├── ExploreMap.jsx        map + search BY CONDITIONS (humidity, temperature, weather, terrain)
+        ├── SavedLocations.jsx    list of saved sites
+        ├── Compare.jsx           pick 2 sites, compare scores side by side
+        ├── DataSourcesPage.jsx   real NASA APIs used/planned, with links
+        └── About.jsx             project description
 ```
+
+**Dashboard vs. Explore Map — two different search modes, both map + a proper right-hand panel:**
+- **Dashboard** (`/`): type a target name ("Mars", "Jezero Crater", "Moon") and get its best-matching Earth site, plus a reference card with the target's own stats (temp, gravity, atmosphere).
+- **Explore Map** (`/explore`): instead specify *conditions* you want (temperature, humidity, weather, terrain type) and get a ranked list of Earth sites scored against those conditions — e.g. "I need somewhere cold and dry, what matches?" See `utils/criteriaMatch.js` for the scoring logic.
+
+Both pages use a full-height right-hand `<aside>` panel (not an absolutely-positioned overlay), so clicking a map marker or a result always shows its details and scrolls if needed instead of getting clipped off-screen.
+
+## What's mock vs. real right now
+
+- **Real**: the 5 sites' `aridity`/`temperatureExtreme` scores can be computed from live NASA POWER data via `fetchClimatology()` in `utils/nasaPower.js` (see "Today's plan" — this still needs to be wired into the UI).
+- **Mock/placeholder, for your backend dev to replace**: everything under each site's `mock` field in `sites.js` (current weather, humidity, air pressure, oxygen level) — these are hardcoded sample values so the UI has something to render. Same field names should be kept so the components don't need changes.
+- **"Best match" logic on Dashboard** is currently just "highest `overallScorePercent` among sites with matching `target`" — not a real similarity computation against the searched target's actual stats.
+- **Criteria matching on Explore Map** (`utils/criteriaMatch.js`) is a simple distance-based formula, intentionally basic — a good placeholder, not a real climate-matching model.
+- **Saved Locations** is `localStorage`-only (see `SavedLocationsContext.jsx`) — fine for a demo, but won't sync across devices. Swap for a real endpoint when there's one.
 
 ## What it does right now
 

@@ -1,46 +1,25 @@
-import { useState } from 'react';
-import Header from './components/Header.jsx';
-import FilterBar from './components/FilterBar.jsx';
-import MapView from './components/MapView.jsx';
-import SiteList from './components/SiteList.jsx';
-import SiteDetails from './components/SiteDetails.jsx';
-import { SITES } from './data/sites.js';
+import { Routes, Route } from 'react-router-dom';
+import Sidebar from './components/Sidebar.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import ExploreMap from './pages/ExploreMap.jsx';
+import SavedLocations from './pages/SavedLocations.jsx';
+import Compare from './pages/Compare.jsx';
+import DataSourcesPage from './pages/DataSourcesPage.jsx';
+import About from './pages/About.jsx';
 
 export default function App() {
-  const [filter, setFilter] = useState('all');
-  const [selectedSite, setSelectedSite] = useState(null);
-
-  const visibleSites =
-    filter === 'all' ? SITES : SITES.filter((s) => s.target === filter);
-
   return (
-    <div className="h-screen flex flex-col">
-      <Header />
-      <main className="flex flex-1 min-h-0">
-        <div className="flex-[2] flex flex-col min-h-0">
-          <FilterBar filter={filter} setFilter={setFilter} />
-          <MapView
-            sites={visibleSites}
-            selectedSite={selectedSite}
-            onSelect={setSelectedSite}
-          />
-        </div>
-
-        <aside className="flex-1 max-w-sm border-l border-slate-200 bg-white p-4 overflow-y-auto">
-          <h2 className="text-sm font-semibold text-slate-900 mb-2">
-            Candidate Sites
-          </h2>
-          <SiteList
-            sites={visibleSites}
-            selectedId={selectedSite?.id}
-            onSelect={setSelectedSite}
-          />
-
-          <h2 className="text-sm font-semibold text-slate-900 mt-6 mb-2">
-            Site Details
-          </h2>
-          <SiteDetails site={selectedSite} />
-        </aside>
+    <div className="flex h-screen bg-lightBg dark:bg-darkBg">
+      <Sidebar />
+      <main className="relative flex-1 overflow-y-auto">
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/explore" element={<ExploreMap />} />
+          <Route path="/saved" element={<SavedLocations />} />
+          <Route path="/compare" element={<Compare />} />
+          <Route path="/data-sources" element={<DataSourcesPage />} />
+          <Route path="/about" element={<About />} />
+        </Routes>
       </main>
     </div>
   );
