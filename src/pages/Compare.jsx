@@ -21,7 +21,7 @@ export default function Compare() {
         Compare
       </h1>
       <p className="text-sm text-lightTextSecondary dark:text-darkTextSecondary mb-6">
-        Pick two candidate sites to compare side by side.
+        Pick two candidate sites to see which suits which mission better.
       </p>
 
       <div className="grid grid-cols-2 gap-4 mb-6">
@@ -30,23 +30,68 @@ export default function Compare() {
       </div>
 
       {left && right && (
-        <div className="grid grid-cols-2 gap-4">
-          <SiteSummary site={left} />
-          <SiteSummary site={right} />
-        </div>
-      )}
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <SiteSummary site={left} />
+            <SiteSummary site={right} />
+          </div>
 
-      {left && right && (
-        <div className="mt-6 bg-lightPanel dark:bg-darkPanel rounded-xl border border-lightBorder dark:border-darkBorder overflow-hidden">
-          {Object.keys(left.scores).map((key) => (
-            <div key={key} className="grid grid-cols-3 text-sm border-b border-lightBorder dark:border-darkBorder last:border-0">
-              <div className="p-3 text-lightTextSecondary dark:text-darkTextSecondary">{scoreLabel(key)}</div>
-              <div className="p-3 text-center text-lightText dark:text-darkText">{left.scores[key]}/10</div>
-              <div className="p-3 text-center text-lightText dark:text-darkText">{right.scores[key]}/10</div>
-            </div>
-          ))}
-        </div>
+          <SectionLabel>Real conditions</SectionLabel>
+          <ComparisonTable
+            rows={[
+              ["Target", capitalize(left.target), capitalize(right.target)],
+              ["Country", `${left.flag} ${left.country}`, `${right.flag} ${right.country}`],
+              ["Terrain type", left.mock.terrainType, right.mock.terrainType],
+              ["Current weather", `${left.mock.currentWeather}, ${left.mock.tempC}°C`, `${right.mock.currentWeather}, ${right.mock.tempC}°C`],
+              ["Humidity", `${left.mock.humidityPercent}%`, `${right.mock.humidityPercent}%`],
+              ["Air pressure", `${left.mock.airPressureHpa} hPa`, `${right.mock.airPressureHpa} hPa`],
+              ["Elevation", `${left.mock.elevationM} m`, `${right.mock.elevationM} m`],
+              ["Geology / soil type", left.mock.soilType, right.mock.soilType]
+            ]}
+          />
+
+          <SectionLabel>Analog scores (1–10)</SectionLabel>
+          <ComparisonTable
+            rows={Object.keys(left.scores).map((key) => [
+              scoreLabel(key),
+              `${left.scores[key]}/10`,
+              `${right.scores[key]}/10`
+            ])}
+          />
+
+          <SectionLabel>Why each matches</SectionLabel>
+          <div className="grid grid-cols-2 gap-4">
+            <p className="text-xs text-lightTextSecondary dark:text-darkTextSecondary bg-lightPanel dark:bg-darkPanel rounded-xl border border-lightBorder dark:border-darkBorder p-4">
+              {left.whyItMatches}
+            </p>
+            <p className="text-xs text-lightTextSecondary dark:text-darkTextSecondary bg-lightPanel dark:bg-darkPanel rounded-xl border border-lightBorder dark:border-darkBorder p-4">
+              {right.whyItMatches}
+            </p>
+          </div>
+        </>
       )}
+    </div>
+  );
+}
+
+function SectionLabel({ children }) {
+  return (
+    <p className="text-xs font-semibold text-lightTextSecondary dark:text-darkTextSecondary uppercase tracking-wide mt-6 mb-2">
+      {children}
+    </p>
+  );
+}
+
+function ComparisonTable({ rows }) {
+  return (
+    <div className="bg-lightPanel dark:bg-darkPanel rounded-xl border border-lightBorder dark:border-darkBorder overflow-hidden">
+      {rows.map(([label, leftVal, rightVal]) => (
+        <div key={label} className="grid grid-cols-3 text-sm border-b border-lightBorder dark:border-darkBorder last:border-0">
+          <div className="p-3 text-lightTextSecondary dark:text-darkTextSecondary">{label}</div>
+          <div className="p-3 text-center text-lightText dark:text-darkText">{leftVal}</div>
+          <div className="p-3 text-center text-lightText dark:text-darkText">{rightVal}</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -79,4 +124,8 @@ function SiteSummary({ site }) {
       </p>
     </div>
   );
+}
+
+function capitalize(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

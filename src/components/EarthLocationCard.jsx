@@ -1,11 +1,13 @@
-import { Bookmark, GitCompareArrows, Cloud } from 'lucide-react';
+import { Bookmark, GitCompareArrows, Cloud, X, Satellite, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { overallScorePercent, matchColor } from '../utils/scoring.js';
 import { useSavedLocations } from '../context/SavedLocationsContext.jsx';
+import { useClimatology } from '../hooks/useClimatology.js';
 
-export default function EarthLocationCard({ site, matchPercent }) {
+export default function EarthLocationCard({ site, matchPercent, onClose }) {
   const navigate = useNavigate();
   const { isSaved, toggleSaved } = useSavedLocations();
+  const climatology = useClimatology(site);
 
   if (!site) return null;
 
@@ -14,8 +16,18 @@ export default function EarthLocationCard({ site, matchPercent }) {
   const saved = isSaved(site.id);
 
   return (
-    <div className="bg-lightPanel dark:bg-darkPanel rounded-xl border border-lightBorder dark:border-darkBorder p-4 w-full">
-      <p className="text-xs font-medium text-lightTextSecondary dark:text-darkTextSecondary mb-2">
+    <div className="bg-lightPanel dark:bg-darkPanel rounded-xl border border-lightBorder dark:border-darkBorder p-4 w-full relative">
+      {onClose && (
+        <button
+          onClick={onClose}
+          aria-label="Close location details"
+          className="absolute top-3 right-3 text-lightTextSecondary dark:text-darkTextSecondary hover:text-lightText dark:hover:text-darkText"
+        >
+          <X size={16} />
+        </button>
+      )}
+
+      <p className="text-xs font-medium text-lightTextSecondary dark:text-darkTextSecondary mb-2 pr-6">
         Selected Earth Location
       </p>
 
@@ -58,6 +70,8 @@ export default function EarthLocationCard({ site, matchPercent }) {
         </p>
       </div>
 
+      <ClimatologyPanel climatology={climatology} />
+
       <div className="mt-4 flex gap-2">
         <button
           onClick={() => toggleSaved(site.id)}
@@ -80,10 +94,49 @@ export default function EarthLocationCard({ site, matchPercent }) {
           Compare
         </button>
       </div>
+    </div>
+  );
+}
 
-      <p className="mt-3 text-[11px] text-lightTextSecondary dark:text-darkTextSecondary">
-        Data source: NASA Earth Observatory, USGS
+// Live call to NASA's POWER API (see src/utils/nasaPower.js) — shows the
+// real annual climate figures for this exact site, fetched on demand.
+// This is the live data behind the aridity/temperature-extreme scores.
+function ClimatologyPanel({ climatology }) {
+  return (
+    <div className="mt-4 pt-3 border-t border-lightBorder dark:border-darkBorder">
+      <p className="text-xs font-medium text-lightText dark:text-darkText mb-1.5 flex items-center gap-1.5">
+        <Satellite size={13} />
+        Live NASA POWER data
       </p>
+
+      {climatology.status === 'loading' && (
+        <p className="text-xs text-lightTextSecondary dark:text-darkTextSecondary flex items-center gap-1.5">
+          <Loader2 size={12} className="animate-spin" />
+          Fetching real climate data for this location…
+        </p>
+      )}
+
+      {climatology.status === 'error' && (
+        <p className="text-xs text-lightTextSecondary dark:text-darkTextSecondary">
+          Couldn't reach NASA POWER right now — showing estimated scores above instead.
+        </p>
+      )}
+
+      {climatology.status === 'success' && climatology.data && (
+        <dl className="space-y-1 text-xs">
+          <Row
+            label="Annual avg. temperature"
+            value={`${climatology.data.T2M?.ANN?.toFixed(1) ?? '—'} °C`}
+          />
+          <Row
+            label="Annual precipitation"
+            value={`${climatology.data.PRECTOTCORR?.ANN?.toFixed(1) ?? '—'} mm/day avg`}
+          />
+          <p className="text-[11px] text-lightTextSecondary dark:text-darkTextSecondary pt-1">
+            Source: NASA POWER API, fetched live for this coordinate.
+          </p>
+        </dl>
+      )}
     </div>
   );
 }

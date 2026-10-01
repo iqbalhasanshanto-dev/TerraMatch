@@ -1,12 +1,17 @@
 import { matchColor } from '../utils/scoring.js';
 
-export default function MatchResultsList({ results, selectedId, onSelect }) {
+export default function MatchResultsList({ results, selectedId, onSelect, heading, hint }) {
   return (
     <div className="bg-lightPanel dark:bg-darkPanel rounded-xl border border-lightBorder dark:border-darkBorder p-3 w-full">
-      <p className="text-xs font-medium text-lightTextSecondary dark:text-darkTextSecondary mb-2 px-1">
-        Matching locations
+      <p className="text-xs font-medium text-lightTextSecondary dark:text-darkTextSecondary mb-1 px-1">
+        {heading || "Matching locations"}
       </p>
-      <div className="space-y-1.5">
+      {hint && (
+        <p className="text-[11px] text-lightTextSecondary dark:text-darkTextSecondary mb-2 px-1">
+          {hint}
+        </p>
+      )}
+      <div className="space-y-1.5 mt-2">
         {results.map(({ site, percent }) => {
           const color = matchColor(percent);
           const isSelected = selectedId === site.id;

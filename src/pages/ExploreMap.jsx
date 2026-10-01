@@ -14,6 +14,13 @@ export default function ExploreMap() {
   const [criteria, setCriteria] = useState(DEFAULT_CRITERIA);
   const [selectedId, setSelectedId] = useState(null);
 
+  const isFiltered =
+    criteria.target !== 'any' ||
+    criteria.terrain !== 'any' ||
+    criteria.weather !== 'any' ||
+    criteria.temperature !== '' ||
+    criteria.humidity !== '';
+
   const results = useMemo(
     () => computeCriteriaMatches(SITES, criteria),
     [criteria]
@@ -43,9 +50,15 @@ export default function ExploreMap() {
           results={results}
           selectedId={selectedId}
           onSelect={(site) => setSelectedId(site.id)}
+          heading={isFiltered ? "Matching locations" : "All candidate sites (ranked by overall score)"}
+          hint={isFiltered ? null : "Set a filter above to narrow these down by condition."}
         />
         {selected && (
-          <EarthLocationCard site={selected.site} matchPercent={selected.percent} />
+          <EarthLocationCard
+            site={selected.site}
+            matchPercent={selected.percent}
+            onClose={() => setSelectedId(null)}
+          />
         )}
       </aside>
     </div>

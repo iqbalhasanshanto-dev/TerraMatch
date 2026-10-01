@@ -37,7 +37,15 @@ export default function Dashboard() {
       <aside className="w-96 shrink-0 h-full overflow-y-auto border-l border-lightBorder dark:border-darkBorder bg-lightBg dark:bg-darkBg p-4 space-y-4">
         <SearchPanel onSelectTarget={handleSelectTarget} />
         {selectedTarget && <ReferenceLocationCard target={selectedTarget} />}
-        {selectedSite && <EarthLocationCard site={selectedSite} />}
+        {selectedSite && (
+          <EarthLocationCard
+            site={selectedSite}
+            onClose={() => {
+              setSelectedSite(null);
+              setSelectedTarget(null);
+            }}
+          />
+        )}
       </aside>
     </div>
   );
