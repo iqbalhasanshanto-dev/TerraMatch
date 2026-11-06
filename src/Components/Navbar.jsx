@@ -6,7 +6,6 @@ import {
     Columns3,
     Database,
     BookOpen,
-    Settings,
     Menu,
     X,
 } from "lucide-react";
@@ -20,15 +19,17 @@ import Logo from "./Logo";
  * ============================================================================
  * Navbar Component
  * ============================================================================
- * The primary top navigation bar for the TerraMatch application.
+ * The primary top navigation bar for the TerraMatch platform.
  *
- * Visual Style:
- * - Dark charcoal/slate background (`#13161c`) with subtle bottom border (`border-slate-800/80`).
+ * Visual Style & Architecture:
+ * - Background: Dark charcoal/slate (`#13161c`) with subtle bottom border (`border-slate-800/80`).
  * - Left Branding: Stacked typography with bold white "TerraMatch" and muted subtitle.
- * - Center Navigation: Pill-style tabs with active highlighting.
+ * - Center Navigation: Pill-style tabs with active highlighting:
  *   - Search tab is prominently highlighted with background `#242c37` and border `border-slate-700`
  *     when on `/search` or when search mode is active.
  *   - Dashboard is highlighted only when on `/` with search mode inactive.
+ *   - Data Sources (`/data-sources` or `/data-server`) and About (`/about`) are properly highlighted.
+ *   - "Settings" link has been completely removed across the application.
  * - Right Action: User profile avatar or "Sign up" button with "TM" initials circle.
  */
 const Navbar = () => {
@@ -86,6 +87,7 @@ const Navbar = () => {
     // ------------------------------------------------------------------------
     // 4. Navigation Tab Definitions
     // ------------------------------------------------------------------------
+    // Clean navigation items list without Settings
     const navItems = [
         {
             label: "Dashboard",
@@ -114,7 +116,7 @@ const Navbar = () => {
         },
         {
             label: "Data Sources",
-            path: "/data-server",
+            path: "/data-sources",
             icon: Database,
             onClick: handleGenericNavClick,
         },
@@ -124,12 +126,6 @@ const Navbar = () => {
             icon: BookOpen,
             onClick: handleGenericNavClick,
         },
-        {
-            label: "Settings",
-            path: "/settings",
-            icon: Settings,
-            onClick: handleGenericNavClick,
-        },
     ];
 
     /**
@@ -137,18 +133,26 @@ const Navbar = () => {
      * Rules:
      * - If in search mode (on /search route or isSearch is true): ONLY the Search tab is active.
      * - If on the root route ('/') and search mode is inactive: Dashboard is active.
-     * - Otherwise: Tab is active if its path matches the current browser location.
+     * - If Data Sources tab: Matches both /data-sources and /data-server paths.
+     * - If About or other tab: Matches exact pathname.
      *
-     * @param {Object} item - Navigation item object
-     * @returns {boolean} - True if tab should be highlighted
+     * @param {Object} item - Navigation item definition
+     * @returns {boolean} - True if tab should be highlighted with active pill styling
      */
     const isTabActive = (item) => {
+        // Search takes priority if search filter mode is engaged
         if (isSearchActive) {
             return item.path === "/search";
         }
+        // Dashboard active only on root path when search mode is disengaged
         if (item.path === "/") {
             return location.pathname === "/" && !isSearchActive;
         }
+        // Data Sources matches both /data-sources and /data-server routes
+        if (item.path === "/data-sources" || item.path === "/data-server") {
+            return location.pathname === "/data-sources" || location.pathname === "/data-server";
+        }
+        // General route matching (e.g. /about, /saved, /compare)
         return location.pathname === item.path;
     };
 
@@ -162,7 +166,7 @@ const Navbar = () => {
                 {/* Mobile Menu Hamburger Toggle */}
                 <button
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 xl:hidden focus:outline-none transition"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 xl:hidden focus:outline-none transition cursor-pointer"
                     aria-label="Toggle navigation menu"
                 >
                     {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -207,7 +211,7 @@ const Navbar = () => {
                     // Authenticated User Avatar & Dropdown Menu
                     <Profile />
                 ) : (
-                    // Unauthenticated Visitor Trigger (Matches Search.png mockup)
+                    // Unauthenticated Visitor Trigger (Matches design mockup)
                     <div className="flex items-center gap-3">
                         <Link
                             to="/login"
@@ -238,7 +242,10 @@ const Navbar = () => {
                                 key={item.path}
                                 to={item.path}
                                 end={item.exact}
-                                onClick={item.onClick}
+                                onClick={() => {
+                                    if (item.onClick) item.onClick();
+                                    setMobileMenuOpen(false);
+                                }}
                                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
                                     active
                                         ? "bg-[#242c37] text-white border border-slate-700 shadow-sm"
