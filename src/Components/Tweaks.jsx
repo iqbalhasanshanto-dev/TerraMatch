@@ -1,4 +1,4 @@
-import { Search, Globe, MapPin, Bookmark } from "lucide-react";
+import { Search, Globe, MapPin, Bookmark, ChevronRight } from "lucide-react";
 import { useContext, useEffect, useState } from "react";
 import useLocations from "../Hooks/useLocations";
 import StateContext from "../States/StateContext";
@@ -11,8 +11,10 @@ import { Link } from "react-router";
  * Tweaks Component
  * Sidebar filter panel for tailoring search parameters: target planetary body (Moon/Mars),
  * terrain keywords, environmental humidity, and temperature categories.
+ * Styled in matching #151a22 dark slate.
  */
-const Tweaks = () => {
+const Tweaks = ({ onCollapse, onClose }) => {
+    const handleClose = onClose || onCollapse;
     const { locData } = useLocations();
     const { filteredLoc, setFilteredLoc, setMapTarget } = useContext(StateContext);
     const { user } = useAuth();
@@ -135,183 +137,200 @@ const Tweaks = () => {
 
     // Button style helper
     const getButtonClass = (selected) =>
-        `px-2.5 py-1 rounded-md border text-xs font-medium transition-colors ${
+        `px-2.5 py-1 rounded-md border text-xs font-medium transition-colors cursor-pointer ${
             selected
-                ? "bg-primary text-primary-content border-primary"
-                : "border-base-300 text-base-content/80 hover:bg-base-200"
+                ? "bg-[#242c37] text-white border-slate-600 shadow-sm"
+                : "border-slate-800 bg-[#19202a] text-slate-400 hover:text-white hover:bg-slate-800"
         }`;
 
     return (
-        <div className="w-full h-full text-base-content p-3 space-y-4 overflow-y-auto">
+        <div className="w-full h-full flex flex-col bg-[#151a22] text-slate-200 select-none">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-base-300 pb-2">
-                <h2 className="text-sm font-semibold tracking-wide">
-                    Filter Analog Parameters
-                </h2>
-            </div>
+            <div className="px-4 py-3 flex items-center justify-between border-b border-slate-800/80 shrink-0">
+                <div className="flex items-center gap-2">
+                    <Search size={16} className="text-slate-400" />
+                    <h2 className="text-sm font-semibold tracking-tight text-white">
+                        Filter Parameters
+                    </h2>
+                </div>
 
-            {/* Target Body (Moon / Mars) */}
-            <div>
-                <label className="block text-[10px] font-semibold tracking-wider opacity-70 mb-1">
-                    TARGET PLANETARY BODY
-                </label>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleReset}
+                        className="text-xs text-slate-400 hover:text-white transition cursor-pointer"
+                    >
+                        Reset
+                    </button>
 
-                <div className="grid grid-cols-2 gap-1 p-0.5 border border-base-300 rounded-lg">
-                    {["moon", "mars"].map(item => (
+                    {handleClose && (
                         <button
-                            key={item}
-                            onClick={() => setTargetBody(item)}
-                            className={`text-xs py-1.5 rounded-md capitalize font-medium transition-colors ${
-                                targetBody === item
-                                    ? "bg-primary text-primary-content"
-                                    : "opacity-75 hover:opacity-100 hover:bg-base-200"
-                            }`}
+                            onClick={handleClose}
+                            title="Collapse sidebar"
+                            className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800/60 transition ml-1 cursor-pointer"
                         >
-                            {item}
+                            <ChevronRight size={16} />
                         </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Terrain Type */}
-            <div>
-                <label className="block text-[10px] font-semibold tracking-wider opacity-70 mb-1">
-                    TERRAIN TYPE
-                </label>
-
-                <div className="flex flex-wrap gap-1.5">
-                    {["Any", "Rocky", "Sandy", "Icy", "Volcanic", "Dusty", "Polar", "Canyon"].map(item => (
-                        <button
-                            key={item}
-                            onClick={() => setTerrain(item)}
-                            className={getButtonClass(terrain === item)}
-                        >
-                            {item}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Humidity */}
-            <div>
-                <label className="block text-[10px] font-semibold tracking-wider opacity-70 mb-0.5">
-                    HUMIDITY
-                </label>
-                <p className="text-[10px] opacity-60 mb-1.5">
-                    Refers to Earth analog climate conditions.
-                </p>
-
-                <div className="flex flex-wrap gap-1.5">
-                    {["Any", "Very dry", "Dry", "Moderate", "Humid"].map(item => (
-                        <button
-                            key={item}
-                            onClick={() => setHumidity(item)}
-                            className={getButtonClass(humidity === item)}
-                        >
-                            {item}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Temperature */}
-            <div>
-                <label className="block text-[10px] font-semibold tracking-wider opacity-70 mb-1">
-                    TEMPERATURE
-                </label>
-
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                    {["Any", "Freezing", "Cold", "Mid", "Hot"].map(item => (
-                        <button
-                            key={item}
-                            onClick={() => setTemperature(item)}
-                            className={getButtonClass(temperature === item)}
-                        >
-                            {item}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Search and Reset Buttons */}
-            <div className="flex items-center gap-2 pt-1">
-                <button
-                    onClick={handleSearch}
-                    className="flex-1 flex items-center justify-center gap-1.5 btn btn-sm btn-primary"
-                >
-                    <Search size={14} />
-                    Apply Filters
-                </button>
-
-                <button
-                    onClick={handleReset}
-                    className="btn btn-sm btn-ghost text-xs"
-                >
-                    Reset
-                </button>
-            </div>
-
-            {/* Results List */}
-            <div className="border-t border-base-300 pt-3">
-                <div className="flex justify-between items-center mb-2">
-                    <p className="text-[10px] font-semibold tracking-wider opacity-70">
-                        MATCHING SITES ({filteredLoc?.length || 0})
-                    </p>
-                </div>
-
-                <div className="space-y-2 max-h-[calc(100vh-420px)] overflow-y-auto pr-1">
-                    {filteredLoc && filteredLoc.length > 0 ? (
-                        filteredLoc.map(location => (
-                            <div
-                                key={location._id}
-                                className="border border-base-300 rounded-xl p-2.5 bg-base-100 shadow-sm"
-                            >
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-9 h-9 shrink-0 border border-base-300 rounded-lg flex items-center justify-center bg-base-200">
-                                        <Globe size={16} className="opacity-70" />
-                                    </div>
-
-                                    <div className="flex-1 min-w-0">
-                                        <Link
-                                            to={`/details/${location._id}`}
-                                            className="text-xs font-semibold hover:text-primary transition truncate block"
-                                        >
-                                            {location.name}
-                                        </Link>
-                                        <p className="text-[11px] opacity-60 truncate">
-                                            {location.country}
-                                        </p>
-                                    </div>
-
-                                    <span className="badge badge-sm badge-neutral font-mono text-[10px]">
-                                        {location.similarityScore}%
-                                    </span>
-                                </div>
-
-                                <div className="flex justify-between items-center border-t border-base-200 mt-2 pt-2 text-[11px]">
-                                    <button
-                                        onClick={() => handleViewOnMap(location)}
-                                        className="flex items-center gap-1 opacity-70 hover:opacity-100 hover:text-primary transition"
-                                    >
-                                        <MapPin size={12} />
-                                        <span>View on map</span>
-                                    </button>
-
-                                    <button
-                                        onClick={() => handleSave(location)}
-                                        className="flex items-center gap-1 text-primary hover:opacity-80 transition"
-                                    >
-                                        <Bookmark size={12} />
-                                        <span>Save</span>
-                                    </button>
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        <p className="text-center text-xs opacity-50 py-4">
-                            No matching candidate locations found.
-                        </p>
                     )}
+                </div>
+            </div>
+
+            <div className="p-4 space-y-4 overflow-y-auto flex-1">
+                {/* Target Body (Moon / Mars) */}
+                <div>
+                    <label className="block text-[10px] font-semibold tracking-wider text-slate-400 mb-1.5 uppercase">
+                        Target Planetary Body
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#19202a] border border-slate-800 rounded-lg">
+                        {["moon", "mars"].map(item => (
+                            <button
+                                key={item}
+                                onClick={() => setTargetBody(item)}
+                                className={`text-xs py-1.5 rounded-md capitalize font-medium transition-colors cursor-pointer ${
+                                    targetBody === item
+                                        ? "bg-[#242c37] text-white border border-slate-700 shadow-sm"
+                                        : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                                }`}
+                            >
+                                {item}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Terrain Type */}
+                <div>
+                    <label className="block text-[10px] font-semibold tracking-wider text-slate-400 mb-1.5 uppercase">
+                        Terrain Type
+                    </label>
+
+                    <div className="flex flex-wrap gap-1.5">
+                        {["Any", "Rocky", "Sandy", "Icy", "Volcanic", "Dusty", "Polar", "Canyon"].map(item => (
+                            <button
+                                key={item}
+                                onClick={() => setTerrain(item)}
+                                className={getButtonClass(terrain === item)}
+                            >
+                                {item}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Humidity */}
+                <div>
+                    <label className="block text-[10px] font-semibold tracking-wider text-slate-400 mb-0.5 uppercase">
+                        Humidity
+                    </label>
+                    <p className="text-[10px] text-slate-500 mb-1.5">
+                        Earth analog environmental conditions.
+                    </p>
+
+                    <div className="flex flex-wrap gap-1.5">
+                        {["Any", "Very dry", "Dry", "Moderate", "Humid"].map(item => (
+                            <button
+                                key={item}
+                                onClick={() => setHumidity(item)}
+                                className={getButtonClass(humidity === item)}
+                            >
+                                {item}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Temperature */}
+                <div>
+                    <label className="block text-[10px] font-semibold tracking-wider text-slate-400 mb-1.5 uppercase">
+                        Temperature
+                    </label>
+
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                        {["Any", "Freezing", "Cold", "Mid", "Hot"].map(item => (
+                            <button
+                                key={item}
+                                onClick={() => setTemperature(item)}
+                                className={getButtonClass(temperature === item)}
+                            >
+                                {item}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Search Action Button */}
+                <div className="pt-1">
+                    <button
+                        onClick={handleSearch}
+                        className="w-full flex items-center justify-center gap-1.5 bg-[#242c37] border border-slate-700 text-white hover:bg-slate-700 py-2 rounded-lg text-xs font-medium transition cursor-pointer shadow-sm"
+                    >
+                        <Search size={14} />
+                        Apply Filters
+                    </button>
+                </div>
+
+                {/* Results List */}
+                <div className="border-t border-slate-800/80 pt-3">
+                    <div className="flex justify-between items-center mb-2.5">
+                        <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+                            Matching Sites ({filteredLoc?.length || 0})
+                        </p>
+                    </div>
+
+                    <div className="space-y-2.5 max-h-[calc(100vh-420px)] overflow-y-auto pr-0.5">
+                        {filteredLoc && filteredLoc.length > 0 ? (
+                            filteredLoc.map(location => (
+                                <div
+                                    key={location._id || location.name}
+                                    className="border border-slate-700/60 rounded-xl p-3 bg-[#1e2530] shadow-sm hover:border-slate-600/80 transition"
+                                >
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 shrink-0 border border-slate-700/50 rounded-lg flex items-center justify-center bg-[#252e3b]">
+                                            <Globe size={15} className="text-slate-400" />
+                                        </div>
+
+                                        <div className="flex-1 min-w-0">
+                                            <Link
+                                                to={`/details/${location._id}`}
+                                                className="text-xs font-semibold text-white hover:text-slate-300 transition truncate block"
+                                            >
+                                                {location.name}
+                                            </Link>
+                                            <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                                                {location.country}
+                                            </p>
+                                        </div>
+
+                                        <span className="text-xs font-mono text-slate-300 font-medium">
+                                            {location.similarityScore}%
+                                        </span>
+                                    </div>
+
+                                    <div className="flex justify-between items-center border-t border-slate-700/40 mt-2.5 pt-2 text-xs">
+                                        <button
+                                            onClick={() => handleViewOnMap(location)}
+                                            className="flex items-center gap-1 text-slate-400 hover:text-white transition cursor-pointer"
+                                        >
+                                            <MapPin size={12} />
+                                            <span>View on map</span>
+                                        </button>
+
+                                        <button
+                                            onClick={() => handleSave(location)}
+                                            className="flex items-center gap-1 text-slate-300 hover:text-white transition cursor-pointer"
+                                        >
+                                            <Bookmark size={12} />
+                                            <span>Save</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-center text-xs text-slate-500 py-6">
+                                No matching candidate locations found.
+                            </p>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

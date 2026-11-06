@@ -1,8 +1,12 @@
 const Logo = () => {
     return (
-        <div>
-            <h1 className="text-xl font-bold">TerraMatch</h1>
-            <p className="text-sm">Planetary Analog Platform</p>
+        <div className="flex flex-col select-none">
+            <h1 className="text-base font-bold text-white tracking-tight leading-tight">
+                TerraMatch
+            </h1>
+            <p className="text-[10px] text-slate-400 font-normal leading-tight">
+                Planetary Analog Platform
+            </p>
         </div>
     );
 };

@@ -1,12 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import { MongoClient, ObjectId } from 'mongodb';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // ==========================================
 // 1. Environment & Configuration Setup
@@ -28,14 +22,15 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// MongoDB connection string loaded strictly from environment variables
+// MongoDB connection string loaded strictly from server/.env
 const mongoUri = process.env.MONGODB_URI;
 const dbName = process.env.DB_NAME || "TerraMatch";
 
 if (!mongoUri) {
-  console.error("CRITICAL CONFIGURATION ERROR: MONGODB_URI is not set in server/.env");
+  console.error("CRITICAL: MONGODB_URI is not defined in server/.env");
   process.exit(1);
 }
+
 
 const client = new MongoClient(mongoUri);
 
@@ -58,20 +53,6 @@ export async function connectToMongoDB() {
     savedLocs = db.collection('Saved');
 
     console.log(`Connected successfully to MongoDB Database: "${dbName}"`);
-
-    // Auto-seed initial 50 planetary analog sites if the collection is empty
-    const count = await modelCollection.countDocuments();
-    if (count === 0) {
-      const dataFilePath = path.resolve(__dirname, '../public/analogLocations.json');
-      if (fs.existsSync(dataFilePath)) {
-        const raw = fs.readFileSync(dataFilePath, 'utf8');
-        const parsed = JSON.parse(raw);
-        if (parsed.locations && parsed.locations.length > 0) {
-          await modelCollection.insertMany(parsed.locations);
-          console.log(`Auto-seeded ${parsed.locations.length} planetary analog locations into "${dbName}"!`);
-        }
-      }
-    }
     return client;
   } catch (err) {
     console.error("MongoDB connection error:", err);

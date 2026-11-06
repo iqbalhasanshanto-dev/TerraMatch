@@ -12,6 +12,7 @@ import PrivateRoute from "./PrivateRoute";
 import ComparePage from "../Pages/ComparePage";
 import AboutPage from "../Pages/AboutPage";
 import DataServerPage from "../Pages/DataServerPage";
+import SettingsPage from "../Pages/SettingsPage";
 
 /**
  * React Router Configuration
@@ -57,8 +58,16 @@ const router = createBrowserRouter([
                 element: <DataServerPage />,
             },
             {
+                path: '/data-sources',
+                element: <DataServerPage />,
+            },
+            {
                 path: '/about',
                 element: <AboutPage />,
+            },
+            {
+                path: '/settings',
+                element: <SettingsPage />,
             },
         ]
     },

@@ -2,15 +2,51 @@
 
 @import "tailwindcss";
 @plugin "daisyui" {
-  themes: light --default, dark, cupcake, night, black;
+  themes: dark --default, light, cupcake, night, black;
 }
 
 body {
   font-family: "Inter", sans-serif;
   font-optical-sizing: auto;
   font-style: normal;
+  background-color: #13161c;
+  color: #f1f5f9;
 }
 
-@plugin "daisyui/theme" {
-  --color-primary: #9BA2AA;
+/* Custom Leaflet satellite map styling */
+.leaflet-container {
+  background-color: #0c1017 !important;
+}
+
+.leaflet-bar {
+  border: 1px solid #334155 !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+.leaflet-bar a {
+  background-color: #171e27 !important;
+  color: #e2e8f0 !important;
+  border-bottom: 1px solid #334155 !important;
+  transition: background-color 0.15s ease;
+}
+
+.leaflet-bar a:hover {
+  background-color: #242c37 !important;
+  color: #ffffff !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(19, 22, 28, 0.85) !important;
+  color: #94a3b8 !important;
+  font-size: 10px !important;
+  backdrop-filter: blur(4px);
+  border-top-left-radius: 6px;
+  padding: 2px 8px !important;
+}
+
+.leaflet-control-attribution a {
+  color: #cbd5e1 !important;
+  text-decoration: underline;
 }

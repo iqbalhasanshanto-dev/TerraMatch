@@ -18,15 +18,21 @@ const ComparePage = () => {
     const { savedLoc } = useSaved();
 
     // Selected location IDs for comparison
-    const [selectedIds, setSelectedIds] = useState([]);
+    const [selectedIds, setSelectedIds] = useState(() => {
+        const ids = searchParams.get("ids");
+        return ids ? ids.split(",").filter(Boolean) : [];
+    });
 
-    // Initialize selected IDs from URL query params or fallback to first 2 saved/all locations
+    // Sync selected IDs if URL params change or if saved locations load
     useEffect(() => {
         const idsParam = searchParams.get("ids");
         if (idsParam) {
-            setSelectedIds(idsParam.split(",").filter(Boolean));
+            const parsed = idsParam.split(",").filter(Boolean);
+            queueMicrotask(() => setSelectedIds(parsed));
         } else if (savedLoc && savedLoc.length >= 2) {
-            setSelectedIds([savedLoc[0]._id, savedLoc[1]._id]);
+            queueMicrotask(() => {
+                setSelectedIds(prev => (prev.length === 0 ? [savedLoc[0]._id, savedLoc[1]._id] : prev));
+            });
         }
     }, [searchParams, savedLoc]);
 

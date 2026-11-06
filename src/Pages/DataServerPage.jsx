@@ -39,7 +39,33 @@ const DataServerPage = () => {
     };
 
     useEffect(() => {
-        checkServerHealth();
+        let isMounted = true;
+        fetch(`${API_BASE_URL}/health`)
+            .then(res => res.json())
+            .then(data => {
+                if (isMounted) {
+                    setHealthStatus({
+                        loading: false,
+                        healthy: data.status === "healthy",
+                        data,
+                        error: null,
+                    });
+                }
+            })
+            .catch(err => {
+                if (isMounted) {
+                    setHealthStatus({
+                        loading: false,
+                        healthy: false,
+                        data: null,
+                        error: err.message || "Failed to reach backend server",
+                    });
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const endpoints = [

@@ -2,8 +2,8 @@ import RightDashboard from "../Components/RightDashboard";
 
 const SearchPage = () => {
     return (
-        <div>
-            <RightDashboard></RightDashboard>
+        <div className="w-full h-full overflow-hidden">
+            <RightDashboard />
         </div>
     );
 };

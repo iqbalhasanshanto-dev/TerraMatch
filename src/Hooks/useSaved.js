@@ -17,7 +17,6 @@ const useSaved = () => {
     const fetchSavedLocations = useCallback(() => {
         if (!user?.email) {
             setSavedLoc([]);
-            setLoading(false);
             return;
         }
 
@@ -31,11 +30,29 @@ const useSaved = () => {
                 setError(err);
             })
             .finally(() => setLoading(false));
-    }, [user?.email]);
+    }, [user]);
 
     useEffect(() => {
-        fetchSavedLocations();
-    }, [fetchSavedLocations]);
+        let isMounted = true;
+        if (!user?.email) {
+            return;
+        }
+
+        axios(`${API_BASE_URL}/savedLocs/${encodeURIComponent(user.email)}`)
+            .then(response => {
+                if (isMounted) setSavedLoc(response.data || []);
+            })
+            .catch(err => {
+                if (isMounted) {
+                    console.error("Failed to fetch saved locations:", err);
+                    setError(err);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [user?.email]);
 
     return {
         savedLoc,

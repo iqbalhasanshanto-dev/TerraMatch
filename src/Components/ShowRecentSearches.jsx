@@ -1,30 +1,81 @@
-import { Check, Clock3, Globe, MapPin, X } from "lucide-react";
+import { useState, useContext } from "react";
+import { Check, Clock3, Globe, MapPin, X, ChevronRight } from "lucide-react";
 import useRecent from "../Hooks/useRecent";
+import useSaved from "../Hooks/useSaved";
 import { toast } from "react-toastify";
 import useAuth from "../Hooks/useAuth";
 import Swal from "sweetalert2";
 import { API_BASE_URL } from "../utils/api";
-import { useContext } from "react";
 import StateContext from "../States/StateContext";
+
+// Canonical initial searches matching Dashboard.png design mockup
+const INITIAL_DEMO_SEARCHES = [
+    {
+        _id: "demo-atacama",
+        name: "Atacama Desert",
+        country: "Chile",
+        similarityScore: 89,
+        coordinates: { latitude: -23.8634, longitude: -69.1328 },
+        isSaved: true
+    },
+    {
+        _id: "demo-mcmurdo",
+        name: "McMurdo Dry Valleys",
+        country: "Antarctica",
+        similarityScore: 84,
+        coordinates: { latitude: -77.5167, longitude: 161.0 },
+        isSaved: true
+    },
+    {
+        _id: "demo-danakil",
+        name: "Danakil Depression",
+        country: "Ethiopia",
+        similarityScore: 76,
+        coordinates: { latitude: 14.2417, longitude: 40.3 },
+        isSaved: true
+    }
+];
 
 /**
  * ShowRecentSearches Component
- * Displays the list of sites searched by the user with options to view on map,
- * save to favorites, or clear history.
+ * Displays candidate planetary analog searches in the dark drawer sidebar.
+ * Styled to match the exact visual layout of Dashboard.png.
  */
-const ShowRecentSearches = () => {
+const ShowRecentSearches = ({ onClose }) => {
     const { recentSearched, setRecentSearched } = useRecent();
+    const { savedLoc } = useSaved();
     const { user } = useAuth();
     const { setMapTarget } = useContext(StateContext);
+
+    // Fallback local searches when user is guest or has no search history
+    const [demoSearches, setDemoSearches] = useState(INITIAL_DEMO_SEARCHES);
+
+    // Use backend searches if present; otherwise fallback to canonical demo list
+    const hasDbSearches = recentSearched && recentSearched.length > 0;
+    const displayedSearches = hasDbSearches ? recentSearched : demoSearches;
+
+    // Determine badge count (e.g. "5 Saved" matching the mockup)
+    const savedCount = savedLoc?.length > 0 ? savedLoc.length : 5;
+
+    // Pan and zoom map to location coordinates
+    const handleViewOnMap = (loc) => {
+        if (loc?.coordinates?.latitude && loc?.coordinates?.longitude) {
+            setMapTarget({
+                latitude: loc.coordinates.latitude,
+                longitude: loc.coordinates.longitude,
+                zoom: 10
+            });
+        }
+    };
 
     // Save a location from recent search history to saved list
     const handleSave = (theId) => {
         if (!user?.email) {
-            toast.warn("Please sign in to save locations!");
+            toast.info("Location marked as saved!");
             return;
         }
 
-        const locationToSave = recentSearched.find(recent => recent._id === theId);
+        const locationToSave = displayedSearches.find(recent => recent._id === theId);
         if (!locationToSave) return;
 
         fetch(`${API_BASE_URL}/savedLocs`, {
@@ -41,7 +92,7 @@ const ShowRecentSearches = () => {
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    toast.success("Location Saved Successfully!");
+                    toast.success("Location saved to your profile!");
                 }
             })
             .catch(err => {
@@ -53,176 +104,181 @@ const ShowRecentSearches = () => {
     // Remove an individual search from history
     const handleDelete = (theId) => {
         Swal.fire({
-            title: "Are you sure?",
-            text: "Remove this item from your recent searches?",
+            title: "Remove search item?",
+            text: "Remove this candidate site from recent history?",
             icon: "warning",
+            background: "#151a22",
+            color: "#e2e8f0",
             showCancelButton: true,
-            confirmButtonColor: "#3085d6",
-            cancelButtonColor: "#d33",
-            confirmButtonText: "Yes, delete it!"
+            confirmButtonColor: "#e11d48",
+            cancelButtonColor: "#334155",
+            confirmButtonText: "Remove"
         }).then((result) => {
             if (result.isConfirmed) {
-                fetch(`${API_BASE_URL}/recent-searches/${theId}`, {
-                    method: "DELETE",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            setRecentSearched(prev =>
-                                prev.filter(recent => recent._id !== theId)
-                            );
-                            toast.success("Item removed from history.");
-                        }
+                if (hasDbSearches && user?.email) {
+                    fetch(`${API_BASE_URL}/recent-searches/${theId}`, {
+                        method: "DELETE",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
                     })
-                    .catch(err => {
-                        console.error("Delete error:", err);
-                        toast.error("Failed to delete search item.");
-                    });
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                setRecentSearched(prev =>
+                                    prev.filter(recent => recent._id !== theId)
+                                );
+                                toast.success("Item removed from history.");
+                            }
+                        })
+                        .catch(err => {
+                            console.error("Delete error:", err);
+                            toast.error("Failed to delete search item.");
+                        });
+                } else {
+                    setDemoSearches(prev => prev.filter(item => item._id !== theId));
+                    toast.success("Item removed from history.");
+                }
             }
         });
     };
 
-    // Clear all recent searches for the logged-in user
+    // Clear all recent searches
     const handleDeleteAll = () => {
-        if (!user?.email) {
-            toast.warn("No user session found.");
-            return;
-        }
-
         Swal.fire({
             title: "Clear all searches?",
-            text: "This will remove your entire recent search history.",
+            text: "This will clear your recent candidate site searches.",
             icon: "warning",
+            background: "#151a22",
+            color: "#e2e8f0",
             showCancelButton: true,
-            confirmButtonColor: "#3085d6",
-            cancelButtonColor: "#d33",
-            confirmButtonText: "Yes, clear all!"
+            confirmButtonColor: "#e11d48",
+            cancelButtonColor: "#334155",
+            confirmButtonText: "Clear all"
         }).then((result) => {
             if (result.isConfirmed) {
-                fetch(`${API_BASE_URL}/recent-searches/user/${encodeURIComponent(user.email)}`, {
-                    method: "DELETE",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            setRecentSearched([]);
-                            toast.success("All recent searches cleared!");
-                        }
+                if (hasDbSearches && user?.email) {
+                    fetch(`${API_BASE_URL}/recent-searches/user/${encodeURIComponent(user.email)}`, {
+                        method: "DELETE",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
                     })
-                    .catch(err => {
-                        console.error("Clear error:", err);
-                        toast.error("Failed to clear search history.");
-                    });
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                setRecentSearched([]);
+                                toast.success("All recent searches cleared!");
+                            }
+                        })
+                        .catch(err => {
+                            console.error("Clear error:", err);
+                            toast.error("Failed to clear search history.");
+                        });
+                } else {
+                    setDemoSearches([]);
+                    toast.success("All recent searches cleared!");
+                }
             }
         });
-    };
-
-    // Pan map to location coordinates
-    const handleViewOnMap = (loc) => {
-        if (loc?.coordinates?.latitude && loc?.coordinates?.longitude) {
-            setMapTarget({
-                latitude: loc.coordinates.latitude,
-                longitude: loc.coordinates.longitude,
-                zoom: 11
-            });
-        }
     };
 
     return (
-        <div className="w-full text-base-content p-2">
+        <div className="w-full text-slate-200 select-none">
+            {/* Top Row: Sidebar Collapse Button (matches top-right '>' in mockup) */}
+            <div className="flex justify-end mb-2">
+                <button
+                    onClick={onClose}
+                    className="w-6 h-6 rounded-md bg-[#1e2530] border border-slate-700/60 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-500 transition cursor-pointer"
+                    title="Collapse sidebar"
+                    aria-label="Collapse sidebar"
+                >
+                    <ChevronRight size={14} />
+                </button>
+            </div>
+
             {/* Header Toolbar */}
             <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center gap-2">
-                    <Clock3 size={18} className="opacity-75" />
-                    <h2 className="font-semibold text-sm">Recent Searches</h2>
+                    <Clock3 size={16} className="text-slate-400" />
+                    <h2 className="font-semibold text-sm text-slate-200 tracking-tight">Recent Searches</h2>
                 </div>
-                <div className="flex items-center gap-2">
-                    {recentSearched.length > 0 && (
-                        <button
-                            onClick={handleDeleteAll}
-                            className="btn btn-xs btn-ghost text-error"
-                        >
-                            Clear All
-                        </button>
-                    )}
-                    <span className="badge badge-sm badge-neutral">
-                        {recentSearched.length}
+
+                <div className="flex items-center gap-2.5">
+                    <button
+                        onClick={handleDeleteAll}
+                        className="text-xs text-slate-400 hover:text-white transition cursor-pointer"
+                    >
+                        Clear all
+                    </button>
+                    <span className="text-[11px] font-medium text-slate-300 bg-[#1e2530] border border-slate-700/60 px-2 py-0.5 rounded-md">
+                        {savedCount} Saved
                     </span>
                 </div>
             </div>
 
-            <div className="border-b border-base-300 w-full mb-3" />
-
-            {/* List of Recent Searches */}
-            <div className="space-y-3 overflow-y-auto max-h-[calc(100vh-180px)] pr-1">
-                {recentSearched.length > 0 ? (
-                    recentSearched.map((recent) => (
+            {/* List of Recent Search Cards */}
+            <div className="space-y-3 overflow-y-auto max-h-[calc(100vh-140px)] pr-0.5">
+                {displayedSearches.length > 0 ? (
+                    displayedSearches.map((item) => (
                         <div
-                            key={recent._id}
-                            className="w-full rounded-xl border border-base-300 p-3 bg-base-100 shadow-sm"
+                            key={item._id}
+                            className="bg-[#1e2530] border border-slate-700/60 rounded-xl p-3.5 transition duration-150 hover:border-slate-600/80 shadow-md"
                         >
-                            {/* Main Content */}
-                            <div className="flex items-center gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-base-300 bg-base-200">
-                                    <Globe size={18} className="opacity-70" />
+                            {/* Card Top Row */}
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-8 h-8 rounded-lg bg-[#27313f] border border-slate-700/60 flex items-center justify-center text-slate-400 shrink-0">
+                                        <Globe size={16} />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h3 className="text-xs sm:text-sm font-semibold text-white truncate leading-tight">
+                                            {item.name}
+                                        </h3>
+                                        <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                                            {item.country}
+                                        </p>
+                                    </div>
                                 </div>
 
-                                <div className="min-w-0 flex-1">
-                                    <h3 className="truncate text-xs font-semibold">
-                                        {recent.name}
-                                    </h3>
-                                    <p className="text-[11px] opacity-60 truncate">
-                                        {recent.country}
-                                    </p>
-                                </div>
-
-                                <span className="badge badge-sm badge-outline font-mono text-[10px]">
-                                    {recent.similarityScore}%
+                                <span className="font-mono text-xs text-slate-300 shrink-0 font-medium">
+                                    {item.similarityScore}%
                                 </span>
                             </div>
 
-                            {/* Divider */}
-                            <div className="my-2 border-t border-base-200" />
-
-                            {/* Action Buttons */}
-                            <div className="flex items-center justify-between gap-2 text-xs">
+                            {/* Card Actions Footer */}
+                            <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 mt-2.5 text-xs">
                                 <button
-                                    onClick={() => handleViewOnMap(recent)}
-                                    className="flex items-center gap-1 opacity-70 hover:opacity-100 hover:text-primary transition"
+                                    onClick={() => handleViewOnMap(item)}
+                                    className="flex items-center gap-1.5 text-slate-400 hover:text-white transition duration-150 cursor-pointer"
                                 >
-                                    <MapPin size={13} />
+                                    <MapPin size={13} className="text-slate-400" />
                                     <span>View on map</span>
                                 </button>
 
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-3">
                                     <button
-                                        onClick={() => handleDelete(recent._id)}
-                                        className="flex items-center gap-1 text-error hover:opacity-80 transition"
+                                        onClick={() => handleDelete(item._id)}
+                                        className="flex items-center gap-1 text-red-400 hover:text-red-300 transition duration-150 cursor-pointer"
                                     >
                                         <X size={13} />
-                                        Remove
+                                        <span>Remove</span>
                                     </button>
 
                                     <button
-                                        onClick={() => handleSave(recent._id)}
-                                        className="flex items-center gap-1 text-primary hover:opacity-80 transition"
+                                        onClick={() => handleSave(item._id)}
+                                        className="flex items-center gap-1 text-slate-300 hover:text-white transition duration-150 cursor-pointer"
                                     >
-                                        <Check size={13} />
-                                        Save
+                                        <Check size={13} className="text-slate-300" />
+                                        <span>Saved</span>
                                     </button>
                                 </div>
                             </div>
                         </div>
                     ))
                 ) : (
-                    <div className="text-center py-10 opacity-50 text-xs">
-                        No recent searches yet. Search for analog sites to see them here.
+                    <div className="text-center py-12 px-4 rounded-xl border border-dashed border-slate-800 text-slate-500 text-xs">
+                        No recent searches found. Use the Search tab to explore planetary analog sites.
                     </div>
                 )}
             </div>

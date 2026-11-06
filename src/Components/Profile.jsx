@@ -1,4 +1,4 @@
-import { LogOut, User, Settings, ChevronDown, Bookmark } from "lucide-react";
+import { LogOut, Bookmark, GitCompare, ChevronDown } from "lucide-react";
 import useAuth from "../Hooks/useAuth";
 import { toast } from "react-toastify";
 import { Link } from "react-router";
@@ -22,84 +22,83 @@ const Profile = () => {
             });
     };
 
+    // Extract initials or default to "TM"
+    const getInitials = (name) => {
+        if (!name) return "TM";
+        const parts = name.trim().split(" ");
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[1][0]).toUpperCase();
+        }
+        return name.slice(0, 2).toUpperCase();
+    };
+
     return (
         <div className="dropdown dropdown-end">
             {/* Profile Avatar Button */}
             <div
                 tabIndex={0}
                 role="button"
-                className="flex items-center gap-2 cursor-pointer rounded-full p-1 hover:bg-base-200 transition"
+                className="flex items-center gap-2 cursor-pointer p-0.5 rounded-full hover:ring-1 hover:ring-slate-700 transition"
             >
-                <div className="avatar">
-                    <div className="w-9 rounded-full ring-2 ring-base-300">
-                        <img
-                            src={user?.photoURL || "https://ui-avatars.com/api/?name=User"}
-                            alt="Profile"
-                        />
+                {user?.photoURL ? (
+                    <img
+                        src={user.photoURL}
+                        alt={user.displayName || "User"}
+                        className="w-8 h-8 rounded-full object-cover border border-slate-700"
+                    />
+                ) : (
+                    <div className="w-8 h-8 rounded-full bg-[#242c37] border border-slate-700 flex items-center justify-center text-xs font-semibold text-white">
+                        {getInitials(user?.displayName || user?.email)}
                     </div>
-                </div>
-
-                <span className="hidden md:block text-sm font-medium">
-                    {user?.displayName || "User"}
-                </span>
-
-                <ChevronDown size={15} className="opacity-60" />
+                )}
+                <ChevronDown size={14} className="text-slate-400" />
             </div>
 
             {/* Dropdown Menu */}
             <ul
                 tabIndex={0}
-                className="dropdown-content z-50 mt-3 w-64 rounded-2xl bg-base-100 p-3 shadow-xl border border-base-200"
+                className="dropdown-content z-50 mt-2 w-60 rounded-xl bg-[#151a22] p-2.5 shadow-2xl border border-slate-800 text-slate-300"
             >
                 {/* User Information Summary */}
-                <li className="mb-2">
-                    <div className="flex items-center gap-3 p-2 bg-base-200/50 rounded-xl">
-                        <div className="avatar">
-                            <div className="w-10 rounded-full">
-                                <img
-                                    src={user?.photoURL || "https://ui-avatars.com/api/?name=User"}
-                                    alt="Profile"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="min-w-0">
-                            <p className="font-semibold text-sm truncate">
-                                {user?.displayName || "User"}
-                            </p>
-                            <p className="text-xs opacity-60 truncate">
-                                {user?.email}
-                            </p>
-                        </div>
-                    </div>
+                <li className="mb-2 p-2 bg-[#1e2530] rounded-lg border border-slate-700/60">
+                    <p className="font-semibold text-xs text-white truncate">
+                        {user?.displayName || "Authenticated Explorer"}
+                    </p>
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                        {user?.email}
+                    </p>
                 </li>
-
-                <div className="divider my-1"></div>
 
                 {/* Navigation Options */}
                 <li>
-                    <Link to="/saved" className="flex items-center gap-2.5 py-2 text-sm rounded-lg hover:bg-base-200">
-                        <Bookmark size={16} />
+                    <Link
+                        to="/saved"
+                        className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg hover:bg-[#242c37] hover:text-white transition"
+                    >
+                        <Bookmark size={14} className="text-slate-400" />
                         My Saved Sites
                     </Link>
                 </li>
 
                 <li>
-                    <Link to="/compare" className="flex items-center gap-2.5 py-2 text-sm rounded-lg hover:bg-base-200">
-                        <User size={16} />
+                    <Link
+                        to="/compare"
+                        className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg hover:bg-[#242c37] hover:text-white transition"
+                    >
+                        <GitCompare size={14} className="text-slate-400" />
                         Compare Targets
                     </Link>
                 </li>
 
-                <div className="divider my-1"></div>
+                <div className="border-t border-slate-800 my-1.5" />
 
                 {/* Logout Action */}
                 <li>
                     <button
                         onClick={handleLogout}
-                        className="flex items-center gap-2.5 w-full text-error hover:bg-error/10 py-2 text-sm rounded-lg transition"
+                        className="flex items-center gap-2.5 w-full text-red-400 hover:bg-red-500/10 hover:text-red-300 px-2.5 py-1.5 text-xs rounded-lg transition"
                     >
-                        <LogOut size={16} />
+                        <LogOut size={14} />
                         Sign Out
                     </button>
                 </li>

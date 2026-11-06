@@ -17,7 +17,6 @@ const useRecent = () => {
     const fetchRecentSearches = useCallback(() => {
         if (!user?.email) {
             setRecentSearched([]);
-            setLoading(false);
             return;
         }
 
@@ -31,11 +30,29 @@ const useRecent = () => {
                 setError(err);
             })
             .finally(() => setLoading(false));
-    }, [user?.email]);
+    }, [user]);
 
     useEffect(() => {
-        fetchRecentSearches();
-    }, [fetchRecentSearches]);
+        let isMounted = true;
+        if (!user?.email) {
+            return;
+        }
+
+        axios(`${API_BASE_URL}/recent-searches/${encodeURIComponent(user.email)}`)
+            .then(response => {
+                if (isMounted) setRecentSearched(response.data || []);
+            })
+            .catch(err => {
+                if (isMounted) {
+                    console.error("Failed to fetch recent searches:", err);
+                    setError(err);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [user?.email]);
 
     return {
         recentSearched,

@@ -1,6 +1,16 @@
-import { BookOpen, Columns3, Database, LayoutDashboard, Search, Star } from "lucide-react";
+import { useState, useContext } from "react";
+import {
+    LayoutDashboard,
+    Search,
+    Star,
+    Columns3,
+    Database,
+    BookOpen,
+    Settings,
+    Menu,
+    X,
+} from "lucide-react";
 import { Link, NavLink } from "react-router";
-import { useContext } from "react";
 import StateContext from "../States/StateContext";
 import useAuth from "../Hooks/useAuth";
 import Profile from "./Profile";
@@ -8,119 +18,128 @@ import Logo from "./Logo";
 
 /**
  * Navbar Component
- * Primary application navigation bar containing branding, route navigation links,
- * theme toggle controller, and user profile / login trigger.
+ * Dark charcoal/slate top navigation bar matching the TerraMatch design mockup.
+ * Displays left stacked typography branding, centered pill-style tabs, and user action/avatar.
  */
 const Navbar = () => {
     const { user } = useAuth();
     const { setIsSearch } = useContext(StateContext);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     // Switch sidebar drawer into search/filter mode
     const handleSearchClick = () => {
         setIsSearch(true);
+        setMobileMenuOpen(false);
     };
 
     // Switch sidebar drawer back to recent searches / overview mode
     const handleDashboardClick = () => {
         setIsSearch(false);
+        setMobileMenuOpen(false);
     };
 
-    const links = (
-        <>
-            <li>
-                <NavLink onClick={handleDashboardClick} to="/" end>
-                    <LayoutDashboard size={18} />
-                    Dashboard
-                </NavLink>
-            </li>
-
-            <li>
-                <NavLink onClick={handleSearchClick} to="/search">
-                    <Search size={18} />
-                    Search
-                </NavLink>
-            </li>
-
-            <li>
-                <NavLink to="/saved">
-                    <Star size={18} />
-                    Saved
-                </NavLink>
-            </li>
-
-            <li>
-                <NavLink to="/compare">
-                    <Columns3 size={18} />
-                    Compare
-                </NavLink>
-            </li>
-
-            <li>
-                <NavLink to="/data-server">
-                    <Database size={18} />
-                    Data Server
-                </NavLink>
-            </li>
-
-            <li>
-                <NavLink to="/about">
-                    <BookOpen size={18} />
-                    About
-                </NavLink>
-            </li>
-        </>
-    );
+    const navItems = [
+        { label: "Dashboard", path: "/", icon: LayoutDashboard, exact: true, onClick: handleDashboardClick },
+        { label: "Search", path: "/search", icon: Search, onClick: handleSearchClick },
+        { label: "Saved", path: "/saved", icon: Star },
+        { label: "Compare", path: "/compare", icon: Columns3 },
+        { label: "Data Sources", path: "/data-server", icon: Database },
+        { label: "About", path: "/about", icon: BookOpen },
+        { label: "Settings", path: "/settings", icon: Settings },
+    ];
 
     return (
-        <div className="navbar bg-base-100 shadow-sm relative z-2000 px-4 lg:px-12 border-b border-base-200">
-            {/* Mobile Dropdown & Logo */}
-            <div className="navbar-start">
-                <div className="dropdown">
-                    <div tabIndex={0} role="button" className="btn btn-ghost lg:hidden">
-                        <svg aria-label="Menu" xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
-                        </svg>
-                    </div>
-                    <ul
-                        tabIndex={-1}
-                        className="menu menu-sm dropdown-content bg-base-100 rounded-box z-50 mt-3 w-52 p-2 shadow-lg border border-base-200"
-                    >
-                        {links}
-                    </ul>
-                </div>
-                <Link to="/" className="flex items-center gap-2">
+        <header className="w-full bg-[#13161c] border-b border-slate-800/80 px-4 sm:px-6 h-14 flex items-center justify-between relative z-2000 select-none">
+            {/* Left Branding */}
+            <div className="flex items-center gap-3">
+                {/* Mobile Menu Toggle Button */}
+                <button
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 xl:hidden focus:outline-none transition"
+                    aria-label="Toggle navigation menu"
+                >
+                    {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                </button>
+
+                <Link to="/" onClick={handleDashboardClick} className="flex items-center group">
                     <Logo />
                 </Link>
             </div>
 
-            {/* Desktop Navigation Links */}
-            <div className="navbar-center hidden lg:flex">
-                <ul className="menu menu-horizontal px-1 gap-1">
-                    {links}
-                </ul>
+            {/* Centered Pill Navigation Tabs (Desktop / Large Viewports) */}
+            <nav className="hidden xl:flex items-center gap-1.5">
+                {navItems.map((item) => (
+                    <NavLink
+                        key={item.path}
+                        to={item.path}
+                        end={item.exact}
+                        onClick={item.onClick}
+                        className={({ isActive }) =>
+                            `flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition duration-150 ${
+                                isActive
+                                    ? "bg-[#242c37] text-white border border-slate-700 shadow-sm"
+                                    : "text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent"
+                            }`
+                        }
+                    >
+                        <item.icon size={15} className="shrink-0" />
+                        <span>{item.label}</span>
+                    </NavLink>
+                ))}
+            </nav>
+
+            {/* Right Action Section */}
+            <div className="flex items-center gap-3 sm:gap-4">
+                {user ? (
+                    <Profile />
+                ) : (
+                    <div className="flex items-center gap-3">
+                        <Link
+                            to="/login"
+                            className="text-xs sm:text-sm font-medium text-slate-300 hover:text-white transition duration-150"
+                        >
+                            Sign up
+                        </Link>
+
+                        {/* Circular Slate Container with white "TM" initials */}
+                        <Link
+                            to="/login"
+                            className="w-8 h-8 rounded-full bg-[#242c37] border border-slate-700 flex items-center justify-center text-xs font-semibold text-white tracking-wide shadow-sm hover:border-slate-500 transition duration-150"
+                            title="Sign in / Sign up"
+                        >
+                            TM
+                        </Link>
+                    </div>
+                )}
             </div>
 
-            {/* Theme Controller & Auth Profile */}
-            <div className="navbar-end">
-                <div className="flex items-center gap-3">
-                    {/* Theme Toggle (Light / Night) */}
-                    <label className="toggle text-base-content cursor-pointer" title="Toggle Theme">
-                        <input type="checkbox" value="night" className="theme-controller" />
-                        <svg aria-label="sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g strokeLinejoin="round" strokeLinecap="round" strokeWidth="2" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></g></svg>
-                        <svg aria-label="moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g strokeLinejoin="round" strokeLinecap="round" strokeWidth="2" fill="none" stroke="currentColor"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></g></svg>
-                    </label>
-
-                    {/* Authentication Status */}
-                    {user ? (
-                        <Profile />
-                    ) : (
-                        <NavLink to="/login" className="btn btn-sm btn-primary ml-2">
-                            Login
+            {/* Mobile / Compact Navigation Drawer */}
+            {mobileMenuOpen && (
+                <div className="absolute top-14 left-0 w-full bg-[#13161c] border-b border-slate-800 shadow-2xl xl:hidden p-3 flex flex-col gap-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    {navItems.map((item) => (
+                        <NavLink
+                            key={item.path}
+                            to={item.path}
+                            end={item.exact}
+                            onClick={() => {
+                                if (item.onClick) item.onClick();
+                                setMobileMenuOpen(false);
+                            }}
+                            className={({ isActive }) =>
+                                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
+                                    isActive
+                                        ? "bg-[#242c37] text-white border border-slate-700 shadow-sm"
+                                        : "text-slate-400 hover:text-white hover:bg-slate-800/40"
+                                }`
+                            }
+                        >
+                            <item.icon size={16} />
+                            <span>{item.label}</span>
                         </NavLink>
-                    )}
+                    ))}
                 </div>
-            </div>
-        </div>
+            )}
+        </header>
     );
 };
 
