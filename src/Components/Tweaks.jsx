@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext, useMemo, useCallback } from "react";
-import { Search, Globe, MapPin, Check, ChevronRight } from "lucide-react";
+import { Search, Globe, MapPin, Check } from "lucide-react";
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
 import StateContext from "../States/StateContext";
@@ -21,9 +21,7 @@ import { API_BASE_URL } from "../utils/api";
  * 5. Temperature categories & dual-range min/max sliders (-50°C to 40°C)
  * 6. Live sync with the Leaflet satellite map & candidate results list
  */
-const Tweaks = ({ onCollapse, onClose }) => {
-    // Determine effective collapse callback from props
-    const handleClose = onClose || onCollapse;
+const Tweaks = () => {
 
     // ------------------------------------------------------------------------
     // 1. Contexts, Custom Hooks & Authentication
@@ -362,22 +360,8 @@ const Tweaks = ({ onCollapse, onClose }) => {
     // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full flex flex-col bg-[#151a22] text-slate-200 select-none">
-            {/* Top Collapse Button Row (matches top-right '>' in Search.png) */}
-            <div className="flex justify-end mb-1">
-                {handleClose && (
-                    <button
-                        onClick={handleClose}
-                        className="w-6 h-6 rounded-md bg-[#1e2530] border border-slate-700/60 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-500 transition cursor-pointer"
-                        title="Collapse sidebar"
-                        aria-label="Collapse sidebar"
-                    >
-                        <ChevronRight size={14} />
-                    </button>
-                )}
-            </div>
-
-            {/* Panel Header: "Find a Match" and "Mock Data" Tag */}
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800/80 shrink-0">
+            {/* Panel Header: "Find a Match" and "Mock Data" Tag (pr-9 clears standardized toggle button) */}
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800/80 shrink-0 pr-9">
                 <h2 className="text-sm font-medium text-white tracking-tight">
                     Find a Match
                 </h2>

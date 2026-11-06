@@ -302,7 +302,7 @@ const DataServerPage = () => {
     // 6. Render
     // ------------------------------------------------------------------------
     return (
-        <div className="w-full h-full overflow-y-auto bg-[#13161c] text-slate-200 select-none px-4 sm:px-6 lg:px-12 py-8 pb-32">
+        <div className="w-full h-full overflow-y-auto bg-[#13161c] text-slate-200 select-none px-4 sm:px-6 lg:px-12 py-8 pb-16">
             <div className="max-w-7xl mx-auto space-y-6">
                 {/* ========================================================== */}
                 {/* 1. Header Section: Title & Subtitle                        */}
@@ -476,42 +476,42 @@ const DataServerPage = () => {
                         </div>
                     )}
                 </div>
+
+                {/* ============================================================== */}
+                {/* 4. Static Telemetry Footer Block                               */}
+                {/* ============================================================== */}
+                <aside
+                    aria-label="Planetary telemetry storage overview"
+                    className="w-full mt-8 bg-[#181f28] border border-[#273240] rounded-xl px-5 sm:px-6 py-4 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                >
+                    {/* Left Telemetry Overview */}
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[#202936] border border-[#2f3d4e] flex items-center justify-center text-[#82a8bf] shrink-0">
+                            <HardDrive size={16} />
+                        </div>
+                        <div>
+                            <p className="text-xs sm:text-sm font-semibold text-white leading-tight">
+                                {filteredDatasets.length} data sources integrated • {totalVolumeDisplay} total volume
+                            </p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                                OGC WMS/WMTS endpoints & Cloud-Optimized GeoTIFFs (COG) active.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Right Action: Ingest Custom Source Trigger */}
+                    <div className="flex items-center justify-end">
+                        <button
+                            type="button"
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="bg-[#82a8bf] hover:bg-[#97bad0] text-slate-900 font-semibold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                        >
+                            <Plus size={14} className="text-slate-900" />
+                            <span>Add Custom Source</span>
+                        </button>
+                    </div>
+                </aside>
             </div>
-
-            {/* ============================================================== */}
-            {/* 4. Fixed Telemetry Footer Bar                                  */}
-            {/* ============================================================== */}
-            <aside
-                aria-label="Planetary telemetry storage overview"
-                className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-5xl z-40 bg-[#181f28]/95 backdrop-blur-md border border-[#273240] rounded-xl px-5 sm:px-6 py-3.5 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4 duration-200"
-            >
-                {/* Left Telemetry Overview */}
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#202936] border border-[#2f3d4e] flex items-center justify-center text-[#82a8bf] shrink-0">
-                        <HardDrive size={16} />
-                    </div>
-                    <div>
-                        <p className="text-xs sm:text-sm font-semibold text-white leading-tight">
-                            {filteredDatasets.length} data sources integrated • {totalVolumeDisplay} total volume
-                        </p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                            OGC WMS/WMTS endpoints & Cloud-Optimized GeoTIFFs (COG) active.
-                        </p>
-                    </div>
-                </div>
-
-                {/* Right Action: Ingest Custom Source Trigger */}
-                <div className="flex items-center justify-end">
-                    <button
-                        type="button"
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="bg-[#82a8bf] hover:bg-[#97bad0] text-slate-900 font-semibold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer"
-                    >
-                        <Plus size={14} className="text-slate-900" />
-                        <span>Add Custom Source</span>
-                    </button>
-                </div>
-            </aside>
 
             {/* ============================================================== */}
             {/* 5. Custom Source Ingestion Modal                               */}

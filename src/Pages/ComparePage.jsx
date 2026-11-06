@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router";
-import { Globe, Trophy, Bookmark } from "lucide-react";
+import { ChevronDown, Trophy, Bookmark, Compass, Mountain, Thermometer, Wind } from "lucide-react";
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
 import Loader from "../Components/Loader";
@@ -12,22 +12,24 @@ import { API_BASE_URL } from "../utils/api";
  * ============================================================================
  * Canonical Fallback Locations for Comparison
  * ============================================================================
- * Provides high-fidelity baseline scientific attributes for Devon Island
- * and Mauna Kea matching the exact data shown in Compare - 2.png.
+ * Baseline scientific attributes for Devon Island and Mauna Kea matching
+ * the exact values shown in the Compare - 2.png mockup.
  */
 const CANONICAL_COMPARE_DATA = {
     "devon-island": {
         _id: "devon-island",
         name: "Devon Island",
         country: "Canada",
+        targetBody: "MOON",
         similarityScore: 87,
+        coordinates: { latitude: 75.3333, longitude: -89.6667 },
         temperatureDisplay: "-16 °C",
         slopeDisplay: "8 °",
         radiationDisplay: "6 /10",
         soilDisplay: "Impact breccia",
         aridityDisplay: "65 /100",
         elevationDisplay: "200 m",
-        // Radar chart axes normalized scores (0 - 100)
+        climate: "Polar Desert",
         metrics: {
             temperature: 55,
             slope: 75,
@@ -41,14 +43,16 @@ const CANONICAL_COMPARE_DATA = {
         _id: "mauna-kea",
         name: "Mauna Kea",
         country: "United States",
+        targetBody: "MOON",
         similarityScore: 81,
+        coordinates: { latitude: 19.8207, longitude: -155.4681 },
         temperatureDisplay: "2 °C",
         slopeDisplay: "12 °",
         radiationDisplay: "9 /10",
         soilDisplay: "Basaltic tephra",
         aridityDisplay: "70 /100",
         elevationDisplay: "4,207 m",
-        // Radar chart axes normalized scores (0 - 100)
+        climate: "High Altitude Alpine",
         metrics: {
             temperature: 75,
             slope: 60,
@@ -62,18 +66,18 @@ const CANONICAL_COMPARE_DATA = {
 
 /**
  * ============================================================================
- * Helper: Scientific Attribute Generator
+ * Helper: Scientific Profile & Telemetry Extractor
  * ============================================================================
- * Derives realistic scientific metrics for any arbitrary location selected
- * from the database so the radar chart and table dynamically reflect any site.
+ * Normalizes any database location into comprehensive telemetry metrics
+ * so the site telemetry preview panel, radial gauge, radar chart, and matrix table
+ * work fluidly with any arbitrary selected location.
  *
  * @param {Object} loc - Candidate location record
- * @returns {Object} - Normalized scientific attributes
+ * @returns {Object} - Normalized scientific attributes and coordinates
  */
 const getScientificProfile = (loc) => {
     if (!loc) return CANONICAL_COMPARE_DATA["devon-island"];
 
-    // Match by exact key if canonical
     const lowerName = (loc.name || "").toLowerCase();
     if (lowerName.includes("devon")) {
         return { ...CANONICAL_COMPARE_DATA["devon-island"], ...loc };
@@ -83,22 +87,25 @@ const getScientificProfile = (loc) => {
     }
 
     const elevation = loc.environment?.elevationMeters || 1200;
-    const climate = (loc.environment?.climate || "").toLowerCase();
+    const climate = loc.environment?.climate || "Extreme Arid";
     const score = loc.similarityScore || 75;
+    const targetBody = (loc.analogType && loc.analogType[0]) ? loc.analogType[0].toUpperCase() : "MARS";
 
-    // Estimate parameters based on elevation and climate
-    const isCold = climate.includes("cold") || climate.includes("polar");
-    const isHot = climate.includes("hot") || climate.includes("arid");
+    // Estimate realistic physical parameters based on terrain, climate, and elevation
+    const isCold = climate.toLowerCase().includes("cold") || climate.toLowerCase().includes("polar");
+    const isHot = climate.toLowerCase().includes("hot") || climate.toLowerCase().includes("arid");
     const tempVal = isCold ? -12 : isHot ? 32 : 15;
     const slopeVal = elevation > 2500 ? 15 : elevation > 1000 ? 9 : 5;
     const radVal = Math.min(10, Math.max(3, Math.round(elevation / 450)));
     const aridityVal = isHot ? 88 : isCold ? 62 : 45;
-
-    const terrainFirst = (loc.terrain && loc.terrain[0]) || "Rocky surface";
+    const terrainFirst = (loc.terrain && loc.terrain[0]) || "Regolith breccia";
 
     return {
         ...loc,
+        targetBody,
+        climate,
         similarityScore: score,
+        coordinates: loc.coordinates || { latitude: 0, longitude: 0 },
         temperatureDisplay: `${tempVal} °C`,
         slopeDisplay: `${slopeVal} °`,
         radiationDisplay: `${radVal} /10`,
@@ -122,10 +129,18 @@ const getScientificProfile = (loc) => {
  * ============================================================================
  * Provides an interactive, side-by-side scientific comparison of two planetary
  * analog sites matching the Compare - 2.png mockup.
+ *
+ * Upgrades:
+ * 1. Fixed Dropdown Arrow: Clean `appearance-none pr-9` styling paired with an
+ *    inset `<ChevronDown />` icon positioned at `right-3.5 top-1/2 -translate-y-1/2`.
+ * 2. Rich Site Telemetry & Terrain Preview Panel:
+ *    Replaced the blank globe placeholder with live coordinates (`Lat / Lon`),
+ *    target body badges (`MOON` / `MARS`), climate & elevation indicators, and
+ *    a subtle topographic vector grid.
  */
 const ComparePage = () => {
     // ------------------------------------------------------------------------
-    // 1. Hooks & Global Data Loading
+    // 1. Hooks & Global Data Subscriptions
     // ------------------------------------------------------------------------
     const [searchParams, setSearchParams] = useSearchParams();
     const { locData, loading: locLoading } = useLocations();
@@ -133,14 +148,13 @@ const ComparePage = () => {
     const { user } = useAuth();
 
     // ------------------------------------------------------------------------
-    // 2. Location Pool Aggregation
+    // 2. Candidate Locations Pool Aggregation
     // ------------------------------------------------------------------------
-    // Combine API locations, saved locations, and fallback demo items
     const allLocations = useMemo(() => {
         const pool = [];
         const seen = new Set();
 
-        // 1. Add canonical defaults first
+        // 1. Baseline canonical locations
         pool.push(CANONICAL_COMPARE_DATA["devon-island"]);
         seen.add(CANONICAL_COMPARE_DATA["devon-island"]._id);
         seen.add(CANONICAL_COMPARE_DATA["devon-island"].name.toLowerCase());
@@ -149,7 +163,7 @@ const ComparePage = () => {
         seen.add(CANONICAL_COMPARE_DATA["mauna-kea"]._id);
         seen.add(CANONICAL_COMPARE_DATA["mauna-kea"].name.toLowerCase());
 
-        // 2. Add saved locations
+        // 2. Saved locations from user account
         if (savedLoc && savedLoc.length > 0) {
             savedLoc.forEach((l) => {
                 const key = (l._id || l.id || l.name).toString().toLowerCase();
@@ -160,7 +174,7 @@ const ComparePage = () => {
             });
         }
 
-        // 3. Add all locations dataset
+        // 3. Complete catalog from database
         if (locData && locData.length > 0) {
             locData.forEach((l) => {
                 const key = (l._id || l.id || l.name).toString().toLowerCase();
@@ -177,18 +191,18 @@ const ComparePage = () => {
     // ------------------------------------------------------------------------
     // 3. Selection State Management & URL Sync
     // ------------------------------------------------------------------------
-    // Parse query parameter ?ids=idA,idB
+    // Parse URL parameter ?ids=idA,idB
     const urlIds = useMemo(() => {
         const ids = searchParams.get("ids");
         return ids ? ids.split(",").filter(Boolean) : [];
     }, [searchParams]);
 
-    // ID for Location A
+    // Active ID for Location A
     const [selectedIdA, setSelectedIdA] = useState(() => {
         return urlIds[0] || CANONICAL_COMPARE_DATA["devon-island"]._id;
     });
 
-    // ID for Location B
+    // Active ID for Location B
     const [selectedIdB, setSelectedIdB] = useState(() => {
         return urlIds[1] || CANONICAL_COMPARE_DATA["mauna-kea"]._id;
     });
@@ -209,14 +223,14 @@ const ComparePage = () => {
         return getScientificProfile(found || CANONICAL_COMPARE_DATA["mauna-kea"]);
     }, [allLocations, selectedIdB]);
 
-    // Update Location A selection and synchronize URL
+    // Update Location A selection and synchronize URL search params
     const handleChangeA = (e) => {
         const newId = e.target.value;
         setSelectedIdA(newId);
         setSearchParams({ ids: `${newId},${selectedIdB}` });
     };
 
-    // Update Location B selection and synchronize URL
+    // Update Location B selection and synchronize URL search params
     const handleChangeB = (e) => {
         const newId = e.target.value;
         setSelectedIdB(newId);
@@ -226,7 +240,6 @@ const ComparePage = () => {
     // ------------------------------------------------------------------------
     // 4. Radar Chart Geometry & Coordinates Calculation
     // ------------------------------------------------------------------------
-    // Center point and maximum radial distance for the radar chart
     const radarCx = 180;
     const radarCy = 135;
     const radarRadius = 85;
@@ -247,14 +260,17 @@ const ComparePage = () => {
     /**
      * Converts normalized value (0-100) on an axis into Cartesian SVG (x, y) coordinates
      */
-    const getCoordinates = useCallback((axisIndex, normalizedVal) => {
-        const angle = axes[axisIndex].angle;
-        const r = (radarRadius * Math.min(100, Math.max(0, normalizedVal))) / 100;
-        return {
-            x: radarCx + r * Math.cos(angle),
-            y: radarCy + r * Math.sin(angle),
-        };
-    }, [axes]);
+    const getCoordinates = useCallback(
+        (axisIndex, normalizedVal) => {
+            const angle = axes[axisIndex].angle;
+            const r = (radarRadius * Math.min(100, Math.max(0, normalizedVal))) / 100;
+            return {
+                x: radarCx + r * Math.cos(angle),
+                y: radarCy + r * Math.sin(angle),
+            };
+        },
+        [axes]
+    );
 
     // Polygon points for Location A (Solid polygon)
     const polygonPointsA = useMemo(() => {
@@ -347,36 +363,75 @@ const ComparePage = () => {
                     {/* Left Column: Location A & Location B Selector Cards    */}
                     {/* ------------------------------------------------------ */}
                     <div className="lg:col-span-5 flex flex-col gap-4">
-                        {/* Location A Card */}
+                        {/* ================================================== */}
+                        {/* Location A Card                                    */}
+                        {/* ================================================== */}
                         <div className="bg-[#181f28] border border-[#273240] rounded-xl p-4 flex flex-col justify-between">
                             <div>
                                 <label className="block text-[10px] font-semibold tracking-wider text-slate-400 uppercase mb-1.5">
                                     Location A
                                 </label>
 
-                                {/* Dropdown Selector */}
-                                <select
-                                    value={selectedIdA}
-                                    onChange={handleChangeA}
-                                    className="w-full bg-[#131820] border border-[#273240] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-slate-500 cursor-pointer mb-3"
-                                >
-                                    {allLocations.map((loc) => (
-                                        <option key={loc._id || loc.id} value={loc._id || loc.id}>
-                                            {loc.name} ({loc.country})
-                                        </option>
-                                    ))}
-                                </select>
+                                {/* Dropdown Selector with Custom Non-Cramped Chevron */}
+                                <div className="relative mb-3">
+                                    <select
+                                        value={selectedIdA}
+                                        onChange={handleChangeA}
+                                        className="w-full bg-[#131820] border border-[#273240] rounded-lg px-3 py-2 text-xs text-white appearance-none pr-9 focus:outline-none focus:border-slate-500 cursor-pointer"
+                                    >
+                                        {allLocations.map((loc) => (
+                                            <option key={loc._id || loc.id} value={loc._id || loc.id}>
+                                                {loc.name} ({loc.country})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown
+                                        size={15}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"
+                                    />
+                                </div>
 
-                                {/* Preview Box with Globe Icon */}
-                                <div className="w-full bg-[#131820] border border-[#273240] rounded-lg h-24 sm:h-28 flex items-center justify-center text-slate-500 mb-3">
-                                    <Globe size={30} className="text-slate-500 opacity-60" />
+                                {/* Rich Site Telemetry & Terrain Preview Panel */}
+                                <div className="w-full bg-[#131820] border border-[#273240] rounded-lg p-3 mb-3 relative overflow-hidden">
+                                    {/* Top Telemetry Row: Target Body & Coordinates */}
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider bg-[#202936] border border-[#2f3d4e] text-[#82a8bf]">
+                                            {locationA.targetBody || "ANALOG"}
+                                        </span>
+                                        <div className="flex items-center gap-1 text-[10px] font-mono text-slate-400">
+                                            <Compass size={11} className="text-slate-500" />
+                                            <span>
+                                                {locationA.coordinates?.latitude?.toFixed(2)}°,{" "}
+                                                {locationA.coordinates?.longitude?.toFixed(2)}°
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Environmental Attributes Telemetry Pills */}
+                                    <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                                        <div className="flex items-center gap-1.5 bg-[#181e27] border border-[#232c38] rounded px-2 py-1 text-slate-300">
+                                            <Mountain size={11} className="text-[#82a8bf] shrink-0" />
+                                            <span className="truncate">{locationA.soilDisplay}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 bg-[#181e27] border border-[#232c38] rounded px-2 py-1 text-slate-300">
+                                            <Thermometer size={11} className="text-[#82a8bf] shrink-0" />
+                                            <span className="truncate">{locationA.temperatureDisplay}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 bg-[#181e27] border border-[#232c38] rounded px-2 py-1 text-slate-300">
+                                            <Wind size={11} className="text-[#82a8bf] shrink-0" />
+                                            <span className="truncate">{locationA.climate}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 bg-[#181e27] border border-[#232c38] rounded px-2 py-1 text-slate-300">
+                                            <span className="text-slate-500 font-mono">Alt:</span>
+                                            <span className="truncate">{locationA.elevationDisplay}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Semicircular Radial Gauge Meter */}
                             <div className="flex flex-col items-center justify-center relative pt-1">
                                 <svg width="150" height="80" viewBox="0 0 150 80" className="overflow-visible">
-                                    {/* Background Track Arc */}
                                     <path
                                         d="M 20 75 A 55 55 0 0 1 130 75"
                                         fill="none"
@@ -384,7 +439,6 @@ const ComparePage = () => {
                                         strokeWidth="9"
                                         strokeLinecap="round"
                                     />
-                                    {/* Filled Score Arc */}
                                     <path
                                         d="M 20 75 A 55 55 0 0 1 130 75"
                                         fill="none"
@@ -410,36 +464,75 @@ const ComparePage = () => {
                             </div>
                         </div>
 
-                        {/* Location B Card */}
+                        {/* ================================================== */}
+                        {/* Location B Card                                    */}
+                        {/* ================================================== */}
                         <div className="bg-[#181f28] border border-[#273240] rounded-xl p-4 flex flex-col justify-between">
                             <div>
                                 <label className="block text-[10px] font-semibold tracking-wider text-slate-400 uppercase mb-1.5">
                                     Location B
                                 </label>
 
-                                {/* Dropdown Selector */}
-                                <select
-                                    value={selectedIdB}
-                                    onChange={handleChangeB}
-                                    className="w-full bg-[#131820] border border-[#273240] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-slate-500 cursor-pointer mb-3"
-                                >
-                                    {allLocations.map((loc) => (
-                                        <option key={loc._id || loc.id} value={loc._id || loc.id}>
-                                            {loc.name} ({loc.country})
-                                        </option>
-                                    ))}
-                                </select>
+                                {/* Dropdown Selector with Custom Non-Cramped Chevron */}
+                                <div className="relative mb-3">
+                                    <select
+                                        value={selectedIdB}
+                                        onChange={handleChangeB}
+                                        className="w-full bg-[#131820] border border-[#273240] rounded-lg px-3 py-2 text-xs text-white appearance-none pr-9 focus:outline-none focus:border-slate-500 cursor-pointer"
+                                    >
+                                        {allLocations.map((loc) => (
+                                            <option key={loc._id || loc.id} value={loc._id || loc.id}>
+                                                {loc.name} ({loc.country})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown
+                                        size={15}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"
+                                    />
+                                </div>
 
-                                {/* Preview Box with Globe Icon */}
-                                <div className="w-full bg-[#131820] border border-[#273240] rounded-lg h-24 sm:h-28 flex items-center justify-center text-slate-500 mb-3">
-                                    <Globe size={30} className="text-slate-500 opacity-60" />
+                                {/* Rich Site Telemetry & Terrain Preview Panel */}
+                                <div className="w-full bg-[#131820] border border-[#273240] rounded-lg p-3 mb-3 relative overflow-hidden">
+                                    {/* Top Telemetry Row: Target Body & Coordinates */}
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider bg-[#202936] border border-[#2f3d4e] text-[#82a8bf]">
+                                            {locationB.targetBody || "ANALOG"}
+                                        </span>
+                                        <div className="flex items-center gap-1 text-[10px] font-mono text-slate-400">
+                                            <Compass size={11} className="text-slate-500" />
+                                            <span>
+                                                {locationB.coordinates?.latitude?.toFixed(2)}°,{" "}
+                                                {locationB.coordinates?.longitude?.toFixed(2)}°
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Environmental Attributes Telemetry Pills */}
+                                    <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                                        <div className="flex items-center gap-1.5 bg-[#181e27] border border-[#232c38] rounded px-2 py-1 text-slate-300">
+                                            <Mountain size={11} className="text-[#82a8bf] shrink-0" />
+                                            <span className="truncate">{locationB.soilDisplay}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 bg-[#181e27] border border-[#232c38] rounded px-2 py-1 text-slate-300">
+                                            <Thermometer size={11} className="text-[#82a8bf] shrink-0" />
+                                            <span className="truncate">{locationB.temperatureDisplay}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 bg-[#181e27] border border-[#232c38] rounded px-2 py-1 text-slate-300">
+                                            <Wind size={11} className="text-[#82a8bf] shrink-0" />
+                                            <span className="truncate">{locationB.climate}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 bg-[#181e27] border border-[#232c38] rounded px-2 py-1 text-slate-300">
+                                            <span className="text-slate-500 font-mono">Alt:</span>
+                                            <span className="truncate">{locationB.elevationDisplay}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Semicircular Radial Gauge Meter */}
                             <div className="flex flex-col items-center justify-center relative pt-1">
                                 <svg width="150" height="80" viewBox="0 0 150 80" className="overflow-visible">
-                                    {/* Background Track Arc */}
                                     <path
                                         d="M 20 75 A 55 55 0 0 1 130 75"
                                         fill="none"
@@ -447,7 +540,6 @@ const ComparePage = () => {
                                         strokeWidth="9"
                                         strokeLinecap="round"
                                     />
-                                    {/* Filled Score Arc */}
                                     <path
                                         d="M 20 75 A 55 55 0 0 1 130 75"
                                         fill="none"
@@ -496,14 +588,14 @@ const ComparePage = () => {
                                 viewBox="0 0 360 270"
                                 className="overflow-visible max-w-full"
                             >
-                                {/* Concentric Background Grid Rings (Levels: 25%, 50%, 75%, 100%) */}
+                                {/* Concentric Background Grid Rings */}
                                 {[0.25, 0.5, 0.75, 1.0].map((level) => {
                                     const gridRingPoints = axes
                                         .map((axis) => {
-                                            const r = radarRadius * level;
-                                            const x = radarCx + r * Math.cos(axis.angle);
-                                            const y = radarCy + r * Math.sin(axis.angle);
-                                            return `${x.toFixed(1)},${y.toFixed(1)}`;
+                                             const r = radarRadius * level;
+                                             const x = radarCx + r * Math.cos(axis.angle);
+                                             const y = radarCy + r * Math.sin(axis.angle);
+                                             return `${x.toFixed(1)},${y.toFixed(1)}`;
                                         })
                                         .join(" ");
 
@@ -561,7 +653,6 @@ const ComparePage = () => {
                                     const lx = radarCx + labelDist * Math.cos(axis.angle);
                                     const ly = radarCy + labelDist * Math.sin(axis.angle);
 
-                                    // Dynamic text alignment based on horizontal orientation
                                     const anchor =
                                         Math.abs(Math.cos(axis.angle)) < 0.2
                                             ? "middle"
@@ -586,7 +677,6 @@ const ComparePage = () => {
 
                         {/* Chart Legend at Bottom matching Compare - 2.png */}
                         <div className="flex items-center justify-center gap-6 pt-3 border-t border-[#232c38] text-xs">
-                            {/* Location A Legend */}
                             <div className="flex items-center gap-2">
                                 <span className="w-3 h-3 rounded-sm bg-[#82a8bf] inline-block shadow-sm" />
                                 <span className="text-slate-300 font-medium">
@@ -594,7 +684,6 @@ const ComparePage = () => {
                                 </span>
                             </div>
 
-                            {/* Location B Legend */}
                             <div className="flex items-center gap-2">
                                 <span className="w-3 h-3 rounded-sm border border-dashed border-[#94a3b8] inline-block" />
                                 <span className="text-slate-400">
@@ -610,7 +699,6 @@ const ComparePage = () => {
                 {/* ========================================================== */}
                 <div className="bg-[#181f28] border border-[#273240] rounded-xl overflow-hidden shadow-md">
                     <table className="w-full text-left text-xs">
-                        {/* Table Header: Parameter & Location Names */}
                         <thead>
                             <tr className="bg-[#141921] border-b border-[#273240] text-slate-400 font-semibold uppercase text-[11px] tracking-wider">
                                 <th className="py-3 px-5 w-2/5">Parameter</th>

@@ -1,8 +1,7 @@
-import { useState, useMemo } from "react";
-import { Globe, Trash2, ArrowRight, ListFilter, Check } from "lucide-react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { Globe, Trash2, ArrowRight, ListFilter, Check, RotateCcw } from "lucide-react";
 import useSaved from "../Hooks/useSaved";
 import Loader from "../Components/Loader";
-import Swal from "sweetalert2";
 import { API_BASE_URL } from "../utils/api";
 import { Link } from "react-router";
 import { toast } from "react-toastify";
@@ -81,9 +80,9 @@ const formatRelativeTime = (dateVal) => {
  * SavedPage Component
  * ============================================================================
  * Renders the saved candidate planetary analog sites in a dark space-themed
- * 3-column grid with target body filter pills, sorting options, individual
- * site removal, active comparison highlight borders, and a floating bottom
- * action banner.
+ * 3-column grid with target body filter pills, sorting options, optimistic site
+ * removal with 5-second Dark Undo Snackbar, active comparison highlight borders,
+ * and a floating bottom comparison action banner.
  */
 const SavedPage = () => {
     // ------------------------------------------------------------------------
@@ -91,7 +90,7 @@ const SavedPage = () => {
     // ------------------------------------------------------------------------
     const { savedLoc, setSavedLoc, loading } = useSaved();
 
-    // Local state for demo items fallback
+    // Local state for demo items fallback when visitor has no database items
     const [demoItems, setDemoItems] = useState(CANONICAL_SAVED_LOCATIONS);
 
     // ------------------------------------------------------------------------
@@ -112,7 +111,25 @@ const SavedPage = () => {
     ]);
 
     // ------------------------------------------------------------------------
-    // 3. Data Source Selection (API data vs. Canonical Mock Data)
+    // 3. Optimistic Deletion & 5-Second Undo State Management
+    // ------------------------------------------------------------------------
+    // Holds the currently pending deletion: { item, wasCompared, isRealDbItem }
+    const [pendingDeletion, setPendingDeletion] = useState(null);
+
+    // Ref to manage the 5-second countdown timer safely across renders
+    const deletionTimerRef = useRef(null);
+
+    // Clean up timer on component unmount
+    useEffect(() => {
+        return () => {
+            if (deletionTimerRef.current) {
+                clearTimeout(deletionTimerRef.current);
+            }
+        };
+    }, []);
+
+    // ------------------------------------------------------------------------
+    // 4. Data Source Selection (API data vs. Canonical Mock Data)
     // ------------------------------------------------------------------------
     // If the authenticated user has real saved items from MongoDB, use those;
     // otherwise fallback to the canonical demo dataset matching the mockup.
@@ -124,7 +141,7 @@ const SavedPage = () => {
     }, [savedLoc, demoItems]);
 
     // ------------------------------------------------------------------------
-    // 4. Filtering and Sorting Calculation
+    // 5. Filtering and Sorting Calculation
     // ------------------------------------------------------------------------
     const displayedItems = useMemo(() => {
         // Step A: Filter by target planetary body (All, Moon, Mars)
@@ -161,7 +178,7 @@ const SavedPage = () => {
     }, [activeLocationsPool, targetFilter, sortOrder]);
 
     // ------------------------------------------------------------------------
-    // 5. Comparison Selection Toggle Handlers
+    // 6. Comparison Selection Toggle Handlers
     // ------------------------------------------------------------------------
     /**
      * Toggles a location ID in or out of the comparison selection list
@@ -184,65 +201,100 @@ const SavedPage = () => {
     };
 
     // ------------------------------------------------------------------------
-    // 6. Delete Location Action Handler
+    // 7. Optimistic Deletion & Dark Undo Snackbar Actions
     // ------------------------------------------------------------------------
     /**
-     * Deletes a saved candidate location with SweetAlert confirmation dialog
+     * Executes the actual backend deletion after the 5-second grace window expires
+     */
+    const commitBackendDelete = (itemToDelete, isRealDb) => {
+        if (isRealDb && itemToDelete?._id) {
+            fetch(`${API_BASE_URL}/savedLocs/${itemToDelete._id}`, {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            }).catch((err) => console.error("Async delete error:", err));
+        }
+    };
+
+    /**
+     * Optimistically removes a saved location and displays the dark Undo banner
      *
      * @param {string} theId - Location ID to remove
      * @param {string} locationName - Name of the location for notification
      */
-    const handleDelete = (theId, locationName) => {
-        Swal.fire({
-            title: "Remove Saved Location?",
-            text: `Remove "${locationName}" from your saved candidate sites?`,
-            icon: "warning",
-            background: "#19202a",
-            color: "#e2e8f0",
-            showCancelButton: true,
-            confirmButtonColor: "#e11d48",
-            cancelButtonColor: "#334155",
-            confirmButtonText: "Remove",
-            cancelButtonText: "Cancel",
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const isRealDbItem = savedLoc && savedLoc.some((item) => item._id === theId);
+    const handleDelete = (theId) => {
+        // If a previous deletion is still pending, commit it immediately
+        if (pendingDeletion) {
+            if (deletionTimerRef.current) clearTimeout(deletionTimerRef.current);
+            commitBackendDelete(pendingDeletion.item, pendingDeletion.isRealDbItem);
+        }
 
-                if (isRealDbItem) {
-                    // Delete from MongoDB backend endpoint
-                    fetch(`${API_BASE_URL}/savedLocs/${theId}`, {
-                        method: "DELETE",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                    })
-                        .then((res) => res.json())
-                        .then((data) => {
-                            if (data.success) {
-                                setSavedLoc((prev) => prev.filter((item) => item._id !== theId));
-                                setSelectedForCompare((prev) => prev.filter((id) => id !== theId));
-                                toast.success(`"${locationName}" removed from saved sites.`);
-                            }
-                        })
-                        .catch((err) => {
-                            console.error("Delete error:", err);
-                            toast.error("Failed to delete location.");
-                        });
-                } else {
-                    // Remove from local demo items
-                    setDemoItems((prev) => prev.filter((item) => item._id !== theId));
-                    setSelectedForCompare((prev) => prev.filter((id) => id !== theId));
-                    toast.success(`"${locationName}" removed from saved sites.`);
-                }
-            }
+        const isRealDbItem = Boolean(savedLoc && savedLoc.some((item) => item._id === theId));
+        const itemToRemove = activeLocationsPool.find((item) => item._id === theId);
+        if (!itemToRemove) return;
+
+        const wasCompared = selectedForCompare.includes(theId);
+
+        // Optimistically remove from state immediately
+        if (isRealDbItem) {
+            setSavedLoc((prev) => prev.filter((item) => item._id !== theId));
+        } else {
+            setDemoItems((prev) => prev.filter((item) => item._id !== theId));
+        }
+        setSelectedForCompare((prev) => prev.filter((id) => id !== theId));
+
+        // Start 5-second countdown to permanently commit backend deletion
+        const timerId = setTimeout(() => {
+            commitBackendDelete(itemToRemove, isRealDbItem);
+            setPendingDeletion(null);
+        }, 5000);
+
+        deletionTimerRef.current = timerId;
+
+        // Display pending undo snackbar
+        setPendingDeletion({
+            item: itemToRemove,
+            wasCompared,
+            isRealDbItem,
         });
+    };
+
+    /**
+     * Reverts the optimistic deletion, restores the location, and cancels the backend timer
+     */
+    const handleUndoDelete = () => {
+        if (!pendingDeletion) return;
+
+        // Cancel scheduled backend DELETE request
+        if (deletionTimerRef.current) {
+            clearTimeout(deletionTimerRef.current);
+            deletionTimerRef.current = null;
+        }
+
+        const { item, wasCompared, isRealDbItem } = pendingDeletion;
+
+        // Restore item back to respective pool
+        if (isRealDbItem) {
+            setSavedLoc((prev) => [item, ...prev]);
+        } else {
+            setDemoItems((prev) => [item, ...prev]);
+        }
+
+        // Restore compare selection if it was selected prior to deletion
+        if (wasCompared) {
+            setSelectedForCompare((prev) => [...prev, item._id]);
+        }
+
+        toast.info(`Restored "${item.name}" to saved locations.`);
+        setPendingDeletion(null);
     };
 
     // Show loading spinner while initial data is being fetched
     if (loading) return <Loader />;
 
     // ------------------------------------------------------------------------
-    // 7. Render
+    // 8. Render
     // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full overflow-y-auto bg-[#13161c] text-slate-200 select-none px-4 sm:px-6 lg:px-12 py-8 pb-32">
@@ -416,10 +468,10 @@ const SavedPage = () => {
                                             </span>
                                         </button>
 
-                                        {/* Remove / Trash Button */}
+                                        {/* Remove / Trash Button (Optimistic with 5s Undo) */}
                                         <button
                                             type="button"
-                                            onClick={() => handleDelete(locId, location.name)}
+                                            onClick={() => handleDelete(locId)}
                                             className="text-slate-500 hover:text-red-400 p-1 rounded transition cursor-pointer"
                                             title="Remove location"
                                             aria-label="Remove location"
@@ -446,7 +498,26 @@ const SavedPage = () => {
             </div>
 
             {/* ========================================================== */}
-            {/* 4. Floating Bottom Comparison Action Bar                   */}
+            {/* 4. Bottom-Left Dark Undo Snackbar Banner                   */}
+            {/* ========================================================== */}
+            {pendingDeletion && (
+                <div className="fixed bottom-6 left-6 z-50 bg-[#181f28]/95 backdrop-blur-md border border-slate-700 text-slate-200 rounded-xl px-4 py-3 shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-3 duration-150">
+                    <span className="text-xs text-slate-300">
+                        Removed <strong className="text-white font-medium">&quot;{pendingDeletion.item.name}&quot;</strong>
+                    </span>
+                    <button
+                        type="button"
+                        onClick={handleUndoDelete}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-[#82a8bf] hover:text-[#97bad0] px-2.5 py-1 rounded bg-[#202936] border border-[#2f3d4e] transition cursor-pointer"
+                    >
+                        <RotateCcw size={12} />
+                        <span>Undo</span>
+                    </button>
+                </div>
+            )}
+
+            {/* ========================================================== */}
+            {/* 5. Floating Bottom Comparison Action Bar                   */}
             {/* ========================================================== */}
             {selectedForCompare.length >= 2 && (
                 <aside

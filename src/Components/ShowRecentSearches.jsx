@@ -1,10 +1,9 @@
-import { useState, useContext } from "react";
-import { Check, Clock3, Globe, MapPin, X, ChevronRight } from "lucide-react";
+import { useState, useContext, useRef, useEffect } from "react";
+import { Clock3, Globe, MapPin, X, Check, RotateCcw } from "lucide-react";
 import useRecent from "../Hooks/useRecent";
 import useSaved from "../Hooks/useSaved";
 import { toast } from "react-toastify";
 import useAuth from "../Hooks/useAuth";
-import Swal from "sweetalert2";
 import { API_BASE_URL } from "../utils/api";
 import StateContext from "../States/StateContext";
 
@@ -16,7 +15,7 @@ const INITIAL_DEMO_SEARCHES = [
         country: "Chile",
         similarityScore: 89,
         coordinates: { latitude: -23.8634, longitude: -69.1328 },
-        isSaved: true
+        isSaved: true,
     },
     {
         _id: "demo-mcmurdo",
@@ -24,7 +23,7 @@ const INITIAL_DEMO_SEARCHES = [
         country: "Antarctica",
         similarityScore: 84,
         coordinates: { latitude: -77.5167, longitude: 161.0 },
-        isSaved: true
+        isSaved: true,
     },
     {
         _id: "demo-danakil",
@@ -32,56 +31,101 @@ const INITIAL_DEMO_SEARCHES = [
         country: "Ethiopia",
         similarityScore: 76,
         coordinates: { latitude: 14.2417, longitude: 40.3 },
-        isSaved: true
-    }
+        isSaved: true,
+    },
 ];
 
 /**
+ * ============================================================================
  * ShowRecentSearches Component
- * Displays candidate planetary analog searches in the dark drawer sidebar.
+ * ============================================================================
+ * Displays recent candidate planetary analog searches in the dark drawer sidebar.
  * Styled to match the exact visual layout of Dashboard.png.
+ *
+ * Upgrades & Features:
+ * 1. Non-Intrusive Optimistic Deletions with Dark Undo Snackbar:
+ *    Replaced SweetAlert modal confirmation popups with immediate optimistic
+ *    removal and a 5-second Dark Undo Snackbar (`bg-[#181f28] border border-slate-700`).
+ * 2. Seamless Backend Sync:
+ *    Executes the persistent DELETE request only after the 5-second countdown expires.
+ * 3. Unified Layout Alignment:
+ *    Header toolbar includes padding to accommodate the standardized top-right
+ *    sidebar toggle button without overlap.
  */
-const ShowRecentSearches = ({ onClose }) => {
+const ShowRecentSearches = () => {
+    // ------------------------------------------------------------------------
+    // 1. Data Hooks & Global Contexts
+    // ------------------------------------------------------------------------
     const { recentSearched, setRecentSearched } = useRecent();
     const { savedLoc } = useSaved();
     const { user } = useAuth();
     const { setMapTarget } = useContext(StateContext);
 
-    // Fallback local searches when user is guest or has no search history
+    // Fallback local searches when user is guest or has no backend search history
     const [demoSearches, setDemoSearches] = useState(INITIAL_DEMO_SEARCHES);
 
-    // Use backend searches if present; otherwise fallback to canonical demo list
+    // ------------------------------------------------------------------------
+    // 2. Optimistic Delete & Undo State Management
+    // ------------------------------------------------------------------------
+    // Holds currently queued deletion: { item, itemsList, isBatch, timeoutId }
+    const [pendingDeletion, setPendingDeletion] = useState(null);
+
+    // Ref tracking the pending deletion timer to ensure clean unmounting
+    const deletionTimerRef = useRef(null);
+
+    // Clean up any lingering deletion timeouts on unmount
+    useEffect(() => {
+        return () => {
+            if (deletionTimerRef.current) {
+                clearTimeout(deletionTimerRef.current);
+            }
+        };
+    }, []);
+
+    // ------------------------------------------------------------------------
+    // 3. Dataset Resolution
+    // ------------------------------------------------------------------------
     const hasDbSearches = recentSearched && recentSearched.length > 0;
     const displayedSearches = hasDbSearches ? recentSearched : demoSearches;
 
-    // Determine badge count (e.g. "5 Saved" matching the mockup)
+    // Determine badge count (e.g. "5 Saved" matching Dashboard.png)
     const savedCount = savedLoc?.length > 0 ? savedLoc.length : 5;
 
-    // Pan and zoom map to location coordinates
+    // ------------------------------------------------------------------------
+    // 4. Map Panning Handler
+    // ------------------------------------------------------------------------
+    /**
+     * Centers and zooms the satellite map smoothly onto the selected candidate location
+     */
     const handleViewOnMap = (loc) => {
         if (loc?.coordinates?.latitude && loc?.coordinates?.longitude) {
             setMapTarget({
                 latitude: loc.coordinates.latitude,
                 longitude: loc.coordinates.longitude,
-                zoom: 10
+                zoom: 10,
             });
         }
     };
 
-    // Save a location from recent search history to saved list
+    // ------------------------------------------------------------------------
+    // 5. Bookmark / Save Location Handler
+    // ------------------------------------------------------------------------
+    /**
+     * Saves a candidate site from search history to the user's permanent profile
+     */
     const handleSave = (theId) => {
         if (!user?.email) {
-            toast.info("Location marked as saved!");
+            toast.info("Location saved to current session!");
             return;
         }
 
-        const locationToSave = displayedSearches.find(recent => recent._id === theId);
+        const locationToSave = displayedSearches.find((recent) => recent._id === theId);
         if (!locationToSave) return;
 
         fetch(`${API_BASE_URL}/savedLocs`, {
             method: "POST",
             headers: {
-                "Content-type": "application/json",
+                "Content-Type": "application/json",
             },
             body: JSON.stringify({
                 ...locationToSave,
@@ -89,123 +133,176 @@ const ShowRecentSearches = ({ onClose }) => {
                 created_by: user.email,
             }),
         })
-            .then(res => res.json())
-            .then(data => {
+            .then((res) => res.json())
+            .then((data) => {
                 if (data.success) {
                     toast.success("Location saved to your profile!");
                 }
             })
-            .catch(err => {
+            .catch((err) => {
                 console.error("Save error:", err);
-                toast.error(err.message || "Failed to save location");
+                toast.error("Failed to save location");
             });
     };
 
-    // Remove an individual search from history
+    // ------------------------------------------------------------------------
+    // 6. Optimistic Removal with 5-Second Undo
+    // ------------------------------------------------------------------------
+    /**
+     * Executes backend deletion after 5 seconds if not undone
+     */
+    const commitBackendDelete = (itemToDelete) => {
+        if (hasDbSearches && user?.email && itemToDelete?._id) {
+            fetch(`${API_BASE_URL}/recent-searches/${itemToDelete._id}`, {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            }).catch((err) => console.error("Async delete error:", err));
+        }
+    };
+
+    /**
+     * Executes backend bulk clear after 5 seconds if not undone
+     */
+    const commitBackendClearAll = () => {
+        if (hasDbSearches && user?.email) {
+            fetch(`${API_BASE_URL}/recent-searches/user/${encodeURIComponent(user.email)}`, {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            }).catch((err) => console.error("Async clear error:", err));
+        }
+    };
+
+    /**
+     * Optimistically removes a single search item and shows the dark Undo Snackbar
+     */
     const handleDelete = (theId) => {
-        Swal.fire({
-            title: "Remove search item?",
-            text: "Remove this candidate site from recent history?",
-            icon: "warning",
-            background: "#151a22",
-            color: "#e2e8f0",
-            showCancelButton: true,
-            confirmButtonColor: "#e11d48",
-            cancelButtonColor: "#334155",
-            confirmButtonText: "Remove"
-        }).then((result) => {
-            if (result.isConfirmed) {
-                if (hasDbSearches && user?.email) {
-                    fetch(`${API_BASE_URL}/recent-searches/${theId}`, {
-                        method: "DELETE",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                    })
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.success) {
-                                setRecentSearched(prev =>
-                                    prev.filter(recent => recent._id !== theId)
-                                );
-                                toast.success("Item removed from history.");
-                            }
-                        })
-                        .catch(err => {
-                            console.error("Delete error:", err);
-                            toast.error("Failed to delete search item.");
-                        });
-                } else {
-                    setDemoSearches(prev => prev.filter(item => item._id !== theId));
-                    toast.success("Item removed from history.");
-                }
+        // If there was a previous uncommitted deletion, commit it now
+        if (pendingDeletion) {
+            if (deletionTimerRef.current) clearTimeout(deletionTimerRef.current);
+            if (pendingDeletion.isBatch) {
+                commitBackendClearAll();
+            } else {
+                commitBackendDelete(pendingDeletion.item);
             }
+        }
+
+        const itemToDelete = displayedSearches.find((item) => item._id === theId);
+        if (!itemToDelete) return;
+
+        // Optimistically remove from state immediately
+        if (hasDbSearches) {
+            setRecentSearched((prev) => prev.filter((item) => item._id !== theId));
+        } else {
+            setDemoSearches((prev) => prev.filter((item) => item._id !== theId));
+        }
+
+        // Schedule backend deletion in 5 seconds
+        const timerId = setTimeout(() => {
+            commitBackendDelete(itemToDelete);
+            setPendingDeletion(null);
+        }, 5000);
+
+        deletionTimerRef.current = timerId;
+
+        setPendingDeletion({
+            item: itemToDelete,
+            isBatch: false,
         });
     };
 
-    // Clear all recent searches
+    /**
+     * Optimistically clears all search items and shows the dark Undo Snackbar
+     */
     const handleDeleteAll = () => {
-        Swal.fire({
-            title: "Clear all searches?",
-            text: "This will clear your recent candidate site searches.",
-            icon: "warning",
-            background: "#151a22",
-            color: "#e2e8f0",
-            showCancelButton: true,
-            confirmButtonColor: "#e11d48",
-            cancelButtonColor: "#334155",
-            confirmButtonText: "Clear all"
-        }).then((result) => {
-            if (result.isConfirmed) {
-                if (hasDbSearches && user?.email) {
-                    fetch(`${API_BASE_URL}/recent-searches/user/${encodeURIComponent(user.email)}`, {
-                        method: "DELETE",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                    })
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.success) {
-                                setRecentSearched([]);
-                                toast.success("All recent searches cleared!");
-                            }
-                        })
-                        .catch(err => {
-                            console.error("Clear error:", err);
-                            toast.error("Failed to clear search history.");
-                        });
-                } else {
-                    setDemoSearches([]);
-                    toast.success("All recent searches cleared!");
-                }
+        if (displayedSearches.length === 0) return;
+
+        // Commit any previous pending deletion
+        if (pendingDeletion) {
+            if (deletionTimerRef.current) clearTimeout(deletionTimerRef.current);
+            if (pendingDeletion.isBatch) {
+                commitBackendClearAll();
+            } else {
+                commitBackendDelete(pendingDeletion.item);
             }
+        }
+
+        const backupItems = [...displayedSearches];
+
+        // Optimistically clear all items immediately
+        if (hasDbSearches) {
+            setRecentSearched([]);
+        } else {
+            setDemoSearches([]);
+        }
+
+        // Schedule backend clear in 5 seconds
+        const timerId = setTimeout(() => {
+            commitBackendClearAll();
+            setPendingDeletion(null);
+        }, 5000);
+
+        deletionTimerRef.current = timerId;
+
+        setPendingDeletion({
+            itemsList: backupItems,
+            isBatch: true,
         });
     };
 
-    return (
-        <div className="w-full text-slate-200 select-none">
-            {/* Top Row: Sidebar Collapse Button (matches top-right '>' in mockup) */}
-            <div className="flex justify-end mb-2">
-                <button
-                    onClick={onClose}
-                    className="w-6 h-6 rounded-md bg-[#1e2530] border border-slate-700/60 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-500 transition cursor-pointer"
-                    title="Collapse sidebar"
-                    aria-label="Collapse sidebar"
-                >
-                    <ChevronRight size={14} />
-                </button>
-            </div>
+    /**
+     * Undoes the pending deletion, restores items immediately, and cancels timer
+     */
+    const handleUndo = () => {
+        if (!pendingDeletion) return;
 
-            {/* Header Toolbar */}
-            <div className="flex justify-between items-center mb-3">
+        // Cancel scheduled backend request
+        if (deletionTimerRef.current) {
+            clearTimeout(deletionTimerRef.current);
+            deletionTimerRef.current = null;
+        }
+
+        if (pendingDeletion.isBatch) {
+            // Restore entire cleared list
+            if (hasDbSearches) {
+                setRecentSearched(pendingDeletion.itemsList);
+            } else {
+                setDemoSearches(pendingDeletion.itemsList);
+            }
+            toast.info("Search history restored.");
+        } else {
+            // Restore single item
+            if (hasDbSearches) {
+                setRecentSearched((prev) => [pendingDeletion.item, ...prev]);
+            } else {
+                setDemoSearches((prev) => [pendingDeletion.item, ...prev]);
+            }
+            toast.info(`Restored "${pendingDeletion.item.name}".`);
+        }
+
+        setPendingDeletion(null);
+    };
+
+    // ------------------------------------------------------------------------
+    // 7. Render
+    // ------------------------------------------------------------------------
+    return (
+        <div className="w-full h-full flex flex-col text-slate-200 select-none relative">
+            {/* Header Toolbar (Leaves pr-8 for top-3.5 right-4 collapse toggle) */}
+            <div className="flex justify-between items-center mb-3 pr-9">
                 <div className="flex items-center gap-2">
                     <Clock3 size={16} className="text-slate-400" />
-                    <h2 className="font-semibold text-sm text-slate-200 tracking-tight">Recent Searches</h2>
+                    <h2 className="font-semibold text-sm text-slate-200 tracking-tight">
+                        Recent Searches
+                    </h2>
                 </div>
 
                 <div className="flex items-center gap-2.5">
                     <button
+                        type="button"
                         onClick={handleDeleteAll}
                         className="text-xs text-slate-400 hover:text-white transition cursor-pointer"
                     >
@@ -218,14 +315,14 @@ const ShowRecentSearches = ({ onClose }) => {
             </div>
 
             {/* List of Recent Search Cards */}
-            <div className="space-y-3 overflow-y-auto max-h-[calc(100vh-140px)] pr-0.5">
+            <div className="space-y-3 overflow-y-auto flex-1 pr-1 custom-scrollbar">
                 {displayedSearches.length > 0 ? (
                     displayedSearches.map((item) => (
                         <div
                             key={item._id}
                             className="bg-[#1e2530] border border-slate-700/60 rounded-xl p-3.5 transition duration-150 hover:border-slate-600/80 shadow-md"
                         >
-                            {/* Card Top Row */}
+                            {/* Card Top Row: Icon, Title, Country & Score */}
                             <div className="flex items-start justify-between gap-3">
                                 <div className="flex items-center gap-3 min-w-0">
                                     <div className="w-8 h-8 rounded-lg bg-[#27313f] border border-slate-700/60 flex items-center justify-center text-slate-400 shrink-0">
@@ -246,9 +343,10 @@ const ShowRecentSearches = ({ onClose }) => {
                                 </span>
                             </div>
 
-                            {/* Card Actions Footer */}
+                            {/* Card Actions Footer: View on Map, Remove, Saved */}
                             <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 mt-2.5 text-xs">
                                 <button
+                                    type="button"
                                     onClick={() => handleViewOnMap(item)}
                                     className="flex items-center gap-1.5 text-slate-400 hover:text-white transition duration-150 cursor-pointer"
                                 >
@@ -258,6 +356,7 @@ const ShowRecentSearches = ({ onClose }) => {
 
                                 <div className="flex items-center gap-3">
                                     <button
+                                        type="button"
                                         onClick={() => handleDelete(item._id)}
                                         className="flex items-center gap-1 text-red-400 hover:text-red-300 transition duration-150 cursor-pointer"
                                     >
@@ -266,6 +365,7 @@ const ShowRecentSearches = ({ onClose }) => {
                                     </button>
 
                                     <button
+                                        type="button"
                                         onClick={() => handleSave(item._id)}
                                         className="flex items-center gap-1 text-slate-300 hover:text-white transition duration-150 cursor-pointer"
                                     >
@@ -282,6 +382,27 @@ const ShowRecentSearches = ({ onClose }) => {
                     </div>
                 )}
             </div>
+
+            {/* ============================================================== */}
+            {/* 5-Second Dark Undo Snackbar Banner                             */}
+            {/* ============================================================== */}
+            {pendingDeletion && (
+                <div className="mt-3 bg-[#181f28] border border-slate-700/80 text-slate-200 rounded-xl px-3.5 py-2.5 shadow-2xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2 duration-150 shrink-0">
+                    <span className="text-xs text-slate-300 truncate">
+                        {pendingDeletion.isBatch
+                            ? "Cleared all recent searches"
+                            : `Removed "${pendingDeletion.item.name}"`}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={handleUndo}
+                        className="flex items-center gap-1 text-xs font-semibold text-[#82a8bf] hover:text-[#97bad0] px-2 py-1 rounded bg-[#202936] border border-[#2f3d4e] transition cursor-pointer shrink-0"
+                    >
+                        <RotateCcw size={12} />
+                        <span>Undo</span>
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
