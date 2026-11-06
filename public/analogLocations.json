@@ -1,0 +1,1328 @@
+{
+  "metadata": {
+    "title": "Earth Planetary Analog Locations",
+    "description": "50 candidate Earth locations for a planetary analog map prototype. Similarity scores are simulated demo values, not scientific measurements.",
+    "isMockData": true,
+    "similarityScoreNote": "All similarityScore values are illustrative placeholders. Do not interpret them as validated scientific similarity percentages.",
+    "version": "1.0"
+  },
+  "locations": [
+    {
+      "id": "analog-001",
+      "name": "Atacama Desert",
+      "country": "Chile",
+      "coordinates": {
+        "latitude": -23.8634,
+        "longitude": -69.1328
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 94,
+      "terrain": [
+        "arid desert",
+        "rocky surface",
+        "salt flats"
+      ],
+      "environment": {
+        "climate": "extremely dry",
+        "vegetation": "very sparse",
+        "elevationMeters": 2400
+      },
+      "description": "Extremely dry desert terrain useful for studying Mars-like surface conditions.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-002",
+      "name": "McMurdo Dry Valleys",
+      "country": "Antarctica",
+      "coordinates": {
+        "latitude": -77.5167,
+        "longitude": 161.0
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 97,
+      "terrain": [
+        "polar desert",
+        "exposed rock",
+        "glacial terrain"
+      ],
+      "environment": {
+        "climate": "extremely cold and dry",
+        "vegetation": "minimal",
+        "elevationMeters": 1000
+      },
+      "description": "Cold, dry valleys used in research on Mars-like environments and microbial survival.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-003",
+      "name": "Mauna Kea",
+      "country": "United States",
+      "coordinates": {
+        "latitude": 19.8207,
+        "longitude": -155.4681
+      },
+      "analogType": [
+        "moon",
+        "mars"
+      ],
+      "similarityScore": 89,
+      "terrain": [
+        "volcanic rock",
+        "lava flows",
+        "high-altitude terrain"
+      ],
+      "environment": {
+        "climate": "cold and dry at summit",
+        "vegetation": "sparse at high elevations",
+        "elevationMeters": 4207
+      },
+      "description": "High volcanic terrain useful for planetary geology and exploration-equipment testing.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-004",
+      "name": "Icelandic Highlands",
+      "country": "Iceland",
+      "coordinates": {
+        "latitude": 64.892,
+        "longitude": -18.675
+      },
+      "analogType": [
+        "mars",
+        "moon"
+      ],
+      "similarityScore": 86,
+      "terrain": [
+        "lava fields",
+        "volcanic rock",
+        "geothermal terrain"
+      ],
+      "environment": {
+        "climate": "cold",
+        "vegetation": "sparse in barren areas",
+        "elevationMeters": 1000
+      },
+      "description": "Volcanic landscapes useful for planetary geology and robotic exploration research.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-005",
+      "name": "Mojave Desert",
+      "country": "United States",
+      "coordinates": {
+        "latitude": 35.0117,
+        "longitude": -115.4734
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 83,
+      "terrain": [
+        "rocky desert",
+        "sand plains",
+        "mountains"
+      ],
+      "environment": {
+        "climate": "hot and dry",
+        "vegetation": "sparse",
+        "elevationMeters": 850
+      },
+      "description": "Dry, rugged terrain suitable for testing rover mobility and field exploration methods.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-006",
+      "name": "Wadi Rum",
+      "country": "Jordan",
+      "coordinates": {
+        "latitude": 29.5321,
+        "longitude": 35.42
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 88,
+      "terrain": [
+        "red sandstone",
+        "rock formations",
+        "sandy plains"
+      ],
+      "environment": {
+        "climate": "arid desert",
+        "vegetation": "sparse",
+        "elevationMeters": 1000
+      },
+      "description": "Red desert landscape often used as an Earth analog for Mars exploration activities.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-007",
+      "name": "Namib Desert",
+      "country": "Namibia",
+      "coordinates": {
+        "latitude": -24.727,
+        "longitude": 15.302
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 85,
+      "terrain": [
+        "sand dunes",
+        "gravel plains",
+        "rocky desert"
+      ],
+      "environment": {
+        "climate": "hyper-arid",
+        "vegetation": "very sparse",
+        "elevationMeters": 500
+      },
+      "description": "Ancient desert with varied arid terrain useful for comparative surface studies.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-008",
+      "name": "San Rafael Swell",
+      "country": "United States",
+      "coordinates": {
+        "latitude": 38.85,
+        "longitude": -110.65
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 81,
+      "terrain": [
+        "canyons",
+        "exposed sedimentary rock",
+        "rocky plateaus"
+      ],
+      "environment": {
+        "climate": "semi-arid",
+        "vegetation": "sparse to moderate",
+        "elevationMeters": 1800
+      },
+      "description": "Exposed geological terrain for studying rock layers, erosion and rover navigation.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-009",
+      "name": "Ladakh Cold Desert",
+      "country": "India",
+      "coordinates": {
+        "latitude": 34.1526,
+        "longitude": 77.5771
+      },
+      "analogType": [
+        "mars",
+        "moon"
+      ],
+      "similarityScore": 84,
+      "terrain": [
+        "high-altitude desert",
+        "rocky mountains",
+        "dry valleys"
+      ],
+      "environment": {
+        "climate": "cold and arid",
+        "vegetation": "sparse",
+        "elevationMeters": 3500
+      },
+      "description": "High-altitude cold desert suitable for studying environmental extremes and field robotics.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-010",
+      "name": "Yungay",
+      "country": "Chile",
+      "coordinates": {
+        "latitude": -24.087,
+        "longitude": -69.93
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 96,
+      "terrain": [
+        "hyper-arid desert",
+        "gravel plains",
+        "salt deposits"
+      ],
+      "environment": {
+        "climate": "hyper-arid",
+        "vegetation": "extremely sparse",
+        "elevationMeters": 1000
+      },
+      "description": "A hyper-arid site in the Atacama region used in research on Mars-like dryness.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-011",
+      "name": "Haughton Crater",
+      "country": "Canada",
+      "coordinates": {
+        "latitude": 75.37,
+        "longitude": -89.68
+      },
+      "analogType": [
+        "moon",
+        "mars"
+      ],
+      "similarityScore": 90,
+      "terrain": [
+        "impact crater",
+        "polar terrain",
+        "exposed rock"
+      ],
+      "environment": {
+        "climate": "polar and cold",
+        "vegetation": "minimal",
+        "elevationMeters": 250
+      },
+      "description": "Arctic impact structure relevant to planetary impact geology and exploration studies.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-012",
+      "name": "Lanzarote Volcanic Fields",
+      "country": "Spain",
+      "coordinates": {
+        "latitude": 29.03,
+        "longitude": -13.64
+      },
+      "analogType": [
+        "moon",
+        "mars"
+      ],
+      "similarityScore": 87,
+      "terrain": [
+        "basaltic lava",
+        "volcanic cones",
+        "bare rock"
+      ],
+      "environment": {
+        "climate": "dry subtropical",
+        "vegetation": "sparse in lava fields",
+        "elevationMeters": 300
+      },
+      "description": "Lava fields and volcanic landscapes provide accessible analog terrain for field studies.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-013",
+      "name": "Svalbard",
+      "country": "Norway",
+      "coordinates": {
+        "latitude": 78.2232,
+        "longitude": 15.6267
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 85,
+      "terrain": [
+        "polar desert",
+        "permafrost",
+        "rocky mountains"
+      ],
+      "environment": {
+        "climate": "polar and cold",
+        "vegetation": "sparse",
+        "elevationMeters": 500
+      },
+      "description": "Cold, remote terrain useful for studying exploration under harsh environmental conditions.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-014",
+      "name": "Salar de Uyuni",
+      "country": "Bolivia",
+      "coordinates": {
+        "latitude": -20.1338,
+        "longitude": -67.4891
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 82,
+      "terrain": [
+        "salt flat",
+        "high plateau",
+        "evaporite deposits"
+      ],
+      "environment": {
+        "climate": "cold and arid",
+        "vegetation": "sparse",
+        "elevationMeters": 3650
+      },
+      "description": "High-altitude salt flat useful for studying evaporite minerals and surface processes.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-015",
+      "name": "Kīlauea Lava Fields",
+      "country": "United States",
+      "coordinates": {
+        "latitude": 19.4069,
+        "longitude": -155.2834
+      },
+      "analogType": [
+        "moon",
+        "mars"
+      ],
+      "similarityScore": 88,
+      "terrain": [
+        "basaltic lava",
+        "volcanic terrain",
+        "rough rock"
+      ],
+      "environment": {
+        "climate": "tropical volcanic",
+        "vegetation": "variable",
+        "elevationMeters": 1200
+      },
+      "description": "Basaltic lava flows provide comparisons for planetary volcanic geology.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-016",
+      "name": "Puna de Atacama",
+      "country": "Argentina",
+      "coordinates": {
+        "latitude": -24.5,
+        "longitude": -67.5
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 86,
+      "terrain": [
+        "high-altitude plateau",
+        "salt flats",
+        "volcanic terrain"
+      ],
+      "environment": {
+        "climate": "cold and arid",
+        "vegetation": "sparse",
+        "elevationMeters": 4000
+      },
+      "description": "High-altitude arid plateau with salt basins and volcanic features.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-017",
+      "name": "Río Tinto",
+      "country": "Spain",
+      "coordinates": {
+        "latitude": 37.7,
+        "longitude": -6.55
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 80,
+      "terrain": [
+        "iron-rich terrain",
+        "acidic river",
+        "mineral deposits"
+      ],
+      "environment": {
+        "climate": "Mediterranean",
+        "vegetation": "patchy",
+        "elevationMeters": 300
+      },
+      "description": "Iron-rich acidic environments are studied as analogs for some Martian geochemical processes.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-018",
+      "name": "Death Valley",
+      "country": "United States",
+      "coordinates": {
+        "latitude": 36.5323,
+        "longitude": -116.9325
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 84,
+      "terrain": [
+        "dry basin",
+        "salt flats",
+        "eroded rock"
+      ],
+      "environment": {
+        "climate": "extremely hot and dry",
+        "vegetation": "sparse",
+        "elevationMeters": 0
+      },
+      "description": "Extreme desert basin with salt flats and varied erosional landforms.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-019",
+      "name": "Painted Desert",
+      "country": "United States",
+      "coordinates": {
+        "latitude": 35.5,
+        "longitude": -110.0
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 78,
+      "terrain": [
+        "layered sedimentary rock",
+        "badlands",
+        "dry terrain"
+      ],
+      "environment": {
+        "climate": "semi-arid",
+        "vegetation": "sparse",
+        "elevationMeters": 1700
+      },
+      "description": "Layered sedimentary exposures offer useful comparisons for interpreting planetary strata.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-020",
+      "name": "Afar Depression",
+      "country": "Ethiopia",
+      "coordinates": {
+        "latitude": 11.5,
+        "longitude": 41.0
+      },
+      "analogType": [
+        "mars",
+        "moon"
+      ],
+      "similarityScore": 85,
+      "terrain": [
+        "volcanic terrain",
+        "salt flats",
+        "rift landscape"
+      ],
+      "environment": {
+        "climate": "hot and arid",
+        "vegetation": "sparse",
+        "elevationMeters": -100
+      },
+      "description": "Active rifting, volcanism and salt deposits create a distinctive extreme environment.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-021",
+      "name": "Dallol Geothermal Area",
+      "country": "Ethiopia",
+      "coordinates": {
+        "latitude": 14.2417,
+        "longitude": 40.3
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 83,
+      "terrain": [
+        "hydrothermal terrain",
+        "salt formations",
+        "mineral crusts"
+      ],
+      "environment": {
+        "climate": "extremely hot and arid",
+        "vegetation": "minimal",
+        "elevationMeters": -125
+      },
+      "description": "Unusual hydrothermal and mineral environments studied in astrobiology research.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-022",
+      "name": "Pāhoehoe Lava Fields, Hawaiʻi",
+      "country": "United States",
+      "coordinates": {
+        "latitude": 19.5,
+        "longitude": -155.5
+      },
+      "analogType": [
+        "moon",
+        "mars"
+      ],
+      "similarityScore": 86,
+      "terrain": [
+        "smooth basalt",
+        "lava flows",
+        "volcanic plains"
+      ],
+      "environment": {
+        "climate": "tropical volcanic",
+        "vegetation": "variable",
+        "elevationMeters": 900
+      },
+      "description": "Basaltic lava surfaces can help researchers study planetary lava morphology.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-023",
+      "name": "La Guajira Desert",
+      "country": "Colombia",
+      "coordinates": {
+        "latitude": 12.2,
+        "longitude": -72.0
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 75,
+      "terrain": [
+        "coastal desert",
+        "sand dunes",
+        "dry plains"
+      ],
+      "environment": {
+        "climate": "hot and dry",
+        "vegetation": "sparse",
+        "elevationMeters": 100
+      },
+      "description": "Arid coastal landscapes with dunes and dry plains.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-024",
+      "name": "Rub' al Khali",
+      "country": "Saudi Arabia",
+      "coordinates": {
+        "latitude": 20.0,
+        "longitude": 50.0
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 80,
+      "terrain": [
+        "sand sea",
+        "dunes",
+        "gravel plains"
+      ],
+      "environment": {
+        "climate": "hyper-arid",
+        "vegetation": "very sparse",
+        "elevationMeters": 500
+      },
+      "description": "Vast dune fields useful for studying aeolian processes and rover mobility challenges.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-025",
+      "name": "White Sands",
+      "country": "United States",
+      "coordinates": {
+        "latitude": 32.7872,
+        "longitude": -106.3257
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 79,
+      "terrain": [
+        "gypsum dunes",
+        "white sand",
+        "dry basin"
+      ],
+      "environment": {
+        "climate": "arid",
+        "vegetation": "sparse",
+        "elevationMeters": 1200
+      },
+      "description": "Gypsum dunes offer a distinctive mineral and sedimentary analog environment.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-026",
+      "name": "Taklamakan Desert",
+      "country": "China",
+      "coordinates": {
+        "latitude": 38.9,
+        "longitude": 83.0
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 78,
+      "terrain": [
+        "sand dunes",
+        "desert basin",
+        "dry terrain"
+      ],
+      "environment": {
+        "climate": "extremely dry",
+        "vegetation": "very sparse",
+        "elevationMeters": 1100
+      },
+      "description": "Large desert basin with extensive dunes and aeolian landforms.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-027",
+      "name": "Gobi Desert",
+      "country": "Mongolia",
+      "coordinates": {
+        "latitude": 42.5,
+        "longitude": 105.0
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 82,
+      "terrain": [
+        "rocky desert",
+        "gravel plains",
+        "exposed bedrock"
+      ],
+      "environment": {
+        "climate": "cold desert",
+        "vegetation": "sparse",
+        "elevationMeters": 1000
+      },
+      "description": "Cold and rocky desert terrain useful for testing field systems and studying erosion.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-028",
+      "name": "Danakil Salt Flats",
+      "country": "Ethiopia",
+      "coordinates": {
+        "latitude": 13.0,
+        "longitude": 40.9
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 81,
+      "terrain": [
+        "salt flats",
+        "evaporites",
+        "volcanic terrain"
+      ],
+      "environment": {
+        "climate": "extremely hot and arid",
+        "vegetation": "minimal",
+        "elevationMeters": -100
+      },
+      "description": "Salt-rich terrain and volcanic features provide a distinctive geochemical analog.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-029",
+      "name": "Namib-Naukluft Gravel Plains",
+      "country": "Namibia",
+      "coordinates": {
+        "latitude": -24.0,
+        "longitude": 15.5
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 84,
+      "terrain": [
+        "gravel plains",
+        "rocky desert",
+        "wind-shaped terrain"
+      ],
+      "environment": {
+        "climate": "hyper-arid",
+        "vegetation": "very sparse",
+        "elevationMeters": 600
+      },
+      "description": "Wind-shaped gravel plains and rocky surfaces are useful for surface-process comparisons.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-030",
+      "name": "Oman Hajar Mountains",
+      "country": "Oman",
+      "coordinates": {
+        "latitude": 23.2,
+        "longitude": 57.3
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 77,
+      "terrain": [
+        "rocky mountains",
+        "dry wadis",
+        "exposed geology"
+      ],
+      "environment": {
+        "climate": "hot and arid",
+        "vegetation": "sparse",
+        "elevationMeters": 1500
+      },
+      "description": "Exposed rock and dry valleys offer a setting for geological field analog work.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-031",
+      "name": "Siccar Point / Scottish Coast",
+      "country": "United Kingdom",
+      "coordinates": {
+        "latitude": 55.918,
+        "longitude": -2.3
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 70,
+      "terrain": [
+        "layered rock",
+        "coastal outcrop",
+        "sedimentary geology"
+      ],
+      "environment": {
+        "climate": "temperate maritime",
+        "vegetation": "moderate",
+        "elevationMeters": 30
+      },
+      "description": "Well-exposed rock layers can support comparative geological interpretation.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-032",
+      "name": "Pilanesberg Volcanic Complex",
+      "country": "South Africa",
+      "coordinates": {
+        "latitude": -25.25,
+        "longitude": 27.08
+      },
+      "analogType": [
+        "moon",
+        "mars"
+      ],
+      "similarityScore": 75,
+      "terrain": [
+        "ancient volcanic terrain",
+        "crater-like ring",
+        "rocky hills"
+      ],
+      "environment": {
+        "climate": "semi-arid",
+        "vegetation": "variable",
+        "elevationMeters": 1200
+      },
+      "description": "Ancient volcanic geology provides examples of complex planetary-style landforms.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-033",
+      "name": "Mount Etna Lava Fields",
+      "country": "Italy",
+      "coordinates": {
+        "latitude": 37.751,
+        "longitude": 14.9934
+      },
+      "analogType": [
+        "moon",
+        "mars"
+      ],
+      "similarityScore": 84,
+      "terrain": [
+        "basaltic lava",
+        "volcanic cones",
+        "rough terrain"
+      ],
+      "environment": {
+        "climate": "Mediterranean volcanic",
+        "vegetation": "sparse on fresh lava",
+        "elevationMeters": 2000
+      },
+      "description": "Active volcanic terrain provides opportunities to study lava flows and surface roughness.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-034",
+      "name": "Reykjanes Peninsula",
+      "country": "Iceland",
+      "coordinates": {
+        "latitude": 63.85,
+        "longitude": -22.5
+      },
+      "analogType": [
+        "moon",
+        "mars"
+      ],
+      "similarityScore": 83,
+      "terrain": [
+        "basaltic lava",
+        "fissures",
+        "volcanic plains"
+      ],
+      "environment": {
+        "climate": "cool maritime",
+        "vegetation": "sparse on lava",
+        "elevationMeters": 100
+      },
+      "description": "Young lava fields and fissures provide useful volcanic analog terrain.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-035",
+      "name": "Sierra Negra Volcano",
+      "country": "Ecuador",
+      "coordinates": {
+        "latitude": -0.83,
+        "longitude": -91.13
+      },
+      "analogType": [
+        "moon",
+        "mars"
+      ],
+      "similarityScore": 80,
+      "terrain": [
+        "basaltic caldera",
+        "lava flows",
+        "volcanic terrain"
+      ],
+      "environment": {
+        "climate": "cool highland tropical",
+        "vegetation": "variable",
+        "elevationMeters": 1124
+      },
+      "description": "A large volcanic caldera and lava fields relevant to comparative volcanology.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-036",
+      "name": "Pinnacles Desert",
+      "country": "Australia",
+      "coordinates": {
+        "latitude": -30.6,
+        "longitude": 115.16
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 72,
+      "terrain": [
+        "sand plains",
+        "limestone pinnacles",
+        "dry terrain"
+      ],
+      "environment": {
+        "climate": "Mediterranean dry",
+        "vegetation": "sparse",
+        "elevationMeters": 20
+      },
+      "description": "Distinctive erosional landforms and sandy terrain suitable for landscape comparisons.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-037",
+      "name": "Simpson Desert",
+      "country": "Australia",
+      "coordinates": {
+        "latitude": -25.0,
+        "longitude": 137.0
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 77,
+      "terrain": [
+        "longitudinal dunes",
+        "sand sea",
+        "arid plains"
+      ],
+      "environment": {
+        "climate": "hot and arid",
+        "vegetation": "very sparse",
+        "elevationMeters": 100
+      },
+      "description": "Extensive linear dunes provide an analog for wind-driven surface processes.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-038",
+      "name": "Lencois Maranhenses",
+      "country": "Brazil",
+      "coordinates": {
+        "latitude": -2.5,
+        "longitude": -43.1
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 65,
+      "terrain": [
+        "dune fields",
+        "seasonal lagoons",
+        "sand terrain"
+      ],
+      "environment": {
+        "climate": "tropical seasonal",
+        "vegetation": "sparse on dunes",
+        "elevationMeters": 30
+      },
+      "description": "Dune patterns offer a useful visual comparison, although the seasonal water cycle differs greatly from Mars.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-039",
+      "name": "Tenerife Teide Volcanic Terrain",
+      "country": "Spain",
+      "coordinates": {
+        "latitude": 28.2723,
+        "longitude": -16.6425
+      },
+      "analogType": [
+        "moon",
+        "mars"
+      ],
+      "similarityScore": 82,
+      "terrain": [
+        "volcanic rock",
+        "ash plains",
+        "lava flows"
+      ],
+      "environment": {
+        "climate": "dry highland",
+        "vegetation": "sparse in volcanic areas",
+        "elevationMeters": 2500
+      },
+      "description": "Volcanic and high-altitude terrain used in planetary field geology and exploration research.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-040",
+      "name": "Salar de Atacama",
+      "country": "Chile",
+      "coordinates": {
+        "latitude": -23.5,
+        "longitude": -68.25
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 85,
+      "terrain": [
+        "salt basin",
+        "evaporite deposits",
+        "arid plateau"
+      ],
+      "environment": {
+        "climate": "hyper-arid",
+        "vegetation": "very sparse",
+        "elevationMeters": 2300
+      },
+      "description": "A major salt basin useful for studying evaporites and dry-environment geochemistry.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-041",
+      "name": "Chott el Djerid",
+      "country": "Tunisia",
+      "coordinates": {
+        "latitude": 33.7,
+        "longitude": 8.45
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 76,
+      "terrain": [
+        "salt pan",
+        "dry basin",
+        "evaporite crust"
+      ],
+      "environment": {
+        "climate": "hot and arid",
+        "vegetation": "sparse",
+        "elevationMeters": 15
+      },
+      "description": "Large salt pan with surface crusts and seasonal water-related features.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-042",
+      "name": "Tassili n'Ajjer",
+      "country": "Algeria",
+      "coordinates": {
+        "latitude": 25.5,
+        "longitude": 9.0
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 79,
+      "terrain": [
+        "sandstone plateau",
+        "rock formations",
+        "desert terrain"
+      ],
+      "environment": {
+        "climate": "hyper-arid",
+        "vegetation": "very sparse",
+        "elevationMeters": 1500
+      },
+      "description": "Eroded sandstone formations and desert plateau terrain support comparative geomorphology.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-043",
+      "name": "Badain Jaran Desert",
+      "country": "China",
+      "coordinates": {
+        "latitude": 39.8,
+        "longitude": 102.5
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 74,
+      "terrain": [
+        "high dunes",
+        "desert lakes",
+        "sand sea"
+      ],
+      "environment": {
+        "climate": "arid",
+        "vegetation": "sparse",
+        "elevationMeters": 1200
+      },
+      "description": "Large dunes provide examples of aeolian landforms, though its lakes are not Mars-like.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-044",
+      "name": "Karakum Desert",
+      "country": "Turkmenistan",
+      "coordinates": {
+        "latitude": 39.0,
+        "longitude": 58.0
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 73,
+      "terrain": [
+        "sand desert",
+        "dry plains",
+        "dunes"
+      ],
+      "environment": {
+        "climate": "arid",
+        "vegetation": "sparse",
+        "elevationMeters": 100
+      },
+      "description": "Dune and dry-plain terrain useful for studying wind-shaped landscapes.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-045",
+      "name": "Pamir Plateau",
+      "country": "Tajikistan",
+      "coordinates": {
+        "latitude": 38.5,
+        "longitude": 73.0
+      },
+      "analogType": [
+        "mars",
+        "moon"
+      ],
+      "similarityScore": 78,
+      "terrain": [
+        "high-altitude plateau",
+        "rocky terrain",
+        "cold desert"
+      ],
+      "environment": {
+        "climate": "cold and arid",
+        "vegetation": "sparse",
+        "elevationMeters": 4000
+      },
+      "description": "High-altitude cold, dry terrain relevant to environmental stress and field exploration.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-046",
+      "name": "Qaidam Basin",
+      "country": "China",
+      "coordinates": {
+        "latitude": 37.0,
+        "longitude": 95.0
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 87,
+      "terrain": [
+        "salt flats",
+        "dry basin",
+        "mineral deposits"
+      ],
+      "environment": {
+        "climate": "cold and arid",
+        "vegetation": "sparse",
+        "elevationMeters": 2800
+      },
+      "description": "A high-altitude basin with salt flats and mineral-rich terrain studied as a Mars analog.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-047",
+      "name": "Mývatn Volcanic Region",
+      "country": "Iceland",
+      "coordinates": {
+        "latitude": 65.6,
+        "longitude": -16.9
+      },
+      "analogType": [
+        "moon",
+        "mars"
+      ],
+      "similarityScore": 79,
+      "terrain": [
+        "lava fields",
+        "volcanic craters",
+        "basalt"
+      ],
+      "environment": {
+        "climate": "cool subarctic",
+        "vegetation": "sparse in lava fields",
+        "elevationMeters": 280
+      },
+      "description": "Volcanic landforms and lava surfaces provide a useful planetary geology field setting.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-048",
+      "name": "Baja California Desert",
+      "country": "Mexico",
+      "coordinates": {
+        "latitude": 28.0,
+        "longitude": -113.5
+      },
+      "analogType": [
+        "mars"
+      ],
+      "similarityScore": 75,
+      "terrain": [
+        "rocky desert",
+        "dry mountains",
+        "sandy plains"
+      ],
+      "environment": {
+        "climate": "hot and dry",
+        "vegetation": "sparse",
+        "elevationMeters": 500
+      },
+      "description": "Desert terrain with rocky outcrops and sandy plains useful for field testing.",
+      "color": "#ef4444",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-049",
+      "name": "Devon Island Polar Terrain",
+      "country": "Canada",
+      "coordinates": {
+        "latitude": 75.0,
+        "longitude": -90.0
+      },
+      "analogType": [
+        "moon",
+        "mars"
+      ],
+      "similarityScore": 88,
+      "terrain": [
+        "polar desert",
+        "permafrost",
+        "impact-related geology nearby"
+      ],
+      "environment": {
+        "climate": "polar and cold",
+        "vegetation": "minimal",
+        "elevationMeters": 500
+      },
+      "description": "Remote Arctic terrain used for analog research and testing exploration operations.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    },
+    {
+      "id": "analog-050",
+      "name": "Valles Caldera Region",
+      "country": "United States",
+      "coordinates": {
+        "latitude": 35.9,
+        "longitude": -106.55
+      },
+      "analogType": [
+        "moon",
+        "mars"
+      ],
+      "similarityScore": 76,
+      "terrain": [
+        "volcanic caldera",
+        "tuff deposits",
+        "rocky terrain"
+      ],
+      "environment": {
+        "climate": "temperate highland",
+        "vegetation": "variable",
+        "elevationMeters": 2600
+      },
+      "description": "Large volcanic caldera and exposed deposits offer opportunities for comparative planetary geology.",
+      "color": "#8b5cf6",
+      "dataSource": "mock"
+    }
+  ]
+}
