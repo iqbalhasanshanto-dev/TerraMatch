@@ -2,6 +2,7 @@ import { useState, useEffect, useContext, useMemo, useCallback } from "react";
 import { Search, Globe, MapPin, Check } from "lucide-react";
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
+import useRecent from "../Hooks/useRecent";
 import StateContext from "../States/StateContext";
 import useAuth from "../Hooks/useAuth";
 import { toast } from "react-toastify";
@@ -11,49 +12,63 @@ import { API_BASE_URL } from "../utils/api";
  * ============================================================================
  * Tweaks Component ("Find a Match" Planetary Analog Filter Panel)
  * ============================================================================
- * Refactored to use the TerraMatch deep-space design tokens:
- * - Panel Container: `#0B0E13` (Sidebar surface) with starlight text `#F1EEE9`
- * - Inputs: `#181A21` (Muted surface) with border `#272C34` and focus ring `#83CAD8`
- * - Filter Pills:
- *   - Active: `#1E2129` (Accent) with border `#83CAD8` and text `#F1EEE9`
- *   - Inactive: `#181A21` with border `#21242C` and muted text `#8891A0`
- * - Sliders: `accent-[#83CAD8]` and readout `#83CAD8`
- * - Primary Action: `#83CAD8` (Primary cyan) with dark slate text `#090D15`
- * - Candidate Cards: `#181A21` with border `#21242C` and hover `#83CAD8`/50
+ * Search and multi-variable filtering panel for planetary analog candidates:
+ * - 100% dynamic MongoDB connection displaying "{locData.length} Sites Live"
+ * - Automatically registers recent searches to MongoDB when user clicks "Search" or "View on map"
+ * - Instant bookmarking via POST /savedLocs with immediate state synchronization
+ * - Full deep-space theme styling with custom slider indicators and segmented controls
  */
 const Tweaks = () => {
     // ------------------------------------------------------------------------
-    // 1. Contexts, Custom Hooks & Authentication
+    // 1. Contexts, Custom Hooks & Global State Subscriptions
     // ------------------------------------------------------------------------
+    // Real catalog locations fetched from MongoDB Location collection
     const { locData } = useLocations();
+    // Filtered locations array and map camera positioning context
     const { filteredLoc, setFilteredLoc, setMapTarget } = useContext(StateContext);
+    // User authentication state for associating database entries
     const { user } = useAuth();
-    const { savedLoc } = useSaved();
+    // Saved locations hook providing user bookmarks and refetch function
+    const { savedLoc, setSavedLoc, refetchSaved } = useSaved();
+    // Recent searches hook providing refetch trigger for real-time sidebar updates
+    const { refetchRecent } = useRecent();
 
     // ------------------------------------------------------------------------
     // 2. Filter State Variables
     // ------------------------------------------------------------------------
+    // Text search query matching location name or country
     const [searchQuery, setSearchQuery] = useState("");
+    // Target planetary body filter ("mars", "moon", or "Any")
     const [targetBody, setTargetBody] = useState("mars");
+    // Qualitative terrain classification filter ("Any", "Rocky", "Sandy", etc.)
     const [terrain, setTerrain] = useState("Any");
+    // Earth humidity regime filter ("Any", "Very dry", "Dry", "Moderate", "Humid")
     const [humidity, setHumidity] = useState("Any");
+    // Qualitative temperature category filter ("Any", "Freezing", "Cold", etc.)
     const [temperature, setTemperature] = useState("Any");
+    // Numeric minimum temperature limit slider (-60°C to 50°C)
     const [tempMin, setTempMin] = useState(-50);
+    // Numeric maximum temperature limit slider (-60°C to 50°C)
     const [tempMax, setTempMax] = useState(40);
+    // Optimistic set of bookmarked IDs to give instant UI feedback on save
     const [optimisticSavedIds, setOptimisticSavedIds] = useState(() => new Set());
 
     // Merged set of saved IDs derived from backend data and optimistic additions
     const savedLocationIds = useMemo(() => {
         const set = new Set(optimisticSavedIds);
         if (savedLoc && savedLoc.length > 0) {
-            savedLoc.forEach((item) => set.add(item._id || item.id || item.name));
+            savedLoc.forEach((item) => {
+                const key = item._id || item.id || item.name;
+                set.add(key);
+            });
         }
         return set;
     }, [savedLoc, optimisticSavedIds]);
 
     // ------------------------------------------------------------------------
-    // 3. Helper: Estimated Site Temperature
+    // 3. Helper: Estimated Site Temperature Derivation
     // ------------------------------------------------------------------------
+    // Calculates a representative surface temperature based on site metadata
     const getEstimatedTemperature = useCallback((location) => {
         if (typeof location.temperature === "number") {
             return location.temperature;
@@ -80,6 +95,7 @@ const Tweaks = () => {
     // ------------------------------------------------------------------------
     // 4. Multi-Variable Filtering Logic
     // ------------------------------------------------------------------------
+    // Filters all MongoDB candidate locations according to active search parameters
     const computeFilteredLocations = useCallback(() => {
         if (!locData || locData.length === 0) return [];
 
@@ -183,6 +199,7 @@ const Tweaks = () => {
     // ------------------------------------------------------------------------
     // 5. Synchronization Effects
     // ------------------------------------------------------------------------
+    // Sync initial filtered locations when MongoDB locations first load
     useEffect(() => {
         if (locData && locData.length > 0) {
             const initialResults = computeFilteredLocations();
@@ -191,13 +208,60 @@ const Tweaks = () => {
     }, [locData, computeFilteredLocations, setFilteredLoc]);
 
     // ------------------------------------------------------------------------
-    // 6. User Action Handlers
+    // 6. Natural Recent Search Logging Handler
     // ------------------------------------------------------------------------
+    // Automatically posts explored analog locations to MongoDB RecentSearches collection
+    const recordRecentSearch = useCallback(
+        async (loc) => {
+            if (!user?.email || !loc) return;
+
+            try {
+                // Prepare clean payload without internal _id to avoid duplicate key errors
+                const payload = {
+                    locationId: loc._id || loc.id,
+                    name: loc.name,
+                    country: loc.country,
+                    similarityScore: loc.similarityScore || 85,
+                    coordinates: loc.coordinates,
+                    analogType: loc.analogType || ["mars"],
+                    environment: loc.environment,
+                    terrain: loc.terrain,
+                    created_at: new Date(),
+                    created_by: user.email,
+                };
+
+                await fetch(`${API_BASE_URL}/recent-searches`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(payload),
+                });
+
+                // Trigger sidebar refresh so recent searches populate dynamically
+                refetchRecent?.();
+            } catch (err) {
+                console.error("Failed to record recent search in MongoDB:", err);
+            }
+        },
+        [user, refetchRecent]
+    );
+
+    // ------------------------------------------------------------------------
+    // 7. User Action Handlers
+    // ------------------------------------------------------------------------
+    // Triggered when user clicks "Search" or presses Enter
     const handleApplyFilters = () => {
         const results = computeFilteredLocations();
         setFilteredLoc(results);
+
+        // If logged in and search yielded matches, record top match to recent searches
+        if (user?.email && results.length > 0) {
+            recordRecentSearch(results[0]);
+        }
     };
 
+    // Resets all filters back to default Mars baseline
     const handleReset = () => {
         setSearchQuery("");
         setTargetBody("mars");
@@ -216,6 +280,7 @@ const Tweaks = () => {
         toast.info("Filters reset to default.");
     };
 
+    // Centers map camera on candidate coordinates and logs to MongoDB recent searches
     const handleViewOnMap = (loc) => {
         if (loc?.coordinates?.latitude && loc?.coordinates?.longitude) {
             setMapTarget({
@@ -224,11 +289,18 @@ const Tweaks = () => {
                 zoom: 10,
             });
         }
+
+        // Record location to user's MongoDB recent search history
+        if (user?.email && loc) {
+            recordRecentSearch(loc);
+        }
     };
 
+    // Bookmarks location to user's MongoDB Saved collection and synchronizes state
     const handleSave = (location) => {
         const locationId = location._id || location.id || location.name;
 
+        // Optimistically record ID in set for instant checkmark appearance
         setOptimisticSavedIds((prev) => {
             const updated = new Set(prev);
             updated.add(locationId);
@@ -240,6 +312,23 @@ const Tweaks = () => {
             return;
         }
 
+        // Optimistically update savedLoc list in useSaved hook
+        if (setSavedLoc) {
+            setSavedLoc((prev) => {
+                if (prev.some((s) => (s._id || s.id || s.name) === locationId)) return prev;
+                return [
+                    {
+                        ...location,
+                        locationId,
+                        created_at: new Date(),
+                        created_by: user.email,
+                    },
+                    ...prev,
+                ];
+            });
+        }
+
+        // Persist to MongoDB Saved collection via backend endpoint
         fetch(`${API_BASE_URL}/savedLocs`, {
             method: "POST",
             headers: {
@@ -247,6 +336,7 @@ const Tweaks = () => {
             },
             body: JSON.stringify({
                 ...location,
+                locationId,
                 created_at: new Date(),
                 created_by: user.email,
             }),
@@ -255,6 +345,8 @@ const Tweaks = () => {
             .then((data) => {
                 if (data.success) {
                     toast.success("Location saved to your profile!");
+                    // Refetch from MongoDB to ensure state parity
+                    refetchSaved?.();
                 }
             })
             .catch((err) => {
@@ -264,7 +356,7 @@ const Tweaks = () => {
     };
 
     // ------------------------------------------------------------------------
-    // 7. Styling Helpers for Pills & Segmented Controls
+    // 8. Styling Helpers for Pills & Segmented Controls
     // ------------------------------------------------------------------------
     const getPillClass = (isSelected) =>
         `px-2.5 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
@@ -278,17 +370,18 @@ const Tweaks = () => {
     }, [filteredLoc]);
 
     // ------------------------------------------------------------------------
-    // 8. Render
+    // 9. Render
     // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full flex flex-col bg-[#0B0E13] text-[#F1EEE9] select-none">
-            {/* Panel Header: "Find a Match" and "Mock Data" Tag */}
+            {/* Panel Header: "Find a Match" and Live Sites Count */}
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#21242C] shrink-0 pr-9">
                 <h2 className="text-sm font-medium text-[#F1EEE9] tracking-tight">
                     Find a Match
                 </h2>
-                <span className="text-[10px] text-[#8891A0] font-mono">
-                    Mock Data
+                {/* Replaced static mock label with dynamic MongoDB sites count */}
+                <span className="text-[10px] text-[#83CAD8] font-mono font-medium">
+                    {locData.length} Sites Live
                 </span>
             </div>
 
@@ -417,7 +510,7 @@ const Tweaks = () => {
                         ))}
                     </div>
 
-                    {/* Contained Range Slider Box (bg-[#181A21], border-[#272C34]) */}
+                    {/* Contained Range Slider Box */}
                     <div className="border border-[#272C34] rounded-lg p-3 bg-[#181A21] space-y-2">
                         {/* Top Indicator Row */}
                         <div className="flex items-center justify-between text-xs">
@@ -477,7 +570,7 @@ const Tweaks = () => {
                 {/* Section: ACTION BUTTONS (Search & Reset Filters)           */}
                 {/* ---------------------------------------------------------- */}
                 <div className="flex items-center gap-2 pt-1">
-                    {/* Primary Search Button with primary token #83CAD8 */}
+                    {/* Primary Search Button */}
                     <button
                         type="button"
                         onClick={handleApplyFilters}
@@ -557,8 +650,13 @@ const Tweaks = () => {
                                                 onClick={() => handleSave(location)}
                                                 className="flex items-center gap-1 text-[#8891A0] hover:text-[#83CAD8] transition duration-150 cursor-pointer"
                                             >
-                                                <Check size={13} className={isSaved ? "text-[#83CAD8]" : "text-[#8891A0]"} />
-                                                <span>{isSaved ? "Saved" : "Save"}</span>
+                                                <Check
+                                                    size={13}
+                                                    className={isSaved ? "text-[#83CAD8]" : "text-[#8891A0]"}
+                                                />
+                                                <span className={isSaved ? "text-[#83CAD8] font-medium" : ""}>
+                                                    {isSaved ? "Saved" : "Save"}
+                                                </span>
                                             </button>
                                         </div>
                                     </div>
@@ -566,7 +664,7 @@ const Tweaks = () => {
                             })
                         ) : (
                             <div className="text-center py-8 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs">
-                                No candidate analog sites match the current filter criteria. Try adjusting the parameters or resetting filters.
+                                No candidate analog sites match the current filter criteria. Try adjusting parameters or resetting filters.
                             </div>
                         )}
                     </div>

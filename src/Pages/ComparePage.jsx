@@ -10,91 +10,98 @@ import { API_BASE_URL } from "../utils/api";
 
 /**
  * ============================================================================
- * Canonical Fallback Locations for Comparison
+ * Helper: Scientific Profile & Dynamic Telemetry Extractor
  * ============================================================================
- * Baseline scientific attributes for Devon Island and Mauna Kea matching
- * the exact values shown in the Compare design mockup.
- */
-const CANONICAL_COMPARE_DATA = {
-    "devon-island": {
-        _id: "devon-island",
-        name: "Devon Island",
-        country: "Canada",
-        targetBody: "MOON",
-        similarityScore: 87,
-        coordinates: { latitude: 75.3333, longitude: -89.6667 },
-        temperatureDisplay: "-16 °C",
-        slopeDisplay: "8 °",
-        radiationDisplay: "6 /10",
-        soilDisplay: "Impact breccia",
-        aridityDisplay: "65 /100",
-        elevationDisplay: "200 m",
-        climate: "Polar Desert",
-        metrics: {
-            temperature: 55,
-            slope: 75,
-            radiation: 58,
-            soil: 88,
-            aridity: 65,
-            elevation: 40,
-        },
-    },
-    "mauna-kea": {
-        _id: "mauna-kea",
-        name: "Mauna Kea",
-        country: "United States",
-        targetBody: "MOON",
-        similarityScore: 81,
-        coordinates: { latitude: 19.8207, longitude: -155.4681 },
-        temperatureDisplay: "2 °C",
-        slopeDisplay: "12 °",
-        radiationDisplay: "9 /10",
-        soilDisplay: "Basaltic tephra",
-        aridityDisplay: "70 /100",
-        elevationDisplay: "4,207 m",
-        climate: "High Altitude Alpine",
-        metrics: {
-            temperature: 75,
-            slope: 60,
-            radiation: 90,
-            soil: 75,
-            aridity: 72,
-            elevation: 85,
-        },
-    },
-};
-
-/**
- * ============================================================================
- * Helper: Scientific Profile & Telemetry Extractor
- * ============================================================================
- * Normalizes any database location into comprehensive telemetry metrics
- * so the preview panel, radial gauge, radar chart, and matrix table
- * work fluidly with any arbitrary selected location.
+ * Transforms any real MongoDB location document into normalized scientific metrics
+ * for the SVG Radar Chart, radial gauges, and parameter comparison matrix table.
  */
 const getScientificProfile = (loc) => {
-    if (!loc) return CANONICAL_COMPARE_DATA["devon-island"];
-
-    const lowerName = (loc.name || "").toLowerCase();
-    if (lowerName.includes("devon")) {
-        return { ...CANONICAL_COMPARE_DATA["devon-island"], ...loc };
-    }
-    if (lowerName.includes("mauna")) {
-        return { ...CANONICAL_COMPARE_DATA["mauna-kea"], ...loc };
+    // Graceful fallback profile while catalog is hydrating from MongoDB
+    if (!loc) {
+        return {
+            name: "Selecting Location...",
+            country: "Candidate Analog",
+            targetBody: "MARS",
+            similarityScore: 80,
+            coordinates: { latitude: 0, longitude: 0 },
+            temperatureDisplay: "0 °C",
+            slopeDisplay: "5 °",
+            radiationDisplay: "5 /10",
+            soilDisplay: "Regolith breccia",
+            aridityDisplay: "50 /100",
+            elevationDisplay: "500 m",
+            climate: "Arid Desert",
+            metrics: {
+                temperature: 50,
+                slope: 50,
+                radiation: 50,
+                soil: 50,
+                aridity: 50,
+                elevation: 50,
+            },
+        };
     }
 
     const elevation = loc.environment?.elevationMeters || 1200;
-    const climate = loc.environment?.climate || "Extreme Arid";
+    const climate = loc.environment?.climate || "Arid surface";
     const score = loc.similarityScore || 75;
-    const targetBody = (loc.analogType && loc.analogType[0]) ? loc.analogType[0].toUpperCase() : "MARS";
+    const targetBody = (loc.analogType && loc.analogType[0])
+        ? loc.analogType[0].toUpperCase()
+        : "MARS";
 
-    const isCold = climate.toLowerCase().includes("cold") || climate.toLowerCase().includes("polar");
-    const isHot = climate.toLowerCase().includes("hot") || climate.toLowerCase().includes("arid");
-    const tempVal = isCold ? -12 : isHot ? 32 : 15;
-    const slopeVal = elevation > 2500 ? 15 : elevation > 1000 ? 9 : 5;
-    const radVal = Math.min(10, Math.max(3, Math.round(elevation / 450)));
-    const aridityVal = isHot ? 88 : isCold ? 62 : 45;
-    const terrainFirst = (loc.terrain && loc.terrain[0]) || "Regolith breccia";
+    // 1. Dynamic Temperature Extraction
+    let tempVal;
+    if (typeof loc.temperature === "number") {
+        tempVal = loc.temperature;
+    } else {
+        const climateLower = climate.toLowerCase();
+        const lat = Math.abs(loc.coordinates?.latitude || 0);
+        if (climateLower.includes("polar") || climateLower.includes("extremely cold") || lat > 70) {
+            tempVal = -22;
+        } else if (climateLower.includes("cold") || climateLower.includes("subarctic") || lat > 55) {
+            tempVal = -8;
+        } else if (climateLower.includes("temperate") || climateLower.includes("mediterranean") || climateLower.includes("cool")) {
+            tempVal = 14;
+        } else if (climateLower.includes("hot") || climateLower.includes("hyper-arid") || climateLower.includes("extremely hot")) {
+            tempVal = 34;
+        } else {
+            tempVal = 18;
+        }
+    }
+    // Normalized 0-100 scale for radar chart
+    const normTemp = Math.min(95, Math.max(25, Math.round(((tempVal + 40) / 85) * 100)));
+
+    // 2. Dynamic Topographic Slope Extraction
+    const slopeDeg = elevation > 3000 ? 16 : elevation > 1500 ? 11 : elevation > 500 ? 7 : 4;
+    const normSlope = Math.min(95, Math.max(30, Math.round(slopeDeg * 5.5)));
+
+    // 3. Dynamic Cosmic/UV Radiation Index
+    const radIndex = Math.min(10, Math.max(3, Math.round((elevation / 450) + 2)));
+    const normRadiation = Math.min(95, Math.max(30, Math.round(radIndex * 9.5)));
+
+    // 4. Dynamic Soil & Regolith Composition
+    const primaryTerrain = (Array.isArray(loc.terrain) && loc.terrain.length > 0)
+        ? loc.terrain[0]
+        : "Regolith breccia";
+    const soilDisplay = primaryTerrain.charAt(0).toUpperCase() + primaryTerrain.slice(1);
+    const normSoil = Math.min(95, Math.max(35, Math.round(score * 0.95)));
+
+    // 5. Dynamic Aridity Index
+    let aridityVal;
+    const climateStr = climate.toLowerCase();
+    if (climateStr.includes("hyper-arid") || climateStr.includes("extremely dry")) {
+        aridityVal = 92;
+    } else if (climateStr.includes("dry") || climateStr.includes("arid") || climateStr.includes("desert")) {
+        aridityVal = 78;
+    } else if (climateStr.includes("polar") || climateStr.includes("cold")) {
+        aridityVal = 64;
+    } else {
+        aridityVal = 42;
+    }
+    const normAridity = Math.min(95, Math.max(30, aridityVal));
+
+    // 6. Dynamic Surface Elevation
+    const normElevation = Math.min(95, Math.max(25, Math.round((elevation / 4500) * 100)));
 
     return {
         ...loc,
@@ -103,18 +110,18 @@ const getScientificProfile = (loc) => {
         similarityScore: score,
         coordinates: loc.coordinates || { latitude: 0, longitude: 0 },
         temperatureDisplay: `${tempVal} °C`,
-        slopeDisplay: `${slopeVal} °`,
-        radiationDisplay: `${radVal} /10`,
-        soilDisplay: terrainFirst.charAt(0).toUpperCase() + terrainFirst.slice(1),
+        slopeDisplay: `${slopeDeg} °`,
+        radiationDisplay: `${radIndex} /10`,
+        soilDisplay,
         aridityDisplay: `${aridityVal} /100`,
         elevationDisplay: `${elevation.toLocaleString()} m`,
         metrics: {
-            temperature: Math.min(95, Math.max(30, 50 + tempVal)),
-            slope: Math.min(95, Math.max(30, slopeVal * 6)),
-            radiation: Math.min(95, Math.max(30, radVal * 9)),
-            soil: Math.min(95, Math.max(40, score - 5)),
-            aridity: Math.min(95, Math.max(30, aridityVal)),
-            elevation: Math.min(95, Math.max(25, Math.round((elevation / 4500) * 100))),
+            temperature: normTemp,
+            slope: normSlope,
+            radiation: normRadiation,
+            soil: normSoil,
+            aridity: normAridity,
+            elevation: normElevation,
         },
     };
 };
@@ -123,41 +130,37 @@ const getScientificProfile = (loc) => {
  * ============================================================================
  * ComparePage Component
  * ============================================================================
- * Provides an interactive scientific comparison of two planetary analog sites,
- * styled with the deep-space palette:
- * - Background: `#07090E` with `#F1EEE9` typography
- * - Card Surfaces: `#0B0E13` with border `#21242C`
- * - Location A: Cyan `#83CAD8` (Chart 1 token)
- * - Location B: Terracotta `#D67051` (Chart 2 token)
- * - Matrix Table: Header `#181A21` with border `#21242C` and winner `#83CAD8`
+ * Provides an interactive scientific comparison of two candidate planetary analog
+ * sites, driven 100% by dynamic MongoDB documents:
+ * - Dropdowns prioritize the user's saved locations at the top
+ * - Automatically respects URL parameters (?ids=id1,id2) when navigating from Saved
+ * - Computes all 6 radar chart axes and matrix table rows dynamically from MongoDB data
+ * - Features deep-space color tokens: Cyan (#83CAD8) for Location A, Terracotta (#D67051) for Location B
  */
 const ComparePage = () => {
     // ------------------------------------------------------------------------
-    // 1. Hooks & Global Data Subscriptions
+    // 1. Hooks & Global Subscriptions
     // ------------------------------------------------------------------------
+    // URL search parameters for loading pre-selected comparison pairs
     const [searchParams, setSearchParams] = useSearchParams();
+    // Real catalog locations fetched from MongoDB Location collection
     const { locData, loading: locLoading } = useLocations();
-    const { savedLoc } = useSaved();
+    // Real saved locations fetched from MongoDB Saved collection
+    const { savedLoc, refetchSaved } = useSaved();
+    // User authentication state
     const { user } = useAuth();
 
     // ------------------------------------------------------------------------
-    // 2. Candidate Locations Pool Aggregation
+    // 2. Candidate Locations Pool Aggregation (Saved locations prioritized)
     // ------------------------------------------------------------------------
     const allLocations = useMemo(() => {
         const pool = [];
         const seen = new Set();
 
-        pool.push(CANONICAL_COMPARE_DATA["devon-island"]);
-        seen.add(CANONICAL_COMPARE_DATA["devon-island"]._id);
-        seen.add(CANONICAL_COMPARE_DATA["devon-island"].name.toLowerCase());
-
-        pool.push(CANONICAL_COMPARE_DATA["mauna-kea"]);
-        seen.add(CANONICAL_COMPARE_DATA["mauna-kea"]._id);
-        seen.add(CANONICAL_COMPARE_DATA["mauna-kea"].name.toLowerCase());
-
+        // Prioritize saved locations at the top of the comparison list
         if (savedLoc && savedLoc.length > 0) {
             savedLoc.forEach((l) => {
-                const key = (l._id || l.id || l.name).toString().toLowerCase();
+                const key = (l._id || l.id || l.name || l.locationId).toString().toLowerCase();
                 if (!seen.has(key)) {
                     seen.add(key);
                     pool.push(l);
@@ -165,6 +168,7 @@ const ComparePage = () => {
             });
         }
 
+        // Append remaining catalog locations from MongoDB
         if (locData && locData.length > 0) {
             locData.forEach((l) => {
                 const key = (l._id || l.id || l.name).toString().toLowerCase();
@@ -186,38 +190,79 @@ const ComparePage = () => {
         return ids ? ids.split(",").filter(Boolean) : [];
     }, [searchParams]);
 
-    const [selectedIdA, setSelectedIdA] = useState(() => {
-        return urlIds[0] || CANONICAL_COMPARE_DATA["devon-island"]._id;
-    });
+    // Track active selection IDs for Location A and Location B
+    const [selectedIdA, setSelectedIdA] = useState(() => urlIds[0] || "");
+    const [selectedIdB, setSelectedIdB] = useState(() => urlIds[1] || "");
 
-    const [selectedIdB, setSelectedIdB] = useState(() => {
-        return urlIds[1] || CANONICAL_COMPARE_DATA["mauna-kea"]._id;
-    });
+    // Derived effective active selection IDs with priority for saved locations
+    const activeIdA = useMemo(() => {
+        if (selectedIdA && allLocations.some((l) => (l._id || l.id || l.locationId) === selectedIdA)) {
+            return selectedIdA;
+        }
+        if (urlIds[0]) return urlIds[0];
+        if (savedLoc && savedLoc.length >= 1) {
+            return savedLoc[0]._id || savedLoc[0].id || savedLoc[0].locationId;
+        }
+        if (allLocations.length > 0) {
+            return allLocations[0]._id || allLocations[0].id;
+        }
+        return "";
+    }, [selectedIdA, allLocations, urlIds, savedLoc]);
 
+    const activeIdB = useMemo(() => {
+        if (selectedIdB && allLocations.some((l) => (l._id || l.id || l.locationId) === selectedIdB)) {
+            return selectedIdB;
+        }
+        if (urlIds[1]) return urlIds[1];
+        if (savedLoc && savedLoc.length >= 2) {
+            return savedLoc[1]._id || savedLoc[1].id || savedLoc[1].locationId;
+        }
+        if (allLocations.length > 1) {
+            const secondChoice = allLocations.find(
+                (l) => (l._id || l.id || l.locationId) !== activeIdA
+            );
+            return secondChoice
+                ? secondChoice._id || secondChoice.id || secondChoice.locationId
+                : allLocations[1]._id || allLocations[1].id;
+        }
+        if (allLocations.length > 0) {
+            return allLocations[0]._id || allLocations[0].id;
+        }
+        return "";
+    }, [selectedIdB, allLocations, urlIds, savedLoc, activeIdA]);
+
+    // Resolve Location A scientific telemetry profile
     const locationA = useMemo(() => {
+        if (allLocations.length === 0) return getScientificProfile(null);
         const found = allLocations.find(
-            (l) => l._id === selectedIdA || l.id === selectedIdA || l.name === selectedIdA
+            (l) => (l._id || l.id || l.locationId) === activeIdA || l.name === activeIdA
         );
-        return getScientificProfile(found || CANONICAL_COMPARE_DATA["devon-island"]);
-    }, [allLocations, selectedIdA]);
+        return getScientificProfile(found || allLocations[0]);
+    }, [allLocations, activeIdA]);
 
+    // Resolve Location B scientific telemetry profile
     const locationB = useMemo(() => {
+        if (allLocations.length === 0) return getScientificProfile(null);
         const found = allLocations.find(
-            (l) => l._id === selectedIdB || l.id === selectedIdB || l.name === selectedIdB
+            (l) => (l._id || l.id || l.locationId) === activeIdB || l.name === activeIdB
         );
-        return getScientificProfile(found || CANONICAL_COMPARE_DATA["mauna-kea"]);
-    }, [allLocations, selectedIdB]);
+        return getScientificProfile(
+            found || (allLocations.length > 1 ? allLocations[1] : allLocations[0])
+        );
+    }, [allLocations, activeIdB]);
 
+    // Handler when user selects a new Location A from dropdown
     const handleChangeA = (e) => {
         const newId = e.target.value;
         setSelectedIdA(newId);
-        setSearchParams({ ids: `${newId},${selectedIdB}` });
+        setSearchParams({ ids: `${newId},${activeIdB || ""}` });
     };
 
+    // Handler when user selects a new Location B from dropdown
     const handleChangeB = (e) => {
         const newId = e.target.value;
         setSelectedIdB(newId);
-        setSearchParams({ ids: `${selectedIdA},${newId}` });
+        setSearchParams({ ids: `${activeIdA || ""},${newId}` });
     };
 
     // ------------------------------------------------------------------------
@@ -227,6 +272,7 @@ const ComparePage = () => {
     const radarCy = 135;
     const radarRadius = 85;
 
+    // 6-axis polar coordinate dimensions for radar chart
     const axes = useMemo(
         () => [
             { key: "temperature", label: "Temperature", angle: -Math.PI / 2 },
@@ -239,6 +285,7 @@ const ComparePage = () => {
         []
     );
 
+    // Converts polar metric score (0-100) into SVG Cartesian coordinates
     const getCoordinates = useCallback(
         (axisIndex, normalizedVal) => {
             const angle = axes[axisIndex].angle;
@@ -251,7 +298,7 @@ const ComparePage = () => {
         [axes]
     );
 
-    // Location A: Cyan polygon (#83CAD8)
+    // Location A: Solid Cyan Polygon (#83CAD8)
     const polygonPointsA = useMemo(() => {
         return axes
             .map((axis, i) => {
@@ -262,7 +309,7 @@ const ComparePage = () => {
             .join(" ");
     }, [axes, locationA, getCoordinates]);
 
-    // Location B: Terracotta dashed polygon (#D67051)
+    // Location B: Dashed Terracotta Polygon (#D67051)
     const polygonPointsB = useMemo(() => {
         return axes
             .map((axis, i) => {
@@ -274,7 +321,7 @@ const ComparePage = () => {
     }, [axes, locationB, getCoordinates]);
 
     // ------------------------------------------------------------------------
-    // 5. Best Overall Match Determination
+    // 5. Best Overall Match Determination & Bookmark Action
     // ------------------------------------------------------------------------
     const winnerLocation = useMemo(() => {
         return locationA.similarityScore >= locationB.similarityScore
@@ -295,6 +342,7 @@ const ComparePage = () => {
             },
             body: JSON.stringify({
                 ...winnerLocation,
+                locationId: winnerLocation._id || winnerLocation.id,
                 created_at: new Date(),
                 created_by: user.email,
             }),
@@ -303,6 +351,7 @@ const ComparePage = () => {
             .then((data) => {
                 if (data.success) {
                     toast.success(`"${winnerLocation.name}" saved to your profile!`);
+                    refetchSaved?.();
                 }
             })
             .catch((err) => {
@@ -315,6 +364,9 @@ const ComparePage = () => {
 
     const arcCircumference = Math.PI * 55;
 
+    // ------------------------------------------------------------------------
+    // 6. Render
+    // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full overflow-y-auto bg-[#07090E] text-[#F1EEE9] select-none px-4 sm:px-6 lg:px-12 py-8 pb-20">
             <div className="max-w-6xl mx-auto space-y-6">
@@ -331,7 +383,7 @@ const ComparePage = () => {
                 </div>
 
                 {/* ========================================================== */}
-                {/* 2. Top Split View: Selectors vs. Radar Chart               */}
+                {/* 2. Top Split View: Dynamic Selectors vs. Radar Chart       */}
                 {/* ========================================================== */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
                     {/* ------------------------------------------------------ */}
@@ -347,15 +399,34 @@ const ComparePage = () => {
 
                                 <div className="relative mb-3">
                                     <select
-                                        value={selectedIdA}
+                                        value={activeIdA}
                                         onChange={handleChangeA}
                                         className="w-full bg-[#181A21] border border-[#272C34] rounded-lg px-3 py-2 text-xs text-[#F1EEE9] appearance-none pr-9 focus:outline-none focus:border-[#83CAD8] cursor-pointer"
                                     >
-                                        {allLocations.map((loc) => (
-                                            <option key={loc._id || loc.id} value={loc._id || loc.id} className="bg-[#181A21]">
-                                                {loc.name} ({loc.country})
-                                            </option>
-                                        ))}
+                                        {/* Group 1: User's saved bookmarks */}
+                                        {savedLoc && savedLoc.length > 0 && (
+                                            <optgroup label="⭐ Saved Locations (Your Bookmarks)">
+                                                {savedLoc.map((loc) => {
+                                                    const key = loc._id || loc.id || loc.locationId;
+                                                    return (
+                                                        <option key={`saved-a-${key}`} value={key} className="bg-[#181A21]">
+                                                            ★ {loc.name} ({loc.country})
+                                                        </option>
+                                                    );
+                                                })}
+                                            </optgroup>
+                                        )}
+                                        {/* Group 2: All MongoDB catalog locations */}
+                                        <optgroup label="🌍 All Catalog Locations">
+                                            {locData.map((loc) => {
+                                                const key = loc._id || loc.id;
+                                                return (
+                                                    <option key={`cat-a-${key}`} value={key} className="bg-[#181A21]">
+                                                        {loc.name} ({loc.country})
+                                                    </option>
+                                                );
+                                            })}
+                                        </optgroup>
                                     </select>
                                     <ChevronDown
                                         size={15}
@@ -443,15 +514,34 @@ const ComparePage = () => {
 
                                 <div className="relative mb-3">
                                     <select
-                                        value={selectedIdB}
+                                        value={activeIdB}
                                         onChange={handleChangeB}
                                         className="w-full bg-[#181A21] border border-[#272C34] rounded-lg px-3 py-2 text-xs text-[#F1EEE9] appearance-none pr-9 focus:outline-none focus:border-[#D67051] cursor-pointer"
                                     >
-                                        {allLocations.map((loc) => (
-                                            <option key={loc._id || loc.id} value={loc._id || loc.id} className="bg-[#181A21]">
-                                                {loc.name} ({loc.country})
-                                            </option>
-                                        ))}
+                                        {/* Group 1: User's saved bookmarks */}
+                                        {savedLoc && savedLoc.length > 0 && (
+                                            <optgroup label="⭐ Saved Locations (Your Bookmarks)">
+                                                {savedLoc.map((loc) => {
+                                                    const key = loc._id || loc.id || loc.locationId;
+                                                    return (
+                                                        <option key={`saved-b-${key}`} value={key} className="bg-[#181A21]">
+                                                            ★ {loc.name} ({loc.country})
+                                                        </option>
+                                                    );
+                                                })}
+                                            </optgroup>
+                                        )}
+                                        {/* Group 2: All MongoDB catalog locations */}
+                                        <optgroup label="🌍 All Catalog Locations">
+                                            {locData.map((loc) => {
+                                                const key = loc._id || loc.id;
+                                                return (
+                                                    <option key={`cat-b-${key}`} value={key} className="bg-[#181A21]">
+                                                        {loc.name} ({loc.country})
+                                                    </option>
+                                                );
+                                            })}
+                                        </optgroup>
                                     </select>
                                     <ChevronDown
                                         size={15}
@@ -557,10 +647,10 @@ const ComparePage = () => {
                                 {[0.25, 0.5, 0.75, 1.0].map((level) => {
                                     const gridRingPoints = axes
                                         .map((axis) => {
-                                             const r = radarRadius * level;
-                                             const x = radarCx + r * Math.cos(axis.angle);
-                                             const y = radarCy + r * Math.sin(axis.angle);
-                                             return `${x.toFixed(1)},${y.toFixed(1)}`;
+                                            const r = radarRadius * level;
+                                            const x = radarCx + r * Math.cos(axis.angle);
+                                            const y = radarCy + r * Math.sin(axis.angle);
+                                            return `${x.toFixed(1)},${y.toFixed(1)}`;
                                         })
                                         .join(" ");
 
@@ -679,10 +769,15 @@ const ComparePage = () => {
                                     Average Temperature
                                 </td>
                                 <td className="py-3 px-5 font-mono text-[#F1EEE9]">
+                                    {locationA.metrics.temperature >= locationB.metrics.temperature && (
+                                        <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    )}
                                     {locationA.temperatureDisplay}
                                 </td>
                                 <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                    <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    {locationB.metrics.temperature > locationA.metrics.temperature && (
+                                        <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    )}
                                     {locationB.temperatureDisplay}
                                 </td>
                             </tr>
@@ -693,10 +788,15 @@ const ComparePage = () => {
                                     Topographic Slope
                                 </td>
                                 <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                    <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    {locationA.metrics.slope >= locationB.metrics.slope && (
+                                        <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    )}
                                     {locationA.slopeDisplay}
                                 </td>
                                 <td className="py-3 px-5 font-mono text-[#F1EEE9]">
+                                    {locationB.metrics.slope > locationA.metrics.slope && (
+                                        <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    )}
                                     {locationB.slopeDisplay}
                                 </td>
                             </tr>
@@ -707,10 +807,15 @@ const ComparePage = () => {
                                     Radiation Index
                                 </td>
                                 <td className="py-3 px-5 font-mono text-[#F1EEE9]">
+                                    {locationA.metrics.radiation >= locationB.metrics.radiation && (
+                                        <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    )}
                                     {locationA.radiationDisplay}
                                 </td>
                                 <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                    <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    {locationB.metrics.radiation > locationA.metrics.radiation && (
+                                        <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    )}
                                     {locationB.radiationDisplay}
                                 </td>
                             </tr>
@@ -721,9 +826,15 @@ const ComparePage = () => {
                                     Soil & Regolith Composition
                                 </td>
                                 <td className="py-3 px-5 font-mono text-[#F1EEE9]">
+                                    {locationA.metrics.soil >= locationB.metrics.soil && (
+                                        <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    )}
                                     {locationA.soilDisplay}
                                 </td>
                                 <td className="py-3 px-5 font-mono text-[#F1EEE9]">
+                                    {locationB.metrics.soil > locationA.metrics.soil && (
+                                        <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    )}
                                     {locationB.soilDisplay}
                                 </td>
                             </tr>
@@ -734,10 +845,15 @@ const ComparePage = () => {
                                     Aridity Index
                                 </td>
                                 <td className="py-3 px-5 font-mono text-[#F1EEE9]">
+                                    {locationA.metrics.aridity >= locationB.metrics.aridity && (
+                                        <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    )}
                                     {locationA.aridityDisplay}
                                 </td>
                                 <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                    <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    {locationB.metrics.aridity > locationA.metrics.aridity && (
+                                        <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    )}
                                     {locationB.aridityDisplay}
                                 </td>
                             </tr>
@@ -748,10 +864,15 @@ const ComparePage = () => {
                                     Surface Elevation
                                 </td>
                                 <td className="py-3 px-5 font-mono text-[#F1EEE9]">
+                                    {locationA.metrics.elevation >= locationB.metrics.elevation && (
+                                        <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    )}
                                     {locationA.elevationDisplay}
                                 </td>
                                 <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                    <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    {locationB.metrics.elevation > locationA.metrics.elevation && (
+                                        <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">✓</span>
+                                    )}
                                     {locationB.elevationDisplay}
                                 </td>
                             </tr>

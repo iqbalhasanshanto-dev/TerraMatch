@@ -8,158 +8,43 @@ import {
     RefreshCw,
     X,
     HardDrive,
+    Trash2,
 } from "lucide-react";
 import { API_BASE_URL } from "../utils/api";
 import { toast } from "react-toastify";
 
 /**
  * ============================================================================
- * Planetary Datasets Catalog
- * ============================================================================
- * Curated planetary archives, digital elevation models (DEMs), spectral
- * surveys, and Earth remote sensing feeds integrated into TerraMatch.
- */
-const DATASET_CATALOG = [
-    {
-        id: "mgs-mola",
-        name: "Mars Global Surveyor (MGS MOLA)",
-        provider: "NASA JPL",
-        targetBody: "Mars",
-        category: "mars",
-        dataTypes: ["Elevation DEM", "Topography"],
-        resolution: "128 px/deg (463 m)",
-        volumeGigabytes: 1400,
-        volumeDisplay: "1.4 TB",
-        status: "Live & Synced",
-        feed: true,
-        description:
-            "Global laser altimetry topographic surface map used as the primary planetary elevation and roughness datum for martian analog correlation.",
-    },
-    {
-        id: "lro-lola",
-        name: "Lunar Reconnaissance Orbiter (LRO LOLA)",
-        provider: "NASA GSFC",
-        targetBody: "Moon",
-        category: "moon",
-        dataTypes: ["Altimetry DEM", "Crater Slope"],
-        resolution: "5 m/px Polar",
-        volumeGigabytes: 820,
-        volumeDisplay: "820 GB",
-        status: "Live & Synced",
-        feed: true,
-        description:
-            "High-precision laser altimeter datasets evaluating lunar south pole slope gradients and micro-cold-trap illumination environments.",
-    },
-    {
-        id: "hirise-crism",
-        name: "HiRISE Mineralogical Imagery (CRISM)",
-        provider: "NASA / U. Arizona",
-        targetBody: "Mars",
-        category: "mars",
-        dataTypes: ["Basalt Spectroscopy", "Surface Mineralogy"],
-        resolution: "0.25 m/px",
-        volumeGigabytes: 2800,
-        volumeDisplay: "2.8 TB",
-        status: "Live & Synced",
-        feed: true,
-        description:
-            "Hyperspectral infrared reflectance and visual orthomosaics identifying phyllosilicates, olivine, and sulfates across candidate martian landing zones.",
-    },
-    {
-        id: "srtm-elevation",
-        name: "Shuttle Radar Topography Mission (SRTM)",
-        provider: "USGS / NASA",
-        targetBody: "Earth",
-        category: "earth",
-        dataTypes: ["Elevation DEM", "Geomorphology"],
-        resolution: "30 m/px Global",
-        volumeGigabytes: 340,
-        volumeDisplay: "340 GB",
-        status: "Live & Synced",
-        feed: false,
-        description:
-            "Global digital elevation models for Earth field research sites, enabling multi-scale slope matching with extraterrestrial test polygons.",
-    },
-    {
-        id: "mro-sharad",
-        name: "Mars Reconnaissance Orbiter (SHARAD)",
-        provider: "ASI / NASA JPL",
-        targetBody: "Mars",
-        category: "mars",
-        dataTypes: ["Radar Sounding", "Subsurface Ice"],
-        resolution: "15 m Depth",
-        volumeGigabytes: 460,
-        volumeDisplay: "460 GB",
-        status: "Live & Synced",
-        feed: true,
-        description:
-            "Subsurface sounding radar data mapping shallow glaciers and permafrost sheets analogous to high-latitude terrestrial polar permafrost.",
-    },
-    {
-        id: "sentinel-2",
-        name: "Copernicus Sentinel-2 Surface Reflectance",
-        provider: "ESA",
-        targetBody: "Earth",
-        category: "earth",
-        dataTypes: ["Multispectral", "Vegetation Index"],
-        resolution: "10 m Multispectral",
-        volumeGigabytes: 1100,
-        volumeDisplay: "1.1 TB",
-        status: "Live & Synced",
-        feed: true,
-        description:
-            "High-cadence multispectral surface observation monitoring aridity extremes, soil moisture, and sparse vegetation at Earth analog proving grounds.",
-    },
-    {
-        id: "kaguya-selene",
-        name: "Kaguya (SELENE) Terrain Camera Archive",
-        provider: "JAXA",
-        targetBody: "Moon",
-        category: "moon",
-        dataTypes: ["Stereo DEM", "Lava Tube Skylights"],
-        resolution: "10 m Global",
-        volumeGigabytes: 520,
-        volumeDisplay: "520 GB",
-        status: "Live & Synced",
-        feed: false,
-        description:
-            "Lunar surface stereo photogrammetry documenting mare basalt collapse pits and lava tube entrances for subterranean planetary habitat modeling.",
-    },
-    {
-        id: "usgs-astrogeology",
-        name: "USGS Planetary GIS & Geologic Mapping",
-        provider: "USGS Astrogeology",
-        targetBody: "Moon & Mars",
-        category: "moon",
-        dataTypes: ["Stratigraphy", "Impact Breccia"],
-        resolution: "1:5,000,000 Global",
-        volumeGigabytes: 180,
-        volumeDisplay: "180 GB",
-        status: "Live & Synced",
-        feed: false,
-        description:
-            "Standardized geological callsets classifying impact melt sheets, regolith breccia, and volcanic basalt stratigraphy across lunar and martian bodies.",
-    },
-];
-
-/**
- * ============================================================================
  * DataServerPage Component
  * ============================================================================
- * Elevated Data Sources & Planetary Archives directory, updated to use the
- * custom deep-space design tokens:
- * - Page Background: `#07090E` with starlight text `#F1EEE9`
- * - Card Surfaces: `#0B0E13` (Card) with border `#21242C` and hover `#83CAD8`/50
- * - Inactive Tags & Badges: `#181A21` (Muted) with text `#8891A0`
- * - Active Category Filters: `#1A1D23` (Secondary) with text `#F1EEE9`
- * - Telemetry Storage Footer: `#0B0E13` with primary button `#83CAD8`
+ * Elevated Data Sources & Planetary Archives directory, powered 100% dynamically
+ * by MongoDB:
+ * - Fetches datasets dynamically from GET /data-sources
+ * - Modal form connects custom planetary archives directly to MongoDB via POST /data-sources
+ * - Dynamically appends new datasets to state and recalculates total storage volume
+ * - Deep-space palette design tokens:
+ *   - Page Background: `#07090E` with starlight typography `#F1EEE9`
+ *   - Card Surfaces: `#0B0E13` with border `#21242C` and hover `#83CAD8`/50
+ *   - Active Category Filters: `#1A1D23` with `#F1EEE9`
+ *   - Storage Volume Footer: `#0B0E13` with primary action button `#83CAD8`
  */
 const DataServerPage = () => {
     // ------------------------------------------------------------------------
-    // 1. Filter & Search State Management
+    // 1. Planetary Datasets Collection State (MongoDB)
     // ------------------------------------------------------------------------
+    // Dynamic dataset documents fetched from MongoDB DataSources collection
+    const [datasets, setDatasets] = useState([]);
+    // Loading indicator for initial database hydration
+    const [loadingDatasets, setLoadingDatasets] = useState(true);
+
+    // ------------------------------------------------------------------------
+    // 2. Filter & Search State Variables
+    // ------------------------------------------------------------------------
+    // Active planetary category filter ("all", "moon", "mars", "earth", "feeds")
     const [activeCategory, setActiveCategory] = useState("all");
+    // Text search query matching dataset name, provider, body, or data types
     const [searchQuery, setSearchQuery] = useState("");
+    // Ingestion modal open/close toggle state
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     // Form inputs for custom dataset ingestion modal
@@ -169,14 +54,16 @@ const DataServerPage = () => {
     const [customEndpoint, setCustomEndpoint] = useState("");
 
     // ------------------------------------------------------------------------
-    // 2. Backend Health Telemetry State
+    // 3. Backend Health Telemetry State
     // ------------------------------------------------------------------------
+    // Health check telemetry monitor for API & database connectivity
     const [healthStatus, setHealthStatus] = useState({
         loading: false,
         healthy: true,
         data: null,
     });
 
+    // Pings backend /health endpoint to check server & database status
     const pingServer = () => {
         setHealthStatus((prev) => ({ ...prev, loading: true }));
         fetch(`${API_BASE_URL}/health`)
@@ -197,8 +84,32 @@ const DataServerPage = () => {
             });
     };
 
+    // ------------------------------------------------------------------------
+    // 4. Data Fetching Effects (GET /data-sources & GET /health)
+    // ------------------------------------------------------------------------
+    // Fetch live data sources from MongoDB on component mount
     useEffect(() => {
         let isMounted = true;
+
+        fetch(`${API_BASE_URL}/data-sources`)
+            .then((res) => res.json())
+            .then((data) => {
+                if (isMounted) {
+                    if (Array.isArray(data)) {
+                        setDatasets(data);
+                    } else {
+                        setDatasets([]);
+                    }
+                }
+            })
+            .catch((err) => {
+                console.error("Failed to load planetary datasets from MongoDB:", err);
+            })
+            .finally(() => {
+                if (isMounted) setLoadingDatasets(false);
+            });
+
+        // Initial health check ping
         fetch(`${API_BASE_URL}/health`)
             .then((res) => res.json())
             .then((data) => {
@@ -226,7 +137,7 @@ const DataServerPage = () => {
     }, []);
 
     // ------------------------------------------------------------------------
-    // 3. Category Filter Definitions
+    // 5. Category Filter Definitions
     // ------------------------------------------------------------------------
     const categoryPills = [
         { id: "all", label: "All Sources" },
@@ -237,26 +148,30 @@ const DataServerPage = () => {
     ];
 
     // ------------------------------------------------------------------------
-    // 4. Dataset Filtering & Volume Calculations
+    // 6. Dataset Filtering & Volume Calculations
     // ------------------------------------------------------------------------
+    // Computes filtered datasets list based on active category and text query
     const filteredDatasets = useMemo(() => {
-        return DATASET_CATALOG.filter((item) => {
+        return datasets.filter((item) => {
+            const body = item.targetBody || "";
+            const category = item.category || "";
+
             if (activeCategory === "moon") {
-                if (item.category !== "moon" && !item.targetBody.includes("Moon")) return false;
+                if (category !== "moon" && !body.includes("Moon")) return false;
             } else if (activeCategory === "mars") {
-                if (item.category !== "mars" && !item.targetBody.includes("Mars")) return false;
+                if (category !== "mars" && !body.includes("Mars")) return false;
             } else if (activeCategory === "earth") {
-                if (item.category !== "earth" && !item.targetBody.includes("Earth")) return false;
+                if (category !== "earth" && !body.includes("Earth")) return false;
             } else if (activeCategory === "feeds") {
                 if (!item.feed) return false;
             }
 
             if (searchQuery.trim()) {
                 const query = searchQuery.trim().toLowerCase();
-                const nameMatch = item.name.toLowerCase().includes(query);
-                const providerMatch = item.provider.toLowerCase().includes(query);
-                const bodyMatch = item.targetBody.toLowerCase().includes(query);
-                const typeMatch = item.dataTypes.some((t) => t.toLowerCase().includes(query));
+                const nameMatch = (item.name || "").toLowerCase().includes(query);
+                const providerMatch = (item.provider || "").toLowerCase().includes(query);
+                const bodyMatch = body.toLowerCase().includes(query);
+                const typeMatch = Array.isArray(item.dataTypes) && item.dataTypes.some((t) => t.toLowerCase().includes(query));
                 if (!nameMatch && !providerMatch && !bodyMatch && !typeMatch) {
                     return false;
                 }
@@ -264,33 +179,104 @@ const DataServerPage = () => {
 
             return true;
         });
-    }, [activeCategory, searchQuery]);
+    }, [datasets, activeCategory, searchQuery]);
 
+    // Recalculates total storage volume dynamically across filtered datasets
     const totalVolumeDisplay = useMemo(() => {
-        const totalGB = filteredDatasets.reduce((sum, item) => sum + item.volumeGigabytes, 0);
+        const totalGB = filteredDatasets.reduce(
+            (sum, item) => sum + (Number(item.volumeGigabytes) || 0),
+            0
+        );
         const inTB = (totalGB / 1000).toFixed(2);
         return `${inTB} TB`;
     }, [filteredDatasets]);
 
     // ------------------------------------------------------------------------
-    // 5. Custom Source Ingestion Handler
+    // 7. Custom Source Ingestion Handler (POST /data-sources)
     // ------------------------------------------------------------------------
-    const handleAddCustomSource = (e) => {
+    // Registers a new user-connected archive to MongoDB DataSources collection
+    const handleAddCustomSource = async (e) => {
         e.preventDefault();
         if (!customSourceName.trim()) {
             toast.warn("Please enter a dataset name.");
             return;
         }
 
-        toast.success(`Custom dataset "${customSourceName}" successfully staged!`);
-        setIsAddModalOpen(false);
-        setCustomSourceName("");
-        setCustomProvider("");
-        setCustomEndpoint("");
+        const newSourcePayload = {
+            name: customSourceName.trim(),
+            provider: customProvider.trim() || "Independent Mission Contributor",
+            targetBody: customTargetBody,
+            category: customTargetBody.toLowerCase(),
+            dataTypes: ["Orbital Telemetry", "Planetary DEM"],
+            resolution: "Variable / High-Res",
+            volumeGigabytes: 250,
+            volumeDisplay: "250 GB",
+            status: "Live & Synced",
+            feed: true,
+            description: `User-connected planetary archive for ${customTargetBody} exploration via ${customEndpoint.trim() || "direct STAC catalog feed"}.`,
+            endpoint: customEndpoint.trim(),
+            created_at: new Date(),
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/data-sources`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(newSourcePayload),
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                const createdDoc = result.data || {
+                    ...newSourcePayload,
+                    _id: result.insertedId || Date.now().toString(),
+                };
+                // Prepend newly created source directly into state
+                setDatasets((prev) => [createdDoc, ...prev]);
+                toast.success(`Custom dataset "${customSourceName}" successfully connected to MongoDB!`);
+                // Close modal and reset form
+                setIsAddModalOpen(false);
+                setCustomSourceName("");
+                setCustomProvider("");
+                setCustomEndpoint("");
+            } else {
+                toast.error("Failed to connect custom source to database.");
+            }
+        } catch (err) {
+            console.error("Error creating custom data source:", err);
+            toast.error("Network error while connecting custom data source.");
+        }
     };
 
     // ------------------------------------------------------------------------
-    // 6. Render
+    // 8. Custom Source Deletion Handler (DELETE /data-sources/:id)
+    // ------------------------------------------------------------------------
+    const handleDeleteSource = (datasetId, datasetName) => {
+        if (!datasetId) return;
+
+        fetch(`${API_BASE_URL}/data-sources/${datasetId}`, {
+            method: "DELETE",
+            headers: {
+                "Content-Type": "application/json",
+            },
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.success) {
+                    setDatasets((prev) => prev.filter((d) => (d._id || d.id) !== datasetId));
+                    toast.info(`Removed archive "${datasetName}".`);
+                }
+            })
+            .catch((err) => {
+                console.error("Error deleting source:", err);
+                toast.error("Failed to remove data source");
+            });
+    };
+
+    // ------------------------------------------------------------------------
+    // 9. Render
     // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full overflow-y-auto bg-[#07090E] text-[#F1EEE9] select-none px-4 sm:px-6 lg:px-12 py-8 pb-16">
@@ -308,7 +294,7 @@ const DataServerPage = () => {
                             Data Sources & Planetary Archives
                         </h1>
                         <p className="text-xs text-[#8891A0]">
-                            Integrated mission telemetry, topographic DEMs, and orbital datasets.
+                            Integrated mission telemetry, topographic DEMs, and orbital datasets stored in MongoDB.
                         </p>
                     </div>
 
@@ -323,7 +309,7 @@ const DataServerPage = () => {
                                 }`}
                             />
                             <span className="text-[#F1EEE9] font-medium">
-                                {healthStatus.healthy ? "API Feeds Online" : "Telemetry Standby"}
+                                {healthStatus.healthy ? "MongoDB & Feeds Online" : "Telemetry Standby"}
                             </span>
                         </div>
 
@@ -394,66 +380,96 @@ const DataServerPage = () => {
                 {/* 3. Modern Dataset Directory Layout (Cards Grid)           */}
                 {/* ========================================================== */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4.5 pt-2">
-                    {filteredDatasets.length > 0 ? (
-                        filteredDatasets.map((dataset) => (
-                            <div
-                                key={dataset.id}
-                                className="bg-[#0B0E13] border border-[#21242C] rounded-xl p-5 flex flex-col justify-between hover:border-[#83CAD8]/50 transition-all duration-150 shadow-md group"
-                            >
-                                <div>
-                                    {/* Top Row: Mission Name & Provider */}
-                                    <div className="flex items-start justify-between gap-3 mb-2">
-                                        <div className="min-w-0">
-                                            <h3 className="text-sm font-semibold text-[#F1EEE9] truncate leading-tight group-hover:text-white transition">
-                                                {dataset.name}
-                                            </h3>
-                                            <p className="text-xs text-[#8891A0] mt-0.5">
-                                                {dataset.provider}
-                                            </p>
+                    {loadingDatasets ? (
+                        <div className="col-span-full text-center py-16 text-[#8891A0] text-xs">
+                            <RefreshCw size={24} className="animate-spin mx-auto mb-2 text-[#83CAD8]" />
+                            <p>Loading planetary datasets from MongoDB...</p>
+                        </div>
+                    ) : filteredDatasets.length > 0 ? (
+                        filteredDatasets.map((dataset) => {
+                            const datasetId = dataset._id || dataset.id;
+                            const isCustom = !dataset.id?.startsWith("mgs") &&
+                                             !dataset.id?.startsWith("lro") &&
+                                             !dataset.id?.startsWith("hirise") &&
+                                             !dataset.id?.startsWith("srtm") &&
+                                             !dataset.id?.startsWith("mro") &&
+                                             !dataset.id?.startsWith("sentinel") &&
+                                             !dataset.id?.startsWith("kaguya") &&
+                                             !dataset.id?.startsWith("usgs");
+
+                            return (
+                                <div
+                                    key={datasetId}
+                                    className="bg-[#0B0E13] border border-[#21242C] rounded-xl p-5 flex flex-col justify-between hover:border-[#83CAD8]/50 transition-all duration-150 shadow-md group relative"
+                                >
+                                    <div>
+                                        {/* Top Row: Mission Name & Provider */}
+                                        <div className="flex items-start justify-between gap-3 mb-2">
+                                            <div className="min-w-0 pr-2">
+                                                <h3 className="text-sm font-semibold text-[#F1EEE9] truncate leading-tight group-hover:text-white transition">
+                                                    {dataset.name}
+                                                </h3>
+                                                <p className="text-xs text-[#8891A0] mt-0.5">
+                                                    {dataset.provider}
+                                                </p>
+                                            </div>
+
+                                            {/* Target Planetary Body Badge */}
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#181A21] border border-[#21242C] text-[#8891A0]">
+                                                    {dataset.targetBody}
+                                                </span>
+                                                {isCustom && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteSource(datasetId, dataset.name)}
+                                                        className="text-[#8891A0] hover:text-[#D04D39] p-1 transition cursor-pointer"
+                                                        title="Remove custom source"
+                                                    >
+                                                        <Trash2 size={13} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
 
-                                        {/* Target Planetary Body Badge */}
-                                        <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#181A21] border border-[#21242C] text-[#8891A0] shrink-0">
-                                            {dataset.targetBody}
-                                        </span>
+                                        {/* Narrative Description */}
+                                        <p className="text-[11px] text-[#8891A0] leading-relaxed line-clamp-2 mb-3">
+                                            {dataset.description}
+                                        </p>
+
+                                        {/* Data Types Tags */}
+                                        <div className="flex flex-wrap gap-1.5 mb-4">
+                                            {Array.isArray(dataset.dataTypes) &&
+                                                dataset.dataTypes.map((type) => (
+                                                    <span
+                                                        key={type}
+                                                        className="px-2 py-0.5 rounded-md text-[10px] bg-[#07090E] border border-[#21242C] text-[#8891A0] font-mono"
+                                                    >
+                                                        {type}
+                                                    </span>
+                                                ))}
+                                        </div>
                                     </div>
 
-                                    {/* Narrative Description */}
-                                    <p className="text-[11px] text-[#8891A0] leading-relaxed line-clamp-2 mb-3">
-                                        {dataset.description}
-                                    </p>
-
-                                    {/* Data Types Tags */}
-                                    <div className="flex flex-wrap gap-1.5 mb-4">
-                                        {dataset.dataTypes.map((type) => (
-                                            <span
-                                                key={type}
-                                                className="px-2 py-0.5 rounded-md text-[10px] bg-[#07090E] border border-[#21242C] text-[#8891A0] font-mono"
-                                            >
-                                                {type}
+                                    {/* Bottom Telemetry Row: Resolution, Volume & Integration Status */}
+                                    <div className="flex items-center justify-between border-t border-[#21242C] pt-3 text-xs">
+                                        <div className="flex items-center gap-3 text-[#8891A0] font-mono text-[11px]">
+                                            <span>Res: {dataset.resolution}</span>
+                                            <span>•</span>
+                                            <span className="text-[#F1EEE9] font-semibold">
+                                                {dataset.volumeDisplay}
                                             </span>
-                                        ))}
+                                        </div>
+
+                                        {/* Live Status Pill with emerald indicator */}
+                                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/40 border border-emerald-800/40 text-emerald-400 text-[10px] font-medium">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                            <span>{dataset.status || "Live & Synced"}</span>
+                                        </div>
                                     </div>
                                 </div>
-
-                                {/* Bottom Telemetry Row: Resolution, Volume & Integration Status */}
-                                <div className="flex items-center justify-between border-t border-[#21242C] pt-3 text-xs">
-                                    <div className="flex items-center gap-3 text-[#8891A0] font-mono text-[11px]">
-                                        <span>Res: {dataset.resolution}</span>
-                                        <span>•</span>
-                                        <span className="text-[#F1EEE9] font-semibold">
-                                            {dataset.volumeDisplay}
-                                        </span>
-                                    </div>
-
-                                    {/* Live Status Pill with emerald indicator */}
-                                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/40 border border-emerald-800/40 text-emerald-400 text-[10px] font-medium">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                        <span>{dataset.status}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        ))
+                            );
+                        })
                     ) : (
                         <div className="col-span-full text-center py-16 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs my-6">
                             <Globe2 size={32} className="mx-auto opacity-40 mb-2.5 text-[#8891A0]" />
@@ -468,7 +484,7 @@ const DataServerPage = () => {
                 </div>
 
                 {/* ============================================================== */}
-                {/* 4. Static Telemetry Footer Block                               */}
+                {/* 4. Dynamic Telemetry Footer Block                              */}
                 {/* ============================================================== */}
                 <aside
                     aria-label="Planetary telemetry storage overview"
@@ -480,11 +496,12 @@ const DataServerPage = () => {
                             <HardDrive size={16} />
                         </div>
                         <div>
+                            {/* Dynamically computes active count and total storage volume */}
                             <p className="text-xs sm:text-sm font-semibold text-[#F1EEE9] leading-tight">
                                 {filteredDatasets.length} data sources integrated • {totalVolumeDisplay} total volume
                             </p>
                             <p className="text-[11px] text-[#8891A0] mt-0.5">
-                                OGC WMS/WMTS endpoints & Cloud-Optimized GeoTIFFs (COG) active.
+                                OGC WMS/WMTS endpoints & Cloud-Optimized GeoTIFFs (COG) active in MongoDB.
                             </p>
                         </div>
                     </div>

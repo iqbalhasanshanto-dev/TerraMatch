@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Globe, Trash2, ArrowRight, ListFilter, Check, RotateCcw } from "lucide-react";
+import { Globe, Trash2, ArrowRight, ListFilter, Check, RotateCcw, Bookmark } from "lucide-react";
 import useSaved from "../Hooks/useSaved";
 import Loader from "../Components/Loader";
 import { API_BASE_URL } from "../utils/api";
@@ -8,54 +8,9 @@ import { toast } from "react-toastify";
 
 /**
  * ============================================================================
- * Canonical Demo Saved Locations
- * ============================================================================
- * Initial demo data matching candidate analog sites and relative timestamps.
- * Rendered when a visitor explores the page without database bookmarks.
- */
-const CANONICAL_SAVED_LOCATIONS = [
-    {
-        _id: "demo-devon-island",
-        name: "Devon Island",
-        country: "Canada",
-        analogType: ["moon"],
-        similarityScore: 87,
-        created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // Saved 1 day ago
-        coordinates: { latitude: 75.3333, longitude: -89.6667 },
-    },
-    {
-        _id: "demo-atacama-desert",
-        name: "Atacama Desert",
-        country: "Chile",
-        analogType: ["mars"],
-        similarityScore: 89,
-        created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // Saved 2 days ago
-        coordinates: { latitude: -23.8634, longitude: -69.1328 },
-    },
-    {
-        _id: "demo-mauna-kea",
-        name: "Mauna Kea",
-        country: "United States",
-        analogType: ["moon"],
-        similarityScore: 81,
-        created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // Saved 3 days ago
-        coordinates: { latitude: 19.8207, longitude: -155.4681 },
-    },
-    {
-        _id: "demo-mcmurdo-valleys",
-        name: "McMurdo Dry Valleys",
-        country: "Antarctica",
-        analogType: ["mars"],
-        similarityScore: 84,
-        created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // Saved 5 days ago
-        coordinates: { latitude: -77.5167, longitude: 161.0 },
-    },
-];
-
-/**
- * ============================================================================
  * Relative Timestamp Formatter Helper
  * ============================================================================
+ * Formats ISO date strings into human-readable relative time descriptions.
  */
 const formatRelativeTime = (dateVal) => {
     if (!dateVal) return "Saved recently";
@@ -73,39 +28,41 @@ const formatRelativeTime = (dateVal) => {
  * ============================================================================
  * SavedPage Component
  * ============================================================================
- * Displays bookmarked candidate planetary analog sites in a dark space-themed
- * 3-column grid with target body filter pills, sorting options, optimistic site
- * removal with 5-second Dark Undo Snackbar, active comparison highlight borders,
- * and a floating bottom comparison action banner:
- * - Background: `#07090E` with `#F1EEE9` typography
- * - Cards: `#0B0E13` with border `#21242C` and comparison highlight `#83CAD8`
- * - Controls: `#1A1D23` (Active) & `#0B0E13` (Inactive) with `#8891A0`
- * - Primary Action: `#83CAD8` with dark text `#090D15`
- * - Undo Banner: `#090B10` with `#21242C` border and `#83CAD8` action
+ * Bookmarked planetary analog sites directory connected 100% to MongoDB:
+ * - Starts with a clean slate (0 saved locations for fresh users)
+ * - Renders ONLY real user saved locations fetched via GET /savedLocs/:email
+ * - Selected for compare starts as an empty array []
+ * - Clean empty state with direct link to "/search" when no bookmarks exist
+ * - Target body filter pills ("all", "moon", "mars") and sorting criteria
+ * - 5-Second optimistic removal with Dark Undo snackbar banner
+ * - Floating side-by-side comparison action bar when >= 2 sites are selected
  */
 const SavedPage = () => {
     // ------------------------------------------------------------------------
     // 1. Data Hooks & Backend Integration
     // ------------------------------------------------------------------------
+    // Real saved locations array, state updater, and loading status from MongoDB
     const { savedLoc, setSavedLoc, loading } = useSaved();
-    const [demoItems, setDemoItems] = useState(CANONICAL_SAVED_LOCATIONS);
 
     // ------------------------------------------------------------------------
-    // 2. Filter & Sorting State Variables
+    // 2. Filter, Sort & Compare Selection State Variables
     // ------------------------------------------------------------------------
+    // Planetary body target filter: "all", "moon", or "mars"
     const [targetFilter, setTargetFilter] = useState("all");
+    // Sorting order: "newest", "oldest", "score", or "name"
     const [sortOrder, setSortOrder] = useState("newest");
-    const [selectedForCompare, setSelectedForCompare] = useState([
-        "demo-devon-island",
-        "demo-mauna-kea",
-    ]);
+    // Comparison selection list initialized to empty array (no hardcoded demo IDs)
+    const [selectedForCompare, setSelectedForCompare] = useState([]);
 
     // ------------------------------------------------------------------------
     // 3. Optimistic Deletion & 5-Second Undo State Management
     // ------------------------------------------------------------------------
+    // Tracks currently deleted item staged for permanent MongoDB deletion
     const [pendingDeletion, setPendingDeletion] = useState(null);
+    // Timeout ref for scheduling backend deletion commit
     const deletionTimerRef = useRef(null);
 
+    // Clean up active deletion timer when component unmounts
     useEffect(() => {
         return () => {
             if (deletionTimerRef.current) {
@@ -115,18 +72,14 @@ const SavedPage = () => {
     }, []);
 
     // ------------------------------------------------------------------------
-    // 4. Data Source Selection
+    // 4. Data Pool & Filtering/Sorting Calculation
     // ------------------------------------------------------------------------
+    // Data pool derived strictly from real user saved locations in MongoDB
     const activeLocationsPool = useMemo(() => {
-        if (savedLoc && savedLoc.length > 0) {
-            return savedLoc;
-        }
-        return demoItems;
-    }, [savedLoc, demoItems]);
+        return savedLoc || [];
+    }, [savedLoc]);
 
-    // ------------------------------------------------------------------------
-    // 5. Filtering and Sorting Calculation
-    // ------------------------------------------------------------------------
+    // Computed filtered and sorted locations list based on user controls
     const displayedItems = useMemo(() => {
         const filtered = activeLocationsPool.filter((item) => {
             if (targetFilter === "moon") {
@@ -140,13 +93,13 @@ const SavedPage = () => {
 
         return [...filtered].sort((a, b) => {
             if (sortOrder === "newest") {
-                const timeA = new Date(a.created_at || 0).getTime();
-                const timeB = new Date(b.created_at || 0).getTime();
+                const timeA = new Date(a.created_at || a.updated_at || 0).getTime();
+                const timeB = new Date(b.created_at || b.updated_at || 0).getTime();
                 return timeB - timeA;
             }
             if (sortOrder === "oldest") {
-                const timeA = new Date(a.created_at || 0).getTime();
-                const timeB = new Date(b.created_at || 0).getTime();
+                const timeA = new Date(a.created_at || a.updated_at || 0).getTime();
+                const timeB = new Date(b.created_at || b.updated_at || 0).getTime();
                 return timeA - timeB;
             }
             if (sortOrder === "score") {
@@ -160,8 +113,9 @@ const SavedPage = () => {
     }, [activeLocationsPool, targetFilter, sortOrder]);
 
     // ------------------------------------------------------------------------
-    // 6. Comparison Selection Handlers
+    // 5. Comparison Checkbox Handlers
     // ------------------------------------------------------------------------
+    // Toggles selection of a location for side-by-side comparison
     const toggleCompare = (locId) => {
         setSelectedForCompare((prev) =>
             prev.includes(locId)
@@ -170,16 +124,19 @@ const SavedPage = () => {
         );
     };
 
+    // Clears all currently selected comparison items
     const clearSelectedForCompare = () => {
         setSelectedForCompare([]);
     };
 
     // ------------------------------------------------------------------------
-    // 7. Optimistic Deletion & Undo Actions
+    // 6. Optimistic Deletion & Backend Commit Routines
     // ------------------------------------------------------------------------
-    const commitBackendDelete = (itemToDelete, isRealDb) => {
-        if (isRealDb && itemToDelete?._id) {
-            fetch(`${API_BASE_URL}/savedLocs/${itemToDelete._id}`, {
+    // Permanently removes a saved location document from MongoDB
+    const commitBackendDelete = (itemToDelete) => {
+        const idToDelete = itemToDelete?._id || itemToDelete?.id || itemToDelete?.locationId;
+        if (idToDelete) {
+            fetch(`${API_BASE_URL}/savedLocs/${idToDelete}`, {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json",
@@ -188,67 +145,71 @@ const SavedPage = () => {
         }
     };
 
+    // Staged deletion handler triggered when user clicks trash button
     const handleDelete = (theId) => {
+        // If an item deletion is already in progress, finalize it immediately
         if (pendingDeletion) {
             if (deletionTimerRef.current) clearTimeout(deletionTimerRef.current);
-            commitBackendDelete(pendingDeletion.item, pendingDeletion.isRealDbItem);
+            commitBackendDelete(pendingDeletion.item);
         }
 
-        const isRealDbItem = Boolean(savedLoc && savedLoc.some((item) => item._id === theId));
-        const itemToRemove = activeLocationsPool.find((item) => item._id === theId);
+        const itemToRemove = activeLocationsPool.find(
+            (item) => (item._id || item.id || item.locationId) === theId
+        );
         if (!itemToRemove) return;
 
         const wasCompared = selectedForCompare.includes(theId);
 
-        if (isRealDbItem) {
-            setSavedLoc((prev) => prev.filter((item) => item._id !== theId));
-        } else {
-            setDemoItems((prev) => prev.filter((item) => item._id !== theId));
-        }
+        // Optimistically remove from state
+        setSavedLoc((prev) =>
+            prev.filter((item) => (item._id || item.id || item.locationId) !== theId)
+        );
         setSelectedForCompare((prev) => prev.filter((id) => id !== theId));
 
+        // Schedule backend delete after 5 seconds
         const timerId = setTimeout(() => {
-            commitBackendDelete(itemToRemove, isRealDbItem);
+            commitBackendDelete(itemToRemove);
             setPendingDeletion(null);
         }, 5000);
 
         deletionTimerRef.current = timerId;
 
+        // Stage deletion for undo banner
         setPendingDeletion({
             item: itemToRemove,
             wasCompared,
-            isRealDbItem,
         });
     };
 
+    // Restores item if user clicks "Undo" within 5 seconds
     const handleUndoDelete = () => {
         if (!pendingDeletion) return;
 
+        // Cancel scheduled backend deletion timer
         if (deletionTimerRef.current) {
             clearTimeout(deletionTimerRef.current);
             deletionTimerRef.current = null;
         }
 
-        const { item, wasCompared, isRealDbItem } = pendingDeletion;
+        const { item, wasCompared } = pendingDeletion;
 
-        if (isRealDbItem) {
-            setSavedLoc((prev) => [item, ...prev]);
-        } else {
-            setDemoItems((prev) => [item, ...prev]);
-        }
+        // Restore item back to savedLoc state
+        setSavedLoc((prev) => [item, ...prev]);
 
         if (wasCompared) {
-            setSelectedForCompare((prev) => [...prev, item._id]);
+            const locId = item._id || item.id || item.locationId;
+            setSelectedForCompare((prev) => [...prev, locId]);
         }
 
         toast.info(`Restored "${item.name}" to saved locations.`);
         setPendingDeletion(null);
     };
 
+    // Render loading animation while initial MongoDB request is in-flight
     if (loading) return <Loader />;
 
     // ------------------------------------------------------------------------
-    // 8. Render
+    // 7. Render
     // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full overflow-y-auto bg-[#07090E] text-[#F1EEE9] select-none px-4 sm:px-6 lg:px-12 py-8 pb-32">
@@ -268,83 +229,108 @@ const SavedPage = () => {
                 {/* ========================================================== */}
                 {/* 2. Controls Toolbar: Target Filter Pills & Sort Dropdown   */}
                 {/* ========================================================== */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
-                    {/* Left: Planetary Body Filter Pills (All Targets, Moon, Mars) */}
-                    <div className="flex items-center gap-2">
-                        {/* All Targets Pill */}
-                        <button
-                            type="button"
-                            onClick={() => setTargetFilter("all")}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
-                                targetFilter === "all"
-                                    ? "bg-[#1A1D23] border border-[#21242C] text-[#F1EEE9] shadow-sm"
-                                    : "bg-[#0B0E13] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9]"
-                            }`}
-                        >
-                            All Targets
-                        </button>
-
-                        {/* Moon Target Pill */}
-                        <button
-                            type="button"
-                            onClick={() => setTargetFilter("moon")}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
-                                targetFilter === "moon"
-                                    ? "bg-[#1A1D23] border border-[#21242C] text-[#F1EEE9] shadow-sm"
-                                    : "bg-[#0B0E13] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9]"
-                            }`}
-                        >
-                            Moon
-                        </button>
-
-                        {/* Mars Target Pill */}
-                        <button
-                            type="button"
-                            onClick={() => setTargetFilter("mars")}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
-                                targetFilter === "mars"
-                                    ? "bg-[#1A1D23] border border-[#21242C] text-[#F1EEE9] shadow-sm"
-                                    : "bg-[#0B0E13] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9]"
-                            }`}
-                        >
-                            Mars
-                        </button>
-                    </div>
-
-                    {/* Right: Sort Dropdown Menu */}
-                    <div className="flex items-center gap-2">
-                        <div className="relative flex items-center bg-[#0B0E13] border border-[#21242C] rounded-lg px-2.5 py-1.5 text-xs text-[#F1EEE9] hover:border-[#272C34] transition">
-                            <ListFilter size={14} className="text-[#8891A0] mr-2 shrink-0" />
-                            <span className="text-[#8891A0] mr-1.5">Sort:</span>
-                            <select
-                                value={sortOrder}
-                                onChange={(e) => setSortOrder(e.target.value)}
-                                className="bg-transparent text-[#F1EEE9] text-xs focus:outline-none cursor-pointer pr-2"
+                {activeLocationsPool.length > 0 && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+                        {/* Left: Planetary Body Filter Pills (All Targets, Moon, Mars) */}
+                        <div className="flex items-center gap-2">
+                            {/* All Targets Pill */}
+                            <button
+                                type="button"
+                                onClick={() => setTargetFilter("all")}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
+                                    targetFilter === "all"
+                                        ? "bg-[#1A1D23] border border-[#21242C] text-[#F1EEE9] shadow-sm"
+                                        : "bg-[#0B0E13] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9]"
+                                }`}
                             >
-                                <option value="newest" className="bg-[#0B0E13] text-[#F1EEE9]">
-                                    Date Added (Newest)
-                                </option>
-                                <option value="oldest" className="bg-[#0B0E13] text-[#F1EEE9]">
-                                    Date Added (Oldest)
-                                </option>
-                                <option value="score" className="bg-[#0B0E13] text-[#F1EEE9]">
-                                    Similarity Score (Highest)
-                                </option>
-                                <option value="name" className="bg-[#0B0E13] text-[#F1EEE9]">
-                                    Location Name (A-Z)
-                                </option>
-                            </select>
+                                All Targets
+                            </button>
+
+                            {/* Moon Target Pill */}
+                            <button
+                                type="button"
+                                onClick={() => setTargetFilter("moon")}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
+                                    targetFilter === "moon"
+                                        ? "bg-[#1A1D23] border border-[#21242C] text-[#F1EEE9] shadow-sm"
+                                        : "bg-[#0B0E13] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9]"
+                                }`}
+                            >
+                                Moon
+                            </button>
+
+                            {/* Mars Target Pill */}
+                            <button
+                                type="button"
+                                onClick={() => setTargetFilter("mars")}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
+                                    targetFilter === "mars"
+                                        ? "bg-[#1A1D23] border border-[#21242C] text-[#F1EEE9] shadow-sm"
+                                        : "bg-[#0B0E13] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9]"
+                                }`}
+                            >
+                                Mars
+                            </button>
+                        </div>
+
+                        {/* Right: Sort Dropdown Menu */}
+                        <div className="flex items-center gap-2">
+                            <div className="relative flex items-center bg-[#0B0E13] border border-[#21242C] rounded-lg px-2.5 py-1.5 text-xs text-[#F1EEE9] hover:border-[#272C34] transition">
+                                <ListFilter size={14} className="text-[#8891A0] mr-2 shrink-0" />
+                                <span className="text-[#8891A0] mr-1.5">Sort:</span>
+                                <select
+                                    value={sortOrder}
+                                    onChange={(e) => setSortOrder(e.target.value)}
+                                    className="bg-transparent text-[#F1EEE9] text-xs focus:outline-none cursor-pointer pr-2"
+                                >
+                                    <option value="newest" className="bg-[#0B0E13] text-[#F1EEE9]">
+                                        Date Added (Newest)
+                                    </option>
+                                    <option value="oldest" className="bg-[#0B0E13] text-[#F1EEE9]">
+                                        Date Added (Oldest)
+                                    </option>
+                                    <option value="score" className="bg-[#0B0E13] text-[#F1EEE9]">
+                                        Similarity Score (Highest)
+                                    </option>
+                                    <option value="name" className="bg-[#0B0E13] text-[#F1EEE9]">
+                                        Location Name (A-Z)
+                                    </option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* ========================================================== */}
-                {/* 3. Location Cards Grid (3 Columns)                         */}
+                {/* 3. Location Cards Grid / Clean Empty States                */}
                 {/* ========================================================== */}
-                {displayedItems.length > 0 ? (
+                {activeLocationsPool.length === 0 ? (
+                    /* Clean Slate Empty State when user has 0 saved locations */
+                    <div className="text-center py-20 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs my-8 max-w-md mx-auto space-y-4">
+                        <Bookmark size={36} className="mx-auto opacity-40 text-[#83CAD8]" />
+                        <div className="space-y-1.5">
+                            <h2 className="font-semibold text-[#F1EEE9] text-base">
+                                No saved analog sites yet
+                            </h2>
+                            <p className="text-xs text-[#8891A0] leading-relaxed">
+                                You haven&apos;t saved any analog sites yet. Explore the Search page to bookmark locations.
+                            </p>
+                        </div>
+                        <div className="pt-2">
+                            <Link
+                                to="/search"
+                                className="inline-flex items-center gap-2 bg-[#83CAD8] hover:opacity-90 text-[#090D15] font-semibold px-4 py-2 rounded-lg text-xs transition cursor-pointer shadow-sm"
+                            >
+                                <span>Explore Locations</span>
+                                <ArrowRight size={14} />
+                            </Link>
+                        </div>
+                    </div>
+                ) : displayedItems.length > 0 ? (
+                    /* 3-Column Card Grid displaying bookmarked analog sites */
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4.5 pt-2">
                         {displayedItems.map((location) => {
-                            const locId = location._id || location.id || location.name;
+                            const locId = location._id || location.id || location.locationId;
                             const isChecked = selectedForCompare.includes(locId);
 
                             const primaryType =
@@ -412,7 +398,11 @@ const SavedPage = () => {
                                                         : "bg-[#181A21] border-[#272C34] text-transparent"
                                                 }`}
                                             >
-                                                <Check size={11} strokeWidth={3} className={isChecked ? "text-[#090D15]" : "opacity-0"} />
+                                                <Check
+                                                    size={11}
+                                                    strokeWidth={3}
+                                                    className={isChecked ? "text-[#090D15]" : "opacity-0"}
+                                                />
                                             </div>
                                             <span className="text-xs text-[#F1EEE9] font-medium">
                                                 Compare
@@ -435,10 +425,11 @@ const SavedPage = () => {
                         })}
                     </div>
                 ) : (
+                    /* Empty state for active filter criteria */
                     <div className="text-center py-16 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs my-6">
                         <Globe size={32} className="mx-auto opacity-40 mb-2.5 text-[#8891A0]" />
                         <p className="font-medium text-[#F1EEE9] text-sm">
-                            No saved locations found for this filter.
+                            No saved locations match this filter.
                         </p>
                         <p className="text-[11px] text-[#8891A0] mt-1">
                             Switch filter to &quot;All Targets&quot; or search candidate sites to bookmark them.
