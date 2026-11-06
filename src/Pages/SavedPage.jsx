@@ -1,241 +1,430 @@
-import { Funnel, Globe, Trash, CheckSquare, Square, ArrowRight } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Globe, Trash2, ArrowRight, ListFilter, Check } from "lucide-react";
 import useSaved from "../Hooks/useSaved";
-import { useState } from "react";
 import Loader from "../Components/Loader";
 import Swal from "sweetalert2";
-import Container from "../Components/Container";
 import { API_BASE_URL } from "../utils/api";
 import { Link } from "react-router";
+import { toast } from "react-toastify";
 
 /**
+ * ============================================================================
+ * Canonical Demo Saved Locations
+ * ============================================================================
+ * Initial demo data matching the exact sites and timestamps shown in
+ * the Save Location - 2.png mockup. Rendered as fallback when an
+ * unauthenticated visitor visits the page or when the saved list is empty.
+ */
+const CANONICAL_SAVED_LOCATIONS = [
+    {
+        _id: "demo-devon-island",
+        name: "Devon Island",
+        country: "Canada",
+        analogType: ["moon"],
+        similarityScore: 87,
+        created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // Saved 1 day ago
+        coordinates: { latitude: 75.3333, longitude: -89.6667 },
+    },
+    {
+        _id: "demo-atacama-desert",
+        name: "Atacama Desert",
+        country: "Chile",
+        analogType: ["mars"],
+        similarityScore: 89,
+        created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // Saved 2 days ago
+        coordinates: { latitude: -23.8634, longitude: -69.1328 },
+    },
+    {
+        _id: "demo-mauna-kea",
+        name: "Mauna Kea",
+        country: "United States",
+        analogType: ["moon"],
+        similarityScore: 81,
+        created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // Saved 3 days ago
+        coordinates: { latitude: 19.8207, longitude: -155.4681 },
+    },
+    {
+        _id: "demo-mcmurdo-valleys",
+        name: "McMurdo Dry Valleys",
+        country: "Antarctica",
+        analogType: ["mars"],
+        similarityScore: 84,
+        created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // Saved 5 days ago
+        coordinates: { latitude: -77.5167, longitude: 161.0 },
+    },
+];
+
+/**
+ * ============================================================================
+ * Relative Timestamp Formatter Helper
+ * ============================================================================
+ * Formats a past ISO date string into a friendly relative label,
+ * matching the mockup format (e.g., "Saved 1 day ago", "Saved 2 days ago").
+ *
+ * @param {string|Date} dateVal - Creation ISO timestamp
+ * @returns {string} - Relative time string
+ */
+const formatRelativeTime = (dateVal) => {
+    if (!dateVal) return "Saved recently";
+    const then = new Date(dateVal).getTime();
+    const now = Date.now();
+    const diffMs = Math.max(0, now - then);
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) return "Saved today";
+    if (diffDays === 1) return "Saved 1 day ago";
+    return `Saved ${diffDays} days ago`;
+};
+
+/**
+ * ============================================================================
  * SavedPage Component
- * Displays candidate planetary analog locations bookmarked by the authenticated user.
- * Supports filtering by target body (Moon/Mars), sorting by date, removing items, and comparison selection.
+ * ============================================================================
+ * Renders the saved candidate planetary analog sites in a dark space-themed
+ * 3-column grid with target body filter pills, sorting options, individual
+ * site removal, active comparison highlight borders, and a floating bottom
+ * action banner.
  */
 const SavedPage = () => {
+    // ------------------------------------------------------------------------
+    // 1. Data Hooks & Backend Integration
+    // ------------------------------------------------------------------------
     const { savedLoc, setSavedLoc, loading } = useSaved();
 
-    // Local filter and sorting states
-    const [targetFilter, setTargetFilter] = useState("all"); // 'all' | 'moon' | 'mars'
-    const [sortOrder, setSortOrder] = useState("newest");   // 'newest' | 'oldest'
-    const [selectedForCompare, setSelectedForCompare] = useState([]);
+    // Local state for demo items fallback
+    const [demoItems, setDemoItems] = useState(CANONICAL_SAVED_LOCATIONS);
 
-    if (loading) return <Loader />;
+    // ------------------------------------------------------------------------
+    // 2. Filter & Sorting State Variables
+    // ------------------------------------------------------------------------
 
-    // ==========================================
-    // 1. Filtering & Sorting Logic
-    // ==========================================
+    // Active planetary body target filter: 'all' | 'moon' | 'mars' (default: 'all')
+    const [targetFilter, setTargetFilter] = useState("all");
 
-    // Filter items based on active target body
-    const filteredItems = (savedLoc || []).filter((saved) => {
-        if (targetFilter === "moon") {
-            return saved.analogType?.some(type => type.toLowerCase().includes("moon"));
+    // Active sort order: 'newest' | 'oldest' | 'score' | 'name' (default: 'newest')
+    const [sortOrder, setSortOrder] = useState("newest");
+
+    // Array of selected location IDs for side-by-side comparison
+    // Initialized with Devon Island and Mauna Kea to match Save Location - 2.png
+    const [selectedForCompare, setSelectedForCompare] = useState([
+        "demo-devon-island",
+        "demo-mauna-kea",
+    ]);
+
+    // ------------------------------------------------------------------------
+    // 3. Data Source Selection (API data vs. Canonical Mock Data)
+    // ------------------------------------------------------------------------
+    // If the authenticated user has real saved items from MongoDB, use those;
+    // otherwise fallback to the canonical demo dataset matching the mockup.
+    const activeLocationsPool = useMemo(() => {
+        if (savedLoc && savedLoc.length > 0) {
+            return savedLoc;
         }
-        if (targetFilter === "mars") {
-            return saved.analogType?.some(type => type.toLowerCase().includes("mars"));
-        }
-        return true;
-    });
+        return demoItems;
+    }, [savedLoc, demoItems]);
 
-    // Sort items by creation timestamp
-    const sortedItems = [...filteredItems].sort((a, b) => {
-        const timeA = new Date(a.created_at || 0).getTime();
-        const timeB = new Date(b.created_at || 0).getTime();
-        return sortOrder === "newest" ? timeB - timeA : timeA - timeB;
-    });
-
-    // ==========================================
-    // 2. Action Handlers
-    // ==========================================
-
-    // Delete a saved location
-    const handleDelete = (theId) => {
-        Swal.fire({
-            title: "Are you sure?",
-            text: "You won't be able to revert this!",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonColor: "#3085d6",
-            cancelButtonColor: "#d33",
-            confirmButtonText: "Yes, delete it!"
-        }).then((result) => {
-            if (result.isConfirmed) {
-                fetch(`${API_BASE_URL}/savedLocs/${theId}`, {
-                    method: "DELETE",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            Swal.fire({
-                                title: "Deleted!",
-                                text: "Location removed from your saved list.",
-                                icon: "success"
-                            });
-                            // Update savedLoc state directly in hook
-                            setSavedLoc(prev => prev.filter(item => item._id !== theId));
-                            setSelectedForCompare(prev => prev.filter(id => id !== theId));
-                        }
-                    })
-                    .catch(err => {
-                        console.error("Delete error:", err);
-                        Swal.fire({
-                            title: "Error!",
-                            text: "Failed to delete location. Please try again.",
-                            icon: "error"
-                        });
-                    });
+    // ------------------------------------------------------------------------
+    // 4. Filtering and Sorting Calculation
+    // ------------------------------------------------------------------------
+    const displayedItems = useMemo(() => {
+        // Step A: Filter by target planetary body (All, Moon, Mars)
+        const filtered = activeLocationsPool.filter((item) => {
+            if (targetFilter === "moon") {
+                return item.analogType?.some((t) => t.toLowerCase() === "moon");
             }
+            if (targetFilter === "mars") {
+                return item.analogType?.some((t) => t.toLowerCase() === "mars");
+            }
+            return true;
         });
-    };
 
-    // Toggle location selection for comparison
+        // Step B: Sort based on chosen criteria
+        return [...filtered].sort((a, b) => {
+            if (sortOrder === "newest") {
+                const timeA = new Date(a.created_at || 0).getTime();
+                const timeB = new Date(b.created_at || 0).getTime();
+                return timeB - timeA;
+            }
+            if (sortOrder === "oldest") {
+                const timeA = new Date(a.created_at || 0).getTime();
+                const timeB = new Date(b.created_at || 0).getTime();
+                return timeA - timeB;
+            }
+            if (sortOrder === "score") {
+                return (b.similarityScore || 0) - (a.similarityScore || 0);
+            }
+            if (sortOrder === "name") {
+                return (a.name || "").localeCompare(b.name || "");
+            }
+            return 0;
+        });
+    }, [activeLocationsPool, targetFilter, sortOrder]);
+
+    // ------------------------------------------------------------------------
+    // 5. Comparison Selection Toggle Handlers
+    // ------------------------------------------------------------------------
+    /**
+     * Toggles a location ID in or out of the comparison selection list
+     *
+     * @param {string} locId - Location identifier
+     */
     const toggleCompare = (locId) => {
-        setSelectedForCompare(prev =>
+        setSelectedForCompare((prev) =>
             prev.includes(locId)
-                ? prev.filter(id => id !== locId)
+                ? prev.filter((id) => id !== locId)
                 : [...prev, locId]
         );
     };
 
-    return (
-        <Container>
-            <div className="py-6 px-4">
-                {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-base-300 pb-5">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Saved Locations</h1>
-                        <p className="text-sm opacity-75 mt-1">
-                            Manage candidate analog sites and compare targets side by side.
-                        </p>
-                    </div>
+    /**
+     * Clears all selected comparison items
+     */
+    const clearSelectedForCompare = () => {
+        setSelectedForCompare([]);
+    };
 
-                    {/* Compare Quick Action */}
-                    {selectedForCompare.length > 0 && (
-                        <div className="flex items-center gap-3 bg-base-200 px-4 py-2 rounded-xl border border-primary/30">
-                            <span className="text-xs font-semibold">
-                                {selectedForCompare.length} selected for comparison
-                            </span>
-                            <Link
-                                to={`/compare?ids=${selectedForCompare.join(",")}`}
-                                className="btn btn-sm btn-primary flex items-center gap-1.5"
-                            >
-                                Compare Now <ArrowRight size={14} />
-                            </Link>
-                        </div>
-                    )}
+    // ------------------------------------------------------------------------
+    // 6. Delete Location Action Handler
+    // ------------------------------------------------------------------------
+    /**
+     * Deletes a saved candidate location with SweetAlert confirmation dialog
+     *
+     * @param {string} theId - Location ID to remove
+     * @param {string} locationName - Name of the location for notification
+     */
+    const handleDelete = (theId, locationName) => {
+        Swal.fire({
+            title: "Remove Saved Location?",
+            text: `Remove "${locationName}" from your saved candidate sites?`,
+            icon: "warning",
+            background: "#19202a",
+            color: "#e2e8f0",
+            showCancelButton: true,
+            confirmButtonColor: "#e11d48",
+            cancelButtonColor: "#334155",
+            confirmButtonText: "Remove",
+            cancelButtonText: "Cancel",
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const isRealDbItem = savedLoc && savedLoc.some((item) => item._id === theId);
+
+                if (isRealDbItem) {
+                    // Delete from MongoDB backend endpoint
+                    fetch(`${API_BASE_URL}/savedLocs/${theId}`, {
+                        method: "DELETE",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    })
+                        .then((res) => res.json())
+                        .then((data) => {
+                            if (data.success) {
+                                setSavedLoc((prev) => prev.filter((item) => item._id !== theId));
+                                setSelectedForCompare((prev) => prev.filter((id) => id !== theId));
+                                toast.success(`"${locationName}" removed from saved sites.`);
+                            }
+                        })
+                        .catch((err) => {
+                            console.error("Delete error:", err);
+                            toast.error("Failed to delete location.");
+                        });
+                } else {
+                    // Remove from local demo items
+                    setDemoItems((prev) => prev.filter((item) => item._id !== theId));
+                    setSelectedForCompare((prev) => prev.filter((id) => id !== theId));
+                    toast.success(`"${locationName}" removed from saved sites.`);
+                }
+            }
+        });
+    };
+
+    // Show loading spinner while initial data is being fetched
+    if (loading) return <Loader />;
+
+    // ------------------------------------------------------------------------
+    // 7. Render
+    // ------------------------------------------------------------------------
+    return (
+        <div className="w-full h-full overflow-y-auto bg-[#13161c] text-slate-200 select-none px-4 sm:px-6 lg:px-12 py-8 pb-32">
+            <div className="max-w-7xl mx-auto space-y-6">
+                {/* ========================================================== */}
+                {/* 1. Header Section: Title & Subtitle                        */}
+                {/* ========================================================== */}
+                <div className="space-y-1">
+                    <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                        Saved Locations
+                    </h1>
+                    <p className="text-xs text-slate-400">
+                        Manage candidate analog sites and compare targets side by side.
+                    </p>
                 </div>
 
-                {/* Filter and Sort Toolbar */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 my-6">
-                    {/* Target Body Filter Buttons */}
+                {/* ========================================================== */}
+                {/* 2. Controls Toolbar: Target Filter Pills & Sort Dropdown   */}
+                {/* ========================================================== */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+                    {/* Left: Planetary Body Filter Pills (All Targets, Moon, Mars) */}
                     <div className="flex items-center gap-2">
+                        {/* All Targets Pill */}
                         <button
+                            type="button"
                             onClick={() => setTargetFilter("all")}
-                            className={`btn btn-sm ${targetFilter === "all" ? "btn-primary" : "btn-outline"}`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
+                                targetFilter === "all"
+                                    ? "bg-[#242c37] border border-slate-700 text-white shadow-sm"
+                                    : "bg-[#1a212b] border border-[#273240] text-slate-400 hover:text-white"
+                            }`}
                         >
                             All Targets
                         </button>
+
+                        {/* Moon Target Pill */}
                         <button
+                            type="button"
                             onClick={() => setTargetFilter("moon")}
-                            className={`btn btn-sm ${targetFilter === "moon" ? "btn-primary" : "btn-outline"}`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
+                                targetFilter === "moon"
+                                    ? "bg-[#242c37] border border-slate-700 text-white shadow-sm"
+                                    : "bg-[#1a212b] border border-[#273240] text-slate-400 hover:text-white"
+                            }`}
                         >
                             Moon
                         </button>
+
+                        {/* Mars Target Pill */}
                         <button
+                            type="button"
                             onClick={() => setTargetFilter("mars")}
-                            className={`btn btn-sm ${targetFilter === "mars" ? "btn-primary" : "btn-outline"}`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
+                                targetFilter === "mars"
+                                    ? "bg-[#242c37] border border-slate-700 text-white shadow-sm"
+                                    : "bg-[#1a212b] border border-[#273240] text-slate-400 hover:text-white"
+                            }`}
                         >
                             Mars
                         </button>
                     </div>
 
-                    {/* Sorting Select Menu */}
+                    {/* Right: Sort Dropdown Menu matching Search/Saved mockup */}
                     <div className="flex items-center gap-2">
-                        <Funnel size={16} className="opacity-70" />
-                        <label className="form-control w-full max-w-xs">
+                        <div className="relative flex items-center bg-[#1a212b] border border-[#273240] rounded-lg px-2.5 py-1.5 text-xs text-slate-300 hover:border-slate-600 transition">
+                            <ListFilter size={14} className="text-slate-400 mr-2 shrink-0" />
+                            <span className="text-slate-400 mr-1.5">Sort:</span>
                             <select
-                                className="select select-sm select-bordered"
                                 value={sortOrder}
-                                onChange={e => setSortOrder(e.target.value)}
+                                onChange={(e) => setSortOrder(e.target.value)}
+                                className="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer pr-2"
                             >
-                                <option value="newest">Recently Saved</option>
-                                <option value="oldest">Oldest Saved</option>
+                                <option value="newest" className="bg-[#1a212b] text-white">
+                                    Date Added (Newest)
+                                </option>
+                                <option value="oldest" className="bg-[#1a212b] text-white">
+                                    Date Added (Oldest)
+                                </option>
+                                <option value="score" className="bg-[#1a212b] text-white">
+                                    Similarity Score (Highest)
+                                </option>
+                                <option value="name" className="bg-[#1a212b] text-white">
+                                    Location Name (A-Z)
+                                </option>
                             </select>
-                        </label>
+                        </div>
                     </div>
                 </div>
 
-                {/* Locations Grid */}
-                {sortedItems.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {sortedItems.map((saved) => {
-                            const isSelected = selectedForCompare.includes(saved._id);
+                {/* ========================================================== */}
+                {/* 3. Location Cards Grid (3 Columns)                         */}
+                {/* ========================================================== */}
+                {displayedItems.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4.5 pt-2">
+                        {displayedItems.map((location) => {
+                            const locId = location._id || location.id || location.name;
+                            const isChecked = selectedForCompare.includes(locId);
+
+                            // Determine primary analog body type (Moon or Mars)
+                            const primaryType =
+                                location.analogType && location.analogType.length > 0
+                                    ? location.analogType[0]
+                                    : "Moon";
+
                             return (
                                 <div
-                                    key={saved._id}
-                                    className={`w-full rounded-xl border p-4 shadow-sm transition-all bg-base-100 ${
-                                        isSelected ? "border-primary ring-1 ring-primary" : "border-base-300"
+                                    key={locId}
+                                    className={`bg-[#1a212b] rounded-xl p-4 transition-all duration-150 shadow-md flex flex-col justify-between ${
+                                        isChecked
+                                            ? "border border-[#4e829e] shadow-[0_0_15px_rgba(78,130,158,0.15)]"
+                                            : "border border-[#273240] hover:border-slate-600/80"
                                     }`}
                                 >
-                                    {/* Main Card Content */}
-                                    <div className="flex items-start gap-3">
-                                        {/* Globe Icon */}
-                                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-base-300 bg-base-200">
-                                            <Globe size={22} className="opacity-75" />
-                                        </div>
+                                    {/* Card Top Row: Icon, Information, Body Pill, Timestamp & Score */}
+                                    <div>
+                                        <div className="flex items-start justify-between gap-3">
+                                            {/* Left Icon and Details */}
+                                            <div className="flex items-start gap-3 min-w-0">
+                                                {/* Dark Square Box with Globe Icon */}
+                                                <div className="w-10 h-10 rounded-lg bg-[#222b37] border border-[#2c3746] flex items-center justify-center text-slate-400 shrink-0 mt-0.5">
+                                                    <Globe size={18} />
+                                                </div>
 
-                                        {/* Site Details */}
-                                        <div className="min-w-0 flex-1">
-                                            <Link
-                                                to={`/details/${saved._id}`}
-                                                className="truncate text-base font-semibold hover:text-primary transition"
-                                            >
-                                                {saved.name}
-                                            </Link>
-                                            <p className="text-xs opacity-60 mt-0.5">{saved.country}</p>
-                                            <div className="flex flex-wrap gap-1 mt-2">
-                                                {saved.analogType?.map((t) => (
-                                                    <span key={t} className="badge badge-xs badge-outline capitalize">
-                                                        {t}
-                                                    </span>
-                                                ))}
+                                                {/* Name, Country, Target Body & Timestamp */}
+                                                <div className="min-w-0">
+                                                    <h3 className="text-sm font-semibold text-white truncate leading-tight">
+                                                        {location.name}
+                                                    </h3>
+                                                    <p className="text-xs text-slate-400 truncate mt-0.5">
+                                                        {location.country}
+                                                    </p>
+
+                                                    {/* Target Body Pill and Relative Timestamp */}
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#222b37] border border-[#2f3b4c] text-slate-300 capitalize">
+                                                            {primaryType}
+                                                        </span>
+                                                        <span className="text-[10px] text-slate-500">
+                                                            {formatRelativeTime(location.created_at)}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        {/* Similarity Score Pill */}
-                                        <div className="text-right">
-                                            <span className="badge badge-sm badge-neutral font-mono">
-                                                {saved.similarityScore}%
+                                            {/* Monospace Similarity Score */}
+                                            <span className="font-mono text-xs text-slate-300 shrink-0 font-medium">
+                                                {location.similarityScore}%
                                             </span>
                                         </div>
                                     </div>
 
-                                    {/* Divider */}
-                                    <div className="my-3 border-t border-base-200" />
-
-                                    {/* Actions Toolbar */}
-                                    <div className="flex items-center justify-between gap-2 text-xs">
+                                    {/* Card Bottom Row: Compare Checkbox & Delete Trash Icon */}
+                                    <div className="flex items-center justify-between border-t border-[#252f3d] pt-3 mt-4 text-xs">
+                                        {/* Compare Selection Checkbox with Label */}
                                         <button
-                                            onClick={() => handleDelete(saved._id)}
-                                            className="flex items-center gap-1.5 text-error hover:opacity-80 transition"
+                                            type="button"
+                                            onClick={() => toggleCompare(locId)}
+                                            className="flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white transition select-none"
                                         >
-                                            <Trash size={14} />
-                                            Remove
+                                            <div
+                                                className={`w-4 h-4 rounded flex items-center justify-center transition border ${
+                                                    isChecked
+                                                        ? "bg-[#4e829e] border-[#4e829e] text-slate-900"
+                                                        : "bg-[#182029] border-[#364455] text-transparent"
+                                                }`}
+                                            >
+                                                <Check size={11} strokeWidth={3} className={isChecked ? "text-slate-950" : "opacity-0"} />
+                                            </div>
+                                            <span className="text-xs text-slate-300 font-medium">
+                                                Compare
+                                            </span>
                                         </button>
 
+                                        {/* Remove / Trash Button */}
                                         <button
-                                            onClick={() => toggleCompare(saved._id)}
-                                            className="flex items-center gap-1.5 cursor-pointer opacity-80 hover:opacity-100 transition"
+                                            type="button"
+                                            onClick={() => handleDelete(locId, location.name)}
+                                            className="text-slate-500 hover:text-red-400 p-1 rounded transition cursor-pointer"
+                                            title="Remove location"
+                                            aria-label="Remove location"
                                         >
-                                            {isSelected ? (
-                                                <CheckSquare size={16} className="text-primary" />
-                                            ) : (
-                                                <Square size={16} />
-                                            )}
-                                            <span>Compare</span>
+                                            <Trash2 size={14} />
                                         </button>
                                     </div>
                                 </div>
@@ -243,22 +432,60 @@ const SavedPage = () => {
                         })}
                     </div>
                 ) : (
-                    /* Empty State */
-                    <div className="text-center py-16 border border-dashed border-base-300 rounded-2xl my-6">
-                        <Globe size={36} className="mx-auto opacity-40 mb-3" />
-                        <h3 className="text-lg font-semibold">No saved locations found</h3>
-                        <p className="text-sm opacity-60 mt-1 max-w-sm mx-auto">
-                            {targetFilter !== "all"
-                                ? `No saved sites match the "${targetFilter}" filter.`
-                                : "Explore candidate analog sites from the dashboard and click Save to bookmark them."}
+                    /* Empty State when no locations match the active target filter */
+                    <div className="text-center py-16 px-4 rounded-xl border border-dashed border-slate-800 text-slate-500 text-xs my-6">
+                        <Globe size={32} className="mx-auto opacity-40 mb-2.5 text-slate-500" />
+                        <p className="font-medium text-slate-400 text-sm">
+                            No saved locations found for this filter.
                         </p>
-                        <Link to="/" className="btn btn-sm btn-primary mt-4">
-                            Explore Locations
-                        </Link>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                            Switch filter to &quot;All Targets&quot; or search candidate sites to bookmark them.
+                        </p>
                     </div>
                 )}
             </div>
-        </Container>
+
+            {/* ========================================================== */}
+            {/* 4. Floating Bottom Comparison Action Bar                   */}
+            {/* ========================================================== */}
+            {selectedForCompare.length >= 2 && (
+                <aside
+                    aria-label="Side-by-side comparison bar"
+                    className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-5xl z-40 bg-[#19202a]/95 backdrop-blur-md border border-[#2f3d4e] rounded-xl px-5 sm:px-6 py-3.5 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4 duration-200"
+                >
+                    {/* Left Info: Selected Count and Ready Subtitle */}
+                    <div>
+                        <p className="text-xs sm:text-sm font-semibold text-white leading-tight">
+                            {selectedForCompare.length} of {displayedItems.length} locations selected
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                            Ready for side-by-side comparison.
+                        </p>
+                    </div>
+
+                    {/* Right Actions: Clear Selection & Compare Selected Button */}
+                    <div className="flex items-center justify-end gap-3.5">
+                        {/* Clear Selection Trigger */}
+                        <button
+                            type="button"
+                            onClick={clearSelectedForCompare}
+                            className="text-xs text-slate-400 hover:text-white transition cursor-pointer px-1 py-1"
+                        >
+                            Clear
+                        </button>
+
+                        {/* Primary Compare Action Button with Arrow Icon */}
+                        <Link
+                            to={`/compare?ids=${selectedForCompare.join(",")}`}
+                            className="bg-[#82a8bf] hover:bg-[#97bad0] text-slate-900 font-semibold px-4 py-2 rounded-lg text-xs flex items-center gap-2 shadow-sm transition cursor-pointer"
+                        >
+                            <span>Compare selected ({selectedForCompare.length})</span>
+                            <ArrowRight size={14} className="text-slate-900 shrink-0" />
+                        </Link>
+                    </div>
+                </aside>
+            )}
+        </div>
     );
 };
 
