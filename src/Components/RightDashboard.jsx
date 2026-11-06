@@ -11,31 +11,17 @@ import ShowRecentSearches from "./ShowRecentSearches";
  * RightDashboard Component
  * ============================================================================
  * Core dashboard layout orchestrating the Leaflet satellite map and the
- * collapsible dark drawer sidebar.
- *
- * Key Capabilities & Architecture:
- * 1. Satellite Map Sync:
- *    Passes `isSidebarOpen` into `<Map />` so Leaflet invalidates tile sizes
- *    and seamlessly fills 100% of the screen when the sidebar is collapsed.
- * 2. Unified Collapse / Expand Controls:
- *    Standardizes both the collapse (`>`) and reopen (`<`) toggle buttons to
- *    exact pixel coordinates (`top-3.5 right-4`, `w-7 h-7 rounded-lg bg-[#1e2530] border border-slate-700/80`),
- *    preventing any visual jumping or misalignment.
- * 3. Zero-Border Collapsed State:
- *    Ensures `border-none p-0 m-0 overflow-hidden` when closed so no dark
- *    1px artifact remains on the right side of the screen.
- * 4. Route-Aware Content Switching:
- *    Renders `Tweaks` (multi-variable search & filter panel) when in search mode
- *    or on `/search`; otherwise renders `ShowRecentSearches` (matching Dashboard.png).
+ * collapsible dark drawer sidebar, styled with deep-space tokens:
+ * - Viewport Background: `#07090E`
+ * - Sidebar Drawer: `#0B0E13` (Sidebar surface) with border-l `#21242C`
+ * - Standardized Toggle Buttons: `#1A1D23` / `#0B0E13` with `#21242C` border,
+ *   `#8891A0` icon, and hover `#83CAD8` ring
  */
 const RightDashboard = () => {
     // ------------------------------------------------------------------------
     // 1. Context Subscriptions & Route State
     // ------------------------------------------------------------------------
-    // Global flag indicating whether search & filter mode is engaged
     const { isSearch } = useContext(StateContext);
-
-    // Current React Router pathname to keep search filters active on /search
     const location = useLocation();
 
     // Controls whether the right drawer sidebar is expanded or collapsed
@@ -48,20 +34,19 @@ const RightDashboard = () => {
     // 2. Render
     // ------------------------------------------------------------------------
     return (
-        <div className="relative w-full h-full flex overflow-hidden bg-[#080d15] select-none">
+        <div className="relative w-full h-full flex overflow-hidden bg-[#07090E] select-none">
             {/* ============================================================== */}
             {/* Main Satellite Map Viewport (Fluid Flex Item)                  */}
             {/* ============================================================== */}
             <div className="flex-1 h-full relative min-w-0">
-                {/* Interactive Leaflet Map with Satellite Imagery */}
                 <Map isSidebarOpen={isSidebarOpen} />
 
-                {/* Floating Reopen / Expand Sidebar Button (Standardized top-3.5 right-4) */}
+                {/* Floating Reopen / Expand Sidebar Button (bg-[#0B0E13], border-[#21242C]) */}
                 {!isSidebarOpen && (
                     <button
                         type="button"
                         onClick={() => setIsSidebarOpen(true)}
-                        className="absolute top-3.5 right-4 z-20 w-7 h-7 rounded-lg bg-[#1e2530] border border-slate-700/80 text-slate-400 hover:text-white hover:border-slate-500 flex items-center justify-center shadow-2xl transition cursor-pointer"
+                        className="absolute top-3.5 right-4 z-20 w-7 h-7 rounded-lg bg-[#0B0E13] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9] hover:border-[#83CAD8]/60 hover:bg-[#1E2129] flex items-center justify-center shadow-2xl transition cursor-pointer"
                         title="Expand sidebar"
                         aria-label="Expand sidebar"
                     >
@@ -71,12 +56,12 @@ const RightDashboard = () => {
             </div>
 
             {/* ============================================================== */}
-            {/* Collapsible Dark Drawer Sidebar (Matches Dashboard.png)        */}
+            {/* Collapsible Dark Drawer Sidebar (bg-[#0B0E13], border-[#21242C]) */}
             {/* ============================================================== */}
             <aside
-                className={`fixed lg:relative right-0 top-0 h-full z-30 transition-all duration-300 ease-in-out bg-[#151a22] ${
+                className={`fixed lg:relative right-0 top-0 h-full z-30 transition-all duration-300 ease-in-out bg-[#0B0E13] ${
                     isSidebarOpen
-                        ? "w-80 sm:w-88 md:w-92 xl:w-96 translate-x-0 opacity-100 p-4 border-l border-slate-800"
+                        ? "w-80 sm:w-88 md:w-92 xl:w-96 translate-x-0 opacity-100 p-4 border-l border-[#21242C]"
                         : "w-0 translate-x-full lg:translate-x-0 lg:w-0 p-0 m-0 border-none overflow-hidden opacity-0 pointer-events-none"
                 }`}
             >
@@ -85,7 +70,7 @@ const RightDashboard = () => {
                     <button
                         type="button"
                         onClick={() => setIsSidebarOpen(false)}
-                        className="absolute top-3.5 right-4 z-40 w-7 h-7 rounded-lg bg-[#1e2530] border border-slate-700/80 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-500 transition cursor-pointer"
+                        className="absolute top-3.5 right-4 z-40 w-7 h-7 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#8891A0] hover:text-[#F1EEE9] hover:border-[#83CAD8]/60 hover:bg-[#1E2129] transition cursor-pointer"
                         title="Collapse sidebar"
                         aria-label="Collapse sidebar"
                     >

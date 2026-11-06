@@ -19,66 +19,48 @@ import Logo from "./Logo";
  * ============================================================================
  * Navbar Component
  * ============================================================================
- * The primary top navigation bar for the TerraMatch platform.
- *
- * Visual Style & Architecture:
- * - Background: Dark charcoal/slate (`#13161c`) with subtle bottom border (`border-slate-800/80`).
- * - Left Branding: Stacked typography with bold white "TerraMatch" and muted subtitle.
- * - Center Navigation: Pill-style tabs with active highlighting:
- *   - Search tab is prominently highlighted with background `#242c37` and border `border-slate-700`
- *     when on `/search` or when search mode is active.
- *   - Dashboard is highlighted only when on `/` with search mode inactive.
- *   - Data Sources (`/data-sources` or `/data-server`) and About (`/about`) are properly highlighted.
- *   - "Settings" link has been completely removed across the application.
- * - Right Action: User profile avatar or "Sign up" button with "TM" initials circle.
+ * The primary top navigation bar for the TerraMatch platform, styled with the
+ * custom deep-space design tokens:
+ * - Surface: `#0B0E13` (Card/Sidebar surface) with border `#21242C`.
+ * - Active tab pill: `#1A1D23` (Secondary surface) with `#21242C` border and `#F1EEE9` text.
+ * - Inactive tabs: `#8891A0` (Muted foreground) with hover `#1E2129` (Accent) and `#F1EEE9`.
+ * - User Actions: Authenticated profile dropdown or guest avatar circle with `#83CAD8` ring.
  */
 const Navbar = () => {
     // ------------------------------------------------------------------------
     // 1. Hooks & Global Context Subscriptions
     // ------------------------------------------------------------------------
 
-    // Current authenticated user session (from Firebase AuthProvider)
+    // Authenticated user session
     const { user } = useAuth();
 
-    // Global UI state controlling whether the Search & Filter sidebar ("Tweaks") is open
+    // Controls whether Search & Filter mode is active
     const { isSearch, setIsSearch } = useContext(StateContext);
 
-    // Current React Router location for route-aware active link styling
+    // Current React Router path for route-aware tab states
     const location = useLocation();
 
-    // Controls mobile hamburger drawer visibility on compact screens
+    // Mobile menu drawer toggle state
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     // ------------------------------------------------------------------------
-    // 2. Route & Search State Computations
+    // 2. Search State Computation
     // ------------------------------------------------------------------------
-
-    // Search mode is active if the global flag is set or the user is directly visiting /search
     const isSearchActive = isSearch || location.pathname === "/search";
 
     // ------------------------------------------------------------------------
     // 3. Navigation Click Handlers
     // ------------------------------------------------------------------------
-
-    /**
-     * Activates search filter mode and closes mobile drawer
-     */
     const handleSearchClick = () => {
         setIsSearch(true);
         setMobileMenuOpen(false);
     };
 
-    /**
-     * Returns to the default overview/recent searches mode and closes mobile drawer
-     */
     const handleDashboardClick = () => {
         setIsSearch(false);
         setMobileMenuOpen(false);
     };
 
-    /**
-     * Resets search mode when navigating to secondary feature pages
-     */
     const handleGenericNavClick = () => {
         setIsSearch(false);
         setMobileMenuOpen(false);
@@ -87,7 +69,6 @@ const Navbar = () => {
     // ------------------------------------------------------------------------
     // 4. Navigation Tab Definitions
     // ------------------------------------------------------------------------
-    // Clean navigation items list without Settings
     const navItems = [
         {
             label: "Dashboard",
@@ -129,30 +110,18 @@ const Navbar = () => {
     ];
 
     /**
-     * Determines whether a specific navigation tab should render with active pill styling.
-     * Rules:
-     * - If in search mode (on /search route or isSearch is true): ONLY the Search tab is active.
-     * - If on the root route ('/') and search mode is inactive: Dashboard is active.
-     * - If Data Sources tab: Matches both /data-sources and /data-server paths.
-     * - If About or other tab: Matches exact pathname.
-     *
-     * @param {Object} item - Navigation item definition
-     * @returns {boolean} - True if tab should be highlighted with active pill styling
+     * Determines whether a navigation tab is active.
      */
     const isTabActive = (item) => {
-        // Search takes priority if search filter mode is engaged
         if (isSearchActive) {
             return item.path === "/search";
         }
-        // Dashboard active only on root path when search mode is disengaged
         if (item.path === "/") {
             return location.pathname === "/" && !isSearchActive;
         }
-        // Data Sources matches both /data-sources and /data-server routes
         if (item.path === "/data-sources" || item.path === "/data-server") {
             return location.pathname === "/data-sources" || location.pathname === "/data-server";
         }
-        // General route matching (e.g. /about, /saved, /compare)
         return location.pathname === item.path;
     };
 
@@ -160,13 +129,14 @@ const Navbar = () => {
     // 5. Render
     // ------------------------------------------------------------------------
     return (
-        <header className="w-full bg-[#13161c] border-b border-slate-800/80 px-4 sm:px-6 h-14 flex items-center justify-between relative z-2000 select-none">
+        <header className="w-full bg-[#0B0E13] border-b border-[#21242C] px-4 sm:px-6 h-14 flex items-center justify-between relative z-2000 select-none">
             {/* Left Branding Block */}
             <div className="flex items-center gap-3">
-                {/* Mobile Menu Hamburger Toggle */}
+                {/* Mobile Menu Toggle */}
                 <button
+                    type="button"
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 xl:hidden focus:outline-none transition cursor-pointer"
+                    className="p-1.5 rounded-lg text-[#8891A0] hover:text-[#F1EEE9] hover:bg-[#1E2129] xl:hidden focus:outline-none transition cursor-pointer"
                     aria-label="Toggle navigation menu"
                 >
                     {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -194,11 +164,11 @@ const Navbar = () => {
                             onClick={item.onClick}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition duration-150 ${
                                 active
-                                    ? "bg-[#242c37] text-white border border-slate-700 shadow-sm"
-                                    : "text-slate-400 hover:text-white hover:bg-slate-800/40 border border-transparent"
+                                    ? "bg-[#1A1D23] text-[#F1EEE9] border border-[#21242C] shadow-sm"
+                                    : "text-[#8891A0] hover:text-[#F1EEE9] hover:bg-[#1E2129] border border-transparent"
                             }`}
                         >
-                            <item.icon size={15} className="shrink-0" />
+                            <item.icon size={15} className={`shrink-0 ${active ? "text-[#83CAD8]" : "text-[#8891A0]"}`} />
                             <span>{item.label}</span>
                         </NavLink>
                     );
@@ -208,22 +178,20 @@ const Navbar = () => {
             {/* Right Action Section: User Account & Initials Avatar */}
             <div className="flex items-center gap-3 sm:gap-4">
                 {user ? (
-                    // Authenticated User Avatar & Dropdown Menu
                     <Profile />
                 ) : (
-                    // Unauthenticated Visitor Trigger (Matches design mockup)
                     <div className="flex items-center gap-3">
                         <Link
                             to="/login"
-                            className="text-xs sm:text-sm font-medium text-slate-300 hover:text-white transition duration-150"
+                            className="text-xs sm:text-sm font-medium text-[#8891A0] hover:text-[#F1EEE9] transition duration-150"
                         >
                             Sign up
                         </Link>
 
-                        {/* Circular Slate Container with white "TM" initials */}
+                        {/* Circular Container with "TM" initials */}
                         <Link
                             to="/login"
-                            className="w-8 h-8 rounded-full bg-[#242c37] border border-slate-700 flex items-center justify-center text-xs font-semibold text-white tracking-wide shadow-sm hover:border-slate-500 transition duration-150"
+                            className="w-8 h-8 rounded-full bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-xs font-semibold text-[#F1EEE9] tracking-wide shadow-sm hover:border-[#83CAD8] transition duration-150"
                             title="Sign in / Sign up"
                         >
                             TM
@@ -232,9 +200,9 @@ const Navbar = () => {
                 )}
             </div>
 
-            {/* Mobile / Responsive Navigation Dropdown */}
+            {/* Mobile Navigation Dropdown */}
             {mobileMenuOpen && (
-                <div className="absolute top-14 left-0 w-full bg-[#13161c] border-b border-slate-800 shadow-2xl xl:hidden p-3 flex flex-col gap-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute top-14 left-0 w-full bg-[#0B0E13] border-b border-[#21242C] shadow-2xl xl:hidden p-3 flex flex-col gap-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                     {navItems.map((item) => {
                         const active = isTabActive(item);
                         return (
@@ -248,11 +216,11 @@ const Navbar = () => {
                                 }}
                                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
                                     active
-                                        ? "bg-[#242c37] text-white border border-slate-700 shadow-sm"
-                                        : "text-slate-400 hover:text-white hover:bg-slate-800/40"
+                                        ? "bg-[#1A1D23] text-[#F1EEE9] border border-[#21242C] shadow-sm"
+                                        : "text-[#8891A0] hover:text-[#F1EEE9] hover:bg-[#1E2129]"
                                 }`}
                             >
-                                <item.icon size={16} />
+                                <item.icon size={16} className={active ? "text-[#83CAD8]" : "text-[#8891A0]"} />
                                 <span>{item.label}</span>
                             </NavLink>
                         );

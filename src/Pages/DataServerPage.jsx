@@ -146,22 +146,20 @@ const DATASET_CATALOG = [
  * ============================================================================
  * DataServerPage Component
  * ============================================================================
- * Elevated Data Sources & Planetary Archives directory. Provides multi-category
- * filtering across Moon archives, Mars missions, and Earth remote sensing feeds,
- * paired with backend API status telemetry and a custom source ingestion trigger.
+ * Elevated Data Sources & Planetary Archives directory, updated to use the
+ * custom deep-space design tokens:
+ * - Page Background: `#07090E` with starlight text `#F1EEE9`
+ * - Card Surfaces: `#0B0E13` (Card) with border `#21242C` and hover `#83CAD8`/50
+ * - Inactive Tags & Badges: `#181A21` (Muted) with text `#8891A0`
+ * - Active Category Filters: `#1A1D23` (Secondary) with text `#F1EEE9`
+ * - Telemetry Storage Footer: `#0B0E13` with primary button `#83CAD8`
  */
 const DataServerPage = () => {
     // ------------------------------------------------------------------------
     // 1. Filter & Search State Management
     // ------------------------------------------------------------------------
-
-    // Active category filter pill: 'all' | 'moon' | 'mars' | 'earth' | 'feeds'
     const [activeCategory, setActiveCategory] = useState("all");
-
-    // Text search query for filtering datasets by name, provider, or data type
     const [searchQuery, setSearchQuery] = useState("");
-
-    // Modal state for adding a custom planetary source
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     // Form inputs for custom dataset ingestion modal
@@ -179,9 +177,6 @@ const DataServerPage = () => {
         data: null,
     });
 
-    /**
-     * Checks backend server health and uptime
-     */
     const pingServer = () => {
         setHealthStatus((prev) => ({ ...prev, loading: true }));
         fetch(`${API_BASE_URL}/health`)
@@ -202,7 +197,6 @@ const DataServerPage = () => {
             });
     };
 
-    // Ping server health on initial component mount
     useEffect(() => {
         let isMounted = true;
         fetch(`${API_BASE_URL}/health`)
@@ -247,7 +241,6 @@ const DataServerPage = () => {
     // ------------------------------------------------------------------------
     const filteredDatasets = useMemo(() => {
         return DATASET_CATALOG.filter((item) => {
-            // Category filter logic
             if (activeCategory === "moon") {
                 if (item.category !== "moon" && !item.targetBody.includes("Moon")) return false;
             } else if (activeCategory === "mars") {
@@ -258,7 +251,6 @@ const DataServerPage = () => {
                 if (!item.feed) return false;
             }
 
-            // Text search query filter
             if (searchQuery.trim()) {
                 const query = searchQuery.trim().toLowerCase();
                 const nameMatch = item.name.toLowerCase().includes(query);
@@ -274,7 +266,6 @@ const DataServerPage = () => {
         });
     }, [activeCategory, searchQuery]);
 
-    // Total storage volume calculation in Terabytes
     const totalVolumeDisplay = useMemo(() => {
         const totalGB = filteredDatasets.reduce((sum, item) => sum + item.volumeGigabytes, 0);
         const inTB = (totalGB / 1000).toFixed(2);
@@ -302,28 +293,28 @@ const DataServerPage = () => {
     // 6. Render
     // ------------------------------------------------------------------------
     return (
-        <div className="w-full h-full overflow-y-auto bg-[#13161c] text-slate-200 select-none px-4 sm:px-6 lg:px-12 py-8 pb-16">
+        <div className="w-full h-full overflow-y-auto bg-[#07090E] text-[#F1EEE9] select-none px-4 sm:px-6 lg:px-12 py-8 pb-16">
             <div className="max-w-7xl mx-auto space-y-6">
                 {/* ========================================================== */}
                 {/* 1. Header Section: Title & Subtitle                        */}
                 {/* ========================================================== */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#21242C] pb-5">
                     <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-[#82a8bf] uppercase tracking-wider mb-0.5">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-[#83CAD8] uppercase tracking-wider mb-0.5">
                             <Database size={15} />
                             <span>Planetary Data Infrastructure</span>
                         </div>
-                        <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                        <h1 className="text-xl sm:text-2xl font-bold text-[#F1EEE9] tracking-tight">
                             Data Sources & Planetary Archives
                         </h1>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-[#8891A0]">
                             Integrated mission telemetry, topographic DEMs, and orbital datasets.
                         </p>
                     </div>
 
                     {/* Backend Gateway Telemetry Pill */}
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 bg-[#181f28] border border-[#273240] rounded-lg px-3 py-1.5 text-xs">
+                        <div className="flex items-center gap-2 bg-[#0B0E13] border border-[#21242C] rounded-lg px-3 py-1.5 text-xs">
                             <span
                                 className={`w-2 h-2 rounded-full ${
                                     healthStatus.healthy
@@ -331,7 +322,7 @@ const DataServerPage = () => {
                                         : "bg-amber-400"
                                 }`}
                             />
-                            <span className="text-slate-300 font-medium">
+                            <span className="text-[#F1EEE9] font-medium">
                                 {healthStatus.healthy ? "API Feeds Online" : "Telemetry Standby"}
                             </span>
                         </div>
@@ -340,13 +331,13 @@ const DataServerPage = () => {
                         <button
                             type="button"
                             onClick={pingServer}
-                            className="p-1.5 rounded-lg bg-[#181f28] border border-[#273240] text-slate-400 hover:text-white transition cursor-pointer"
+                            className="p-1.5 rounded-lg bg-[#0B0E13] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9] transition cursor-pointer"
                             title="Ping Telemetry Gateway"
                             aria-label="Ping Telemetry Gateway"
                         >
                             <RefreshCw
                                 size={14}
-                                className={healthStatus.loading ? "animate-spin text-white" : ""}
+                                className={healthStatus.loading ? "animate-spin text-[#F1EEE9]" : ""}
                             />
                         </button>
                     </div>
@@ -367,8 +358,8 @@ const DataServerPage = () => {
                                     onClick={() => setActiveCategory(pill.id)}
                                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
                                         isSelected
-                                            ? "bg-[#242c37] border border-slate-700 text-white shadow-sm"
-                                            : "bg-[#1a212b] border border-[#273240] text-slate-400 hover:text-white"
+                                            ? "bg-[#1A1D23] border border-[#21242C] text-[#F1EEE9] shadow-sm"
+                                            : "bg-[#0B0E13] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9]"
                                     }`}
                                 >
                                     {pill.label}
@@ -378,20 +369,20 @@ const DataServerPage = () => {
                     </div>
 
                     {/* Right: Search Filter Input */}
-                    <div className="flex items-center gap-2 w-full md:w-72 bg-[#1a212b] border border-[#273240] rounded-lg px-2.5 py-1.5 focus-within:border-slate-500 transition">
-                        <Search size={14} className="text-slate-400 shrink-0" />
+                    <div className="flex items-center gap-2 w-full md:w-72 bg-[#0B0E13] border border-[#272C34] rounded-lg px-2.5 py-1.5 focus-within:border-[#83CAD8] transition">
+                        <Search size={14} className="text-[#8891A0] shrink-0" />
                         <input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Filter datasets or mission..."
-                            className="w-full bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none"
+                            className="w-full bg-transparent text-xs text-[#F1EEE9] placeholder-[#8891A0] focus:outline-none"
                         />
                         {searchQuery && (
                             <button
                                 type="button"
                                 onClick={() => setSearchQuery("")}
-                                className="text-slate-500 hover:text-white text-xs cursor-pointer"
+                                className="text-[#8891A0] hover:text-[#F1EEE9] text-xs cursor-pointer"
                             >
                                 <X size={13} />
                             </button>
@@ -407,28 +398,28 @@ const DataServerPage = () => {
                         filteredDatasets.map((dataset) => (
                             <div
                                 key={dataset.id}
-                                className="bg-[#181f28] border border-[#273240] rounded-xl p-5 flex flex-col justify-between hover:border-slate-600/80 transition-all duration-150 shadow-md group"
+                                className="bg-[#0B0E13] border border-[#21242C] rounded-xl p-5 flex flex-col justify-between hover:border-[#83CAD8]/50 transition-all duration-150 shadow-md group"
                             >
                                 <div>
                                     {/* Top Row: Mission Name & Provider */}
                                     <div className="flex items-start justify-between gap-3 mb-2">
                                         <div className="min-w-0">
-                                            <h3 className="text-sm font-semibold text-white truncate leading-tight group-hover:text-slate-100 transition">
+                                            <h3 className="text-sm font-semibold text-[#F1EEE9] truncate leading-tight group-hover:text-white transition">
                                                 {dataset.name}
                                             </h3>
-                                            <p className="text-xs text-slate-400 mt-0.5">
+                                            <p className="text-xs text-[#8891A0] mt-0.5">
                                                 {dataset.provider}
                                             </p>
                                         </div>
 
                                         {/* Target Planetary Body Badge */}
-                                        <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#222b37] border border-[#2f3b4c] text-slate-300 shrink-0">
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#181A21] border border-[#21242C] text-[#8891A0] shrink-0">
                                             {dataset.targetBody}
                                         </span>
                                     </div>
 
                                     {/* Narrative Description */}
-                                    <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-2 mb-3">
+                                    <p className="text-[11px] text-[#8891A0] leading-relaxed line-clamp-2 mb-3">
                                         {dataset.description}
                                     </p>
 
@@ -437,7 +428,7 @@ const DataServerPage = () => {
                                         {dataset.dataTypes.map((type) => (
                                             <span
                                                 key={type}
-                                                className="px-2 py-0.5 rounded-md text-[10px] bg-[#141920] border border-[#2c3542] text-slate-300 font-mono"
+                                                className="px-2 py-0.5 rounded-md text-[10px] bg-[#07090E] border border-[#21242C] text-[#8891A0] font-mono"
                                             >
                                                 {type}
                                             </span>
@@ -446,16 +437,16 @@ const DataServerPage = () => {
                                 </div>
 
                                 {/* Bottom Telemetry Row: Resolution, Volume & Integration Status */}
-                                <div className="flex items-center justify-between border-t border-[#232c38] pt-3 text-xs">
-                                    <div className="flex items-center gap-3 text-slate-400 font-mono text-[11px]">
+                                <div className="flex items-center justify-between border-t border-[#21242C] pt-3 text-xs">
+                                    <div className="flex items-center gap-3 text-[#8891A0] font-mono text-[11px]">
                                         <span>Res: {dataset.resolution}</span>
                                         <span>•</span>
-                                        <span className="text-slate-300 font-semibold">
+                                        <span className="text-[#F1EEE9] font-semibold">
                                             {dataset.volumeDisplay}
                                         </span>
                                     </div>
 
-                                    {/* Live Status Pill with glowing emerald indicator */}
+                                    {/* Live Status Pill with emerald indicator */}
                                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/40 border border-emerald-800/40 text-emerald-400 text-[10px] font-medium">
                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                                         <span>{dataset.status}</span>
@@ -464,13 +455,12 @@ const DataServerPage = () => {
                             </div>
                         ))
                     ) : (
-                        /* Empty State when filter yields 0 matches */
-                        <div className="col-span-full text-center py-16 px-4 rounded-xl border border-dashed border-slate-800 text-slate-500 text-xs my-6">
-                            <Globe2 size={32} className="mx-auto opacity-40 mb-2.5 text-slate-500" />
-                            <p className="font-medium text-slate-400 text-sm">
+                        <div className="col-span-full text-center py-16 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs my-6">
+                            <Globe2 size={32} className="mx-auto opacity-40 mb-2.5 text-[#8891A0]" />
+                            <p className="font-medium text-[#F1EEE9] text-sm">
                                 No planetary datasets match this filter.
                             </p>
-                            <p className="text-[11px] text-slate-500 mt-1">
+                            <p className="text-[11px] text-[#8891A0] mt-1">
                                 Try clearing search terms or switching to &quot;All Sources&quot;.
                             </p>
                         </div>
@@ -482,18 +472,18 @@ const DataServerPage = () => {
                 {/* ============================================================== */}
                 <aside
                     aria-label="Planetary telemetry storage overview"
-                    className="w-full mt-8 bg-[#181f28] border border-[#273240] rounded-xl px-5 sm:px-6 py-4 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    className="w-full mt-8 bg-[#0B0E13] border border-[#21242C] rounded-xl px-5 sm:px-6 py-4 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
                     {/* Left Telemetry Overview */}
                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-[#202936] border border-[#2f3d4e] flex items-center justify-center text-[#82a8bf] shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#83CAD8] shrink-0">
                             <HardDrive size={16} />
                         </div>
                         <div>
-                            <p className="text-xs sm:text-sm font-semibold text-white leading-tight">
+                            <p className="text-xs sm:text-sm font-semibold text-[#F1EEE9] leading-tight">
                                 {filteredDatasets.length} data sources integrated • {totalVolumeDisplay} total volume
                             </p>
-                            <p className="text-[11px] text-slate-400 mt-0.5">
+                            <p className="text-[11px] text-[#8891A0] mt-0.5">
                                 OGC WMS/WMTS endpoints & Cloud-Optimized GeoTIFFs (COG) active.
                             </p>
                         </div>
@@ -504,9 +494,9 @@ const DataServerPage = () => {
                         <button
                             type="button"
                             onClick={() => setIsAddModalOpen(true)}
-                            className="bg-[#82a8bf] hover:bg-[#97bad0] text-slate-900 font-semibold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                            className="bg-[#83CAD8] hover:opacity-90 text-[#090D15] font-semibold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer"
                         >
-                            <Plus size={14} className="text-slate-900" />
+                            <Plus size={14} className="text-[#090D15]" />
                             <span>Add Custom Source</span>
                         </button>
                     </div>
@@ -517,18 +507,18 @@ const DataServerPage = () => {
             {/* 5. Custom Source Ingestion Modal                               */}
             {/* ============================================================== */}
             {isAddModalOpen && (
-                <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-                    <div className="w-full max-w-md bg-[#181f28] border border-[#273240] rounded-2xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+                <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div className="w-full max-w-md bg-[#090B10] border border-[#21242C] rounded-2xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 text-[#F1EEE9]">
                         {/* Modal Header */}
-                        <div className="flex items-center justify-between border-b border-[#232c38] pb-3">
-                            <div className="flex items-center gap-2 text-white font-semibold text-sm">
-                                <Plus size={16} className="text-[#82a8bf]" />
+                        <div className="flex items-center justify-between border-b border-[#21242C] pb-3">
+                            <div className="flex items-center gap-2 text-[#F1EEE9] font-semibold text-sm">
+                                <Plus size={16} className="text-[#83CAD8]" />
                                 <h3>Connect Custom Planetary Archive</h3>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setIsAddModalOpen(false)}
-                                className="text-slate-400 hover:text-white transition cursor-pointer"
+                                className="text-[#8891A0] hover:text-[#F1EEE9] transition cursor-pointer"
                             >
                                 <X size={16} />
                             </button>
@@ -537,7 +527,7 @@ const DataServerPage = () => {
                         {/* Modal Form */}
                         <form onSubmit={handleAddCustomSource} className="space-y-3.5 text-xs">
                             <div>
-                                <label className="block text-slate-400 mb-1 font-medium">
+                                <label className="block text-[#8891A0] mb-1 font-medium">
                                     Dataset / Mission Name
                                 </label>
                                 <input
@@ -546,12 +536,12 @@ const DataServerPage = () => {
                                     onChange={(e) => setCustomSourceName(e.target.value)}
                                     placeholder="e.g. Artemis III Polar Candidate DEM"
                                     required
-                                    className="w-full bg-[#131820] border border-[#273240] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500"
+                                    className="w-full bg-[#07090E] border border-[#272C34] rounded-lg px-3 py-2 text-[#F1EEE9] focus:outline-none focus:border-[#83CAD8]"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-slate-400 mb-1 font-medium">
+                                <label className="block text-[#8891A0] mb-1 font-medium">
                                     Agency or Institutional Provider
                                 </label>
                                 <input
@@ -559,27 +549,27 @@ const DataServerPage = () => {
                                     value={customProvider}
                                     onChange={(e) => setCustomProvider(e.target.value)}
                                     placeholder="e.g. NASA Goddard / ESA"
-                                    className="w-full bg-[#131820] border border-[#273240] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500"
+                                    className="w-full bg-[#07090E] border border-[#272C34] rounded-lg px-3 py-2 text-[#F1EEE9] focus:outline-none focus:border-[#83CAD8]"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-slate-400 mb-1 font-medium">
+                                <label className="block text-[#8891A0] mb-1 font-medium">
                                     Target Planetary Body
                                 </label>
                                 <select
                                     value={customTargetBody}
                                     onChange={(e) => setCustomTargetBody(e.target.value)}
-                                    className="w-full bg-[#131820] border border-[#273240] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-slate-500"
+                                    className="w-full bg-[#07090E] border border-[#272C34] rounded-lg px-3 py-2 text-[#F1EEE9] focus:outline-none focus:border-[#83CAD8]"
                                 >
-                                    <option value="Moon">Moon (Lunar)</option>
-                                    <option value="Mars">Mars (Martian)</option>
-                                    <option value="Earth">Earth (Terrestrial Analog)</option>
+                                    <option value="Moon" className="bg-[#07090E]">Moon (Lunar)</option>
+                                    <option value="Mars" className="bg-[#07090E]">Mars (Martian)</option>
+                                    <option value="Earth" className="bg-[#07090E]">Earth (Terrestrial Analog)</option>
                                 </select>
                             </div>
 
                             <div>
-                                <label className="block text-slate-400 mb-1 font-medium">
+                                <label className="block text-[#8891A0] mb-1 font-medium">
                                     COG or STAC Endpoint URL
                                 </label>
                                 <input
@@ -587,22 +577,22 @@ const DataServerPage = () => {
                                     value={customEndpoint}
                                     onChange={(e) => setCustomEndpoint(e.target.value)}
                                     placeholder="https://planetary.stac.org/catalog.json"
-                                    className="w-full bg-[#131820] border border-[#273240] rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-slate-500"
+                                    className="w-full bg-[#07090E] border border-[#272C34] rounded-lg px-3 py-2 text-[#F1EEE9] font-mono focus:outline-none focus:border-[#83CAD8]"
                                 />
                             </div>
 
                             {/* Form Submit Buttons */}
-                            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#232c38]">
+                            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#21242C]">
                                 <button
                                     type="button"
                                     onClick={() => setIsAddModalOpen(false)}
-                                    className="px-3.5 py-1.5 rounded-lg border border-[#273240] text-slate-400 hover:text-white transition cursor-pointer"
+                                    className="px-3.5 py-1.5 rounded-lg border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9] transition cursor-pointer"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="bg-[#82a8bf] hover:bg-[#97bad0] text-slate-900 font-semibold px-4 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5"
+                                    className="bg-[#83CAD8] hover:opacity-90 text-[#090D15] font-semibold px-4 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5"
                                 >
                                     <CheckCircle2 size={14} />
                                     <span>Register Source</span>

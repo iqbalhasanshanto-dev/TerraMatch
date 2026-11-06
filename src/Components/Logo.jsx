@@ -7,14 +7,15 @@ import { useState } from "react";
  * Renders the official TerraMatch branding in the top navbar and footers:
  * - Brand Icon: Vector globe/planetary emblem loaded dynamically from `/logo.svg`,
  *   with an automatic fallback to `/favicon.svg` if a custom logo asset is absent.
- * - Typography: Stacked title "TerraMatch" and subtitle "Planetary Analog Platform".
+ * - Surfaces & Colors:
+ *   - Container: Secondary surface `#1A1D23` with border `#21242C` and hover ring `#83CAD8`.
+ *   - Heading: High-legibility starlight text `#F1EEE9`.
+ *   - Subtitle: Muted foreground `#8891A0`.
  */
 const Logo = () => {
     // ------------------------------------------------------------------------
     // 1. State: Dynamic Logo Image Source with Graceful Fallback
     // ------------------------------------------------------------------------
-    // Attempts to load the custom `/logo.svg` first; seamlessly falls back
-    // to the planetary vector `/favicon.svg` if `/logo.svg` is not found or errors.
     const [logoSrc, setLogoSrc] = useState("/logo.svg");
 
     /**
@@ -31,8 +32,8 @@ const Logo = () => {
     // ------------------------------------------------------------------------
     return (
         <div className="flex items-center gap-2.5 select-none">
-            {/* Logo Image Container with Dark Astro Styling */}
-            <div className="w-8 h-8 rounded-lg bg-[#182029] border border-slate-700/60 p-1 flex items-center justify-center shrink-0 shadow-xs group-hover:border-slate-500 transition">
+            {/* Logo Image Container with Deep-Space Tokens */}
+            <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] p-1 flex items-center justify-center shrink-0 shadow-xs group-hover:border-[#83CAD8] transition">
                 <img
                     src={logoSrc}
                     alt="TerraMatch Logo"
@@ -43,10 +44,10 @@ const Logo = () => {
 
             {/* Stacked Brand Typography */}
             <div className="flex flex-col">
-                <h1 className="text-base font-bold text-white tracking-tight leading-tight">
+                <h1 className="text-base font-bold text-[#F1EEE9] tracking-tight leading-tight">
                     TerraMatch
                 </h1>
-                <p className="text-[10px] text-slate-400 font-normal leading-tight">
+                <p className="text-[10px] text-[#8891A0] font-normal leading-tight">
                     Planetary Analog Platform
                 </p>
             </div>

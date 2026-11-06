@@ -2,70 +2,220 @@
 
 @import "tailwindcss";
 @plugin "daisyui" {
-  themes: dark --default, light, cupcake, night, black;
+  themes: dark --default, night, black;
 }
 
+/**
+ * ============================================================================
+ * TerraMatch Deep-Space Color System Tokens & Theme Mapping
+ * ============================================================================
+ * Defines the comprehensive design tokens for the TerraMatch planetary analog
+ * exploration platform across core surfaces, navigation, typography,
+ * telemetry indicators, and scientific multi-body chart layers.
+ */
+:root {
+  /* ------------------------------------------------------------------------
+   * 1. Core Surfaces & Containers
+   * ------------------------------------------------------------------------ */
+  --background: #07090E;                 /* Deep space void viewport background */
+  --foreground: #F1EEE9;                 /* High-legibility starlight text */
+  --card: #0B0E13;                       /* Primary card & drawer background */
+  --card-foreground: #F1EEE9;            /* Card primary typography */
+  --popover: #090B10;                    /* Floating menus, dropdowns & snackbars */
+  --popover-foreground: #F1EEE9;         /* Popover typography */
+
+  /* ------------------------------------------------------------------------
+   * 2. Brand & Semantic Tints
+   * ------------------------------------------------------------------------ */
+  --primary: #83CAD8;                    /* Cyan telemetry / primary accent */
+  --primary-foreground: #090D15;         /* Crisp dark slate text on primary */
+  --secondary: #1A1D23;                  /* Secondary surface / active pills */
+  --secondary-foreground: #F1EEE9;       /* Secondary typography */
+  --muted: #181A21;                      /* Muted container & inactive element fill */
+  --muted-foreground: #8891A0;           /* Secondary muted descriptions & labels */
+  --accent: #1E2129;                     /* Hover accent & active filter states */
+  --accent-foreground: #F1EEE9;          /* Accent typography */
+  --destructive: #D04D39;                /* Crimson warning / removal actions */
+  --destructive-foreground: #FFFFFF;     /* White text on destructive buttons */
+
+  /* ------------------------------------------------------------------------
+   * 3. Borders & Input Controls
+   * ------------------------------------------------------------------------ */
+  --border: #21242C;                     /* Subtle dark panel borders */
+  --input: #272C34;                      /* Text inputs & form control borders */
+  --ring: #83CAD8;                       /* Focus ring indicator */
+
+  /* ------------------------------------------------------------------------
+   * 4. Multi-Axis Scientific Chart Metrics
+   * ------------------------------------------------------------------------ */
+  --chart-1: #83CAD8;                    /* Chart 1: Cyan / Location A primary layer */
+  --chart-2: #D67051;                    /* Chart 2: Terracotta / Mars & Location B */
+  --chart-3: #CEB882;                    /* Chart 3: Warm sand / Lunar gold metric */
+  --chart-4: #6C859D;                    /* Chart 4: Steel blue topographic metric */
+  --chart-5: #C57791;                    /* Chart 5: Rose mineral spectroscopy */
+
+  /* ------------------------------------------------------------------------
+   * 5. Drawer & Sidebar Specific Tokens
+   * ------------------------------------------------------------------------ */
+  --sidebar: #0B0E13;                    /* Sidebar background */
+  --sidebar-foreground: #F1EEE9;         /* Sidebar text */
+  --sidebar-primary: #83CAD8;            /* Active sidebar indicators */
+  --sidebar-primary-foreground: #090D15; /* Sidebar active icon fill */
+  --sidebar-accent: #1A1D23;             /* Sidebar active tab background */
+  --sidebar-accent-foreground: #F1EEE9;  /* Sidebar active tab text */
+  --sidebar-border: #21242C;             /* Sidebar divider border */
+  --sidebar-ring: #83CAD8;               /* Sidebar focus ring */
+}
+
+/**
+ * ============================================================================
+ * Tailwind CSS v4 Theme Registration
+ * ============================================================================
+ * Registers the CSS variables above with the Tailwind CSS v4 engine so utility
+ * classes like `bg-card`, `text-primary`, and `border-border` map seamlessly.
+ */
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/**
+ * ============================================================================
+ * Global Document Base Styles
+ * ============================================================================
+ */
 body {
   font-family: "Inter", sans-serif;
   font-optical-sizing: auto;
   font-style: normal;
-  background-color: #13161c;
-  color: #f1f5f9;
+  background-color: #07090E;
+  color: #F1EEE9;
 }
 
-/* Custom Leaflet satellite map styling */
+/**
+ * ============================================================================
+ * Leaflet Satellite Map Deep-Space Theming
+ * ============================================================================
+ */
 .leaflet-container {
-  background-color: #0c1017 !important;
+  background-color: #07090E !important;
 }
 
 .leaflet-bar {
-  border: 1px solid #334155 !important;
+  border: 1px solid #21242C !important;
   border-radius: 8px !important;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5) !important;
 }
 
 .leaflet-bar a {
-  background-color: #171e27 !important;
-  color: #e2e8f0 !important;
-  border-bottom: 1px solid #334155 !important;
-  transition: background-color 0.15s ease;
+  background-color: #0B0E13 !important;
+  color: #F1EEE9 !important;
+  border-bottom: 1px solid #21242C !important;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .leaflet-bar a:hover {
-  background-color: #242c37 !important;
-  color: #ffffff !important;
+  background-color: #1E2129 !important;
+  color: #83CAD8 !important;
 }
 
 .leaflet-control-attribution {
-  background: rgba(19, 22, 28, 0.85) !important;
-  color: #94a3b8 !important;
+  background: rgba(11, 14, 19, 0.9) !important;
+  color: #8891A0 !important;
   font-size: 10px !important;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
   border-top-left-radius: 6px;
+  border-left: 1px solid #21242C;
+  border-top: 1px solid #21242C;
   padding: 2px 8px !important;
 }
 
 .leaflet-control-attribution a {
-  color: #cbd5e1 !important;
+  color: #83CAD8 !important;
   text-decoration: underline;
 }
 
-/* Sleek dark scrollbar */
+/* Custom Leaflet Dark Popup */
+.leaflet-popup-content-wrapper {
+  background: #090B10 !important;
+  color: #F1EEE9 !important;
+  border: 1px solid #21242C !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7) !important;
+}
+
+.leaflet-popup-tip {
+  background: #090B10 !important;
+  border: 1px solid #21242C !important;
+}
+
+/**
+ * ============================================================================
+ * Custom Deep-Space Scrollbar
+ * ============================================================================
+ */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #07090E;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2c3542;
+  background: #21242C;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3e4a5b;
+  background: #272C34;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #21242C;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #272C34;
 }

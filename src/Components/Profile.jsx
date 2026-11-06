@@ -10,8 +10,8 @@ import { Link } from "react-router";
  * Renders the authenticated user's profile trigger in the navbar:
  * - Avatar: User profile picture or fallback container with initials ("TM" or user initials).
  * - Name Display: Shows the user's name (or email prefix) on viewports >= sm.
- * - Dropdown Menu: Quick navigation to saved locations, comparison matrix,
- *   and session sign out.
+ * - Dropdown Menu (Popover `#090B10`): Quick navigation to saved locations,
+ *   comparison matrix, and session sign out with destructive accent `#D04D39`.
  */
 const Profile = () => {
     // ------------------------------------------------------------------------
@@ -35,9 +35,6 @@ const Profile = () => {
 
     /**
      * Extracts uppercase two-letter initials from name or email
-     *
-     * @param {string} name - User display name or email
-     * @returns {string} - Two-character uppercase initials
      */
     const getInitials = (name) => {
         if (!name) return "TM";
@@ -60,41 +57,41 @@ const Profile = () => {
             <div
                 tabIndex={0}
                 role="button"
-                className="flex items-center gap-2 cursor-pointer py-1 px-1.5 rounded-full hover:bg-slate-800/50 hover:ring-1 hover:ring-slate-700 transition"
+                className="flex items-center gap-2 cursor-pointer py-1 px-1.5 rounded-full hover:bg-[#1E2129] hover:ring-1 hover:ring-[#21242C] transition"
             >
                 {/* Circular Profile Avatar */}
                 {user?.photoURL ? (
                     <img
                         src={user.photoURL}
                         alt={user.displayName || "User"}
-                        className="w-8 h-8 rounded-full object-cover border border-slate-700"
+                        className="w-8 h-8 rounded-full object-cover border border-[#21242C]"
                     />
                 ) : (
-                    <div className="w-8 h-8 rounded-full bg-[#242c37] border border-slate-700 flex items-center justify-center text-xs font-semibold text-white tracking-wide">
+                    <div className="w-8 h-8 rounded-full bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-xs font-semibold text-[#F1EEE9] tracking-wide">
                         {getInitials(user?.displayName || user?.email)}
                     </div>
                 )}
 
                 {/* Authenticated User Display Name (visible on screens >= sm) */}
-                <span className="text-xs font-medium text-slate-200 hidden sm:inline-block max-w-36 truncate">
+                <span className="text-xs font-medium text-[#F1EEE9] hidden sm:inline-block max-w-36 truncate">
                     {userDisplayName}
                 </span>
 
                 {/* Dropdown Chevron Indicator */}
-                <ChevronDown size={14} className="text-slate-400 shrink-0" />
+                <ChevronDown size={14} className="text-[#8891A0] shrink-0" />
             </div>
 
-            {/* Dropdown Menu */}
+            {/* Dropdown Menu (Styled with Popover tokens: bg-[#090B10], border-[#21242C]) */}
             <ul
                 tabIndex={0}
-                className="dropdown-content z-50 mt-2 w-60 rounded-xl bg-[#151a22] p-2.5 shadow-2xl border border-slate-800 text-slate-300"
+                className="dropdown-content z-50 mt-2 w-60 rounded-xl bg-[#090B10] p-2.5 shadow-2xl border border-[#21242C] text-[#F1EEE9]"
             >
-                {/* User Information Summary Card */}
-                <li className="mb-2 p-2 bg-[#1e2530] rounded-lg border border-slate-700/60">
-                    <p className="font-semibold text-xs text-white truncate">
+                {/* User Information Summary Card (bg-[#181A21]) */}
+                <li className="mb-2 p-2 bg-[#181A21] rounded-lg border border-[#21242C]">
+                    <p className="font-semibold text-xs text-[#F1EEE9] truncate">
                         {user?.displayName || "Authenticated Explorer"}
                     </p>
-                    <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                    <p className="text-[11px] text-[#8891A0] truncate mt-0.5">
                         {user?.email}
                     </p>
                 </li>
@@ -103,9 +100,9 @@ const Profile = () => {
                 <li>
                     <Link
                         to="/saved"
-                        className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg hover:bg-[#242c37] hover:text-white transition"
+                        className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg text-[#8891A0] hover:bg-[#1E2129] hover:text-[#F1EEE9] transition"
                     >
-                        <Bookmark size={14} className="text-slate-400" />
+                        <Bookmark size={14} className="text-[#83CAD8]" />
                         <span>My Saved Sites</span>
                     </Link>
                 </li>
@@ -114,21 +111,21 @@ const Profile = () => {
                 <li>
                     <Link
                         to="/compare"
-                        className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg hover:bg-[#242c37] hover:text-white transition"
+                        className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg text-[#8891A0] hover:bg-[#1E2129] hover:text-[#F1EEE9] transition"
                     >
-                        <GitCompare size={14} className="text-slate-400" />
+                        <GitCompare size={14} className="text-[#83CAD8]" />
                         <span>Compare Targets</span>
                     </Link>
                 </li>
 
-                <div className="border-t border-slate-800 my-1.5" />
+                <div className="border-t border-[#21242C] my-1.5" />
 
-                {/* Logout Action */}
+                {/* Logout Action (Destructive accent #D04D39) */}
                 <li>
                     <button
                         type="button"
                         onClick={handleLogout}
-                        className="flex items-center gap-2.5 w-full text-red-400 hover:bg-red-500/10 hover:text-red-300 px-2.5 py-1.5 text-xs rounded-lg transition cursor-pointer"
+                        className="flex items-center gap-2.5 w-full text-[#D04D39] hover:bg-[#D04D39]/10 hover:text-[#D04D39] px-2.5 py-1.5 text-xs rounded-lg transition cursor-pointer"
                     >
                         <LogOut size={14} />
                         <span>Sign Out</span>

@@ -13,16 +13,16 @@ import "react-toastify/dist/ReactToastify.css";
  * TerraMatch Application Root Entry Point
  * ============================================================================
  * Bootstraps providers for Firebase authentication, global UI state,
- * routing, and dark space-themed toast notifications.
+ * routing, and deep-space themed toast notifications.
  *
  * Toast Notifications Configuration:
- * - Theme: "dark" to eliminate default white popups.
+ * - Theme: "dark" matching the `#090B10` popover token.
  * - Position: "bottom-left" non-intrusive notification banner.
- * - Custom styling: Dark background (`#181f28`), slate border, and rounded corners.
+ * - Custom styling: Popover surface (`#090B10`), border (`#21242C`), and high-legibility text (`#F1EEE9`).
  */
 createRoot(document.getElementById("root")).render(
     <StrictMode>
-        {/* Dark Space-Themed Notification Toast Container */}
+        {/* Deep-Space Themed Notification Toast Container */}
         <ToastContainer
             theme="dark"
             position="bottom-left"
@@ -34,7 +34,7 @@ createRoot(document.getElementById("root")).render(
             pauseOnFocusLoss={false}
             draggable
             pauseOnHover
-            toastClassName="!bg-[#181f28] !text-slate-200 !border !border-slate-700/80 !rounded-xl !shadow-2xl text-xs"
+            toastClassName="!bg-[#090B10] !text-[#F1EEE9] !border !border-[#21242C] !rounded-xl !shadow-2xl text-xs font-sans"
         />
 
         <AuthProvider>
