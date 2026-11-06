@@ -4,51 +4,57 @@ import { UserCheck } from "lucide-react";
  * ============================================================================
  * Team Members Data Structure
  * ============================================================================
- * Roster of multidisciplinary specialists leading planetary analog science,
- * aerospace engineering, geospatial machine learning, and UX architecture.
+ * Official roster of the 6 core contributors leading TerraMatch engineering,
+ * planetary research, backend systems, UX architecture, and narrative design.
  */
 const TEAM_MEMBERS = [
     {
-        id: "elena-rostova",
-        name: "Dr. Elena Rostova",
-        role: "Project Lead & Planetary Scientist",
-        initials: "ER",
-        specialty: "Astrobiology & Martian Regolith Modeling",
+        // 1. Team Lead & Frontend Developer
+        id: "iqbal-hasan",
+        name: "Md. Iqbal Hasan",
+        role: "Team Lead & Frontend Developer",
+        initials: "IH",
+        specialty: "Platform Architecture & Interactive Map Systems",
     },
     {
-        id: "marcus-chen",
-        name: "Marcus Chen",
-        role: "Lead Software Engineer",
-        initials: "MC",
-        specialty: "Distributed Geospatial Computing & WebGL",
+        // 2. Backend Developer
+        id: "tajbin-ovie",
+        name: "Md Tajbin Ahmed Ovie",
+        role: "Backend Developer",
+        initials: "TO",
+        specialty: "API Engineering & MongoDB Atlas Integration",
     },
     {
-        id: "sarah-jenkins",
-        name: "Sarah Jenkins",
-        role: "Geology & Regolith Specialist",
-        initials: "SJ",
-        specialty: "Volcanic Basalt & Lunar Magma Ocean Terrains",
+        // 3. UI/UX Developer
+        id: "abdullah-mahmood",
+        name: "Mohd Abdullah Al Mahmood",
+        role: "UI/UX Developer",
+        initials: "AM",
+        specialty: "Deep-Space Interface Design & User Experience",
     },
     {
-        id: "david-kim",
-        name: "Dr. David Kim",
-        role: "Data & AI Architect",
-        initials: "DK",
-        specialty: "Orbital Telemetry Ingestion & Similarity Indexing",
+        // 4. Research Lead
+        id: "jihan-joty",
+        name: "Mst. Jihan Jimi Joty",
+        role: "Research Lead",
+        initials: "JJ",
+        specialty: "Planetary Analog Data & Scientific Evaluation",
     },
     {
-        id: "aisha-patel",
-        name: "Aisha Patel",
-        role: "UI/UX Designer",
-        initials: "AP",
-        specialty: "Geospatial Human-Computer Interfaces & Telemetry UX",
+        // 5. Story Teller
+        id: "nusrat-sumiya",
+        name: "Nusrat Jahan Sumiya",
+        role: "Story Teller",
+        initials: "NS",
+        specialty: "Mission Narrative & Scientific Communication",
     },
     {
-        id: "liam-oconnor",
-        name: "Liam O'Connor",
-        role: "Space Simulation Specialist",
-        initials: "LO",
-        specialty: "Robotic Rover Mobility & Extreme Field Trials",
+        // 6. Scope Keeper
+        id: "asmaul-islam",
+        name: "Md. Asmaul Islam",
+        role: "Scope Keeper",
+        initials: "AI",
+        specialty: "Project Scope Management & Feature Alignment",
     },
 ];
 
