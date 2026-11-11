@@ -4,28 +4,28 @@ import { useState } from "react";
  * ============================================================================
  * Logo Component
  * ============================================================================
- * Renders the official TerraMatch branding in the top navbar and footers:
- * - Primary Brand Icon: Raster logo loaded from `/logo.jpg` (`public/logo.jpg`).
- * - Fallback Chain: Gracefully degrades `/logo.jpg` -> `/logo.svg` -> `/favicon.svg`
- *   if an image fails to load.
- * - Deep-Space Color Palette:
- *   - Container: `#1A1D23` with `#21242C` border and `#83CAD8` hover accent.
- *   - Brand Title: High-legibility starlight text `#F1EEE9`.
- *   - Subtitle: Muted foreground `#8891A0`.
+ * Renders the unified TerraMatch brand mark inside the top navigation bar:
+ * - Single Clean Image Element: Displays the full horizontal TerraMatch logo
+ *   from `/logo.jpg` (`public/logo.jpg`) without any surrounding badge box,
+ *   border, grey container fill, or redundant HTML heading/subtitle text.
+ * - Seamless Dark Integration: Uses `bg-transparent` and `object-contain` so
+ *   the emblem scales naturally within the 56px (`h-14`) navbar (`#0B0E13`).
+ * - Graceful Fallback Chain: Automatically degrades `/logo.jpg` -> `/logo.svg`
+ *   -> `/favicon.svg` if an asset fails to load.
  */
 const Logo = () => {
     // ------------------------------------------------------------------------
-    // 1. State: Active Logo Image Source with Multi-Step Fallback Chain
+    // 1. State: Active Logo Source with Multi-Step Error Fallback
     // ------------------------------------------------------------------------
-    // Tracks the currently active image URL; starts with `/logo.jpg`
+    // Tracks the active image URL; defaults to the primary raster logo `/logo.jpg`
     const [logoSrc, setLogoSrc] = useState("/logo.jpg");
 
     // ------------------------------------------------------------------------
     // 2. Helper Function: Image Load Error Fallback Handler
     // ------------------------------------------------------------------------
     /**
-     * Advances through the asset fallback chain (`/logo.jpg` -> `/logo.svg` -> `/favicon.svg`)
-     * whenever the current source fails to load so the badge never displays a broken icon.
+     * Steps through the fallback asset chain (`/logo.jpg` -> `/logo.svg` ->
+     * `/favicon.svg`) whenever an image load fails so a broken icon never appears.
      */
     const handleImageError = () => {
         if (logoSrc === "/logo.jpg") {
@@ -36,32 +36,17 @@ const Logo = () => {
     };
 
     // ------------------------------------------------------------------------
-    // 3. Component Render Block
+    // 3. Component Render Block (Unified Transparent Brand Image)
     // ------------------------------------------------------------------------
     return (
-        <div className="flex items-center gap-2.5 select-none">
-            {/* Logo Badge Container: Fixed 32x32 frame with deep-space border tokens */}
-            <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] p-0.5 flex items-center justify-center shrink-0 overflow-hidden shadow-xs group-hover:border-[#83CAD8] transition">
-                <img
-                    src={logoSrc}
-                    alt="TerraMatch Logo"
-                    width={32}
-                    height={32}
-                    onError={handleImageError}
-                    className="w-full h-full object-cover rounded-md"
-                />
-            </div>
-
-            {/* Stacked Brand Wordmark & Subtitle Block */}
-            <div className="flex flex-col">
-                <h1 className="text-base font-bold text-[#F1EEE9] tracking-tight leading-tight">
-                    TerraMatch
-                </h1>
-                <p className="text-[10px] text-[#8891A0] font-normal leading-tight">
-                    Planetary Analog Platform
-                </p>
-            </div>
-        </div>
+        <img
+            src={logoSrc}
+            alt="TerraMatch - Planetary Analog Platform"
+            width={logoSrc === "/logo.jpg" ? 512 : 36}
+            height={logoSrc === "/logo.jpg" ? 286 : 36}
+            onError={handleImageError}
+            className="h-9 sm:h-10 w-auto object-contain bg-transparent select-none"
+        />
     );
 };
 
