@@ -1,65 +1,27 @@
-import axios from "axios";
-import { useEffect, useState, useCallback } from "react";
-import useAuth from "./useAuth";
-import { API_BASE_URL } from "../utils/api";
+import { useContext } from "react";
+import StateContext from "../States/StateContext";
 
 /**
- * Custom Hook: useRecent
- * Fetches and manages the recent search history for the logged-in user.
+ * ============================================================================
+ * useRecent Custom Hook
+ * ============================================================================
+ * Convenience hook exposing the centralized Recent Searches state and actions
+ * managed inside `StateProvider` (`recentSearched`, `setRecentSearched`,
+ * `recordRecentSearch`, `deleteRecentSearch`, `clearRecentSearches`, `refetchRecent`).
+ * Sharing a single context source prevents out-of-sync local hook copies across
+ * `Tweaks`, `ShowRecentSearches`, and `Map`.
  */
 const useRecent = () => {
-    const { user } = useAuth();
-    const [recentSearched, setRecentSearched] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-
-    // Fetch user's recent searches
-    const fetchRecentSearches = useCallback(() => {
-        if (!user?.email) {
-            setRecentSearched([]);
-            return;
-        }
-
-        setLoading(true);
-        axios(`${API_BASE_URL}/recent-searches/${encodeURIComponent(user.email)}`)
-            .then(response => {
-                setRecentSearched(response.data || []);
-            })
-            .catch(err => {
-                console.error("Failed to fetch recent searches:", err);
-                setError(err);
-            })
-            .finally(() => setLoading(false));
-    }, [user]);
-
-    useEffect(() => {
-        let isMounted = true;
-        if (!user?.email) {
-            return;
-        }
-
-        axios(`${API_BASE_URL}/recent-searches/${encodeURIComponent(user.email)}`)
-            .then(response => {
-                if (isMounted) setRecentSearched(response.data || []);
-            })
-            .catch(err => {
-                if (isMounted) {
-                    console.error("Failed to fetch recent searches:", err);
-                    setError(err);
-                }
-            });
-
-        return () => {
-            isMounted = false;
-        };
-    }, [user?.email]);
+    const context = useContext(StateContext);
 
     return {
-        recentSearched,
-        setRecentSearched,
-        refetchRecent: fetchRecentSearches,
-        loading,
-        error
+        recentSearched: context?.recentSearched || [],
+        setRecentSearched: context?.setRecentSearched,
+        recordRecentSearch: context?.recordRecentSearch,
+        deleteRecentSearch: context?.deleteRecentSearch,
+        clearRecentSearches: context?.clearRecentSearches,
+        refetchRecent: context?.refetchRecent,
+        loading: Boolean(context?.recentLoading),
     };
 };
 

@@ -1,6 +1,5 @@
-import { useState, useContext, useRef, useEffect } from "react";
+import { useState, useContext, useRef, useEffect, useMemo, useCallback } from "react";
 import { Clock3, Globe, MapPin, X, Check, RotateCcw } from "lucide-react";
-import useRecent from "../Hooks/useRecent";
 import useSaved from "../Hooks/useSaved";
 import { toast } from "react-toastify";
 import useAuth from "../Hooks/useAuth";
@@ -11,36 +10,50 @@ import StateContext from "../States/StateContext";
  * ============================================================================
  * ShowRecentSearches Component
  * ============================================================================
- * Displays dynamic recent candidate planetary analog searches from MongoDB in
- * the drawer sidebar. Starting with a clean slate (0 searches, 0 saved):
- * - Live data derived strictly from useRecent() and useSaved()
- * - Exact badge count reflects user's actual saved bookmarks (0 Saved initially)
- * - Clean empty state when no recent searches are logged
- * - 5-Second optimistic deletion with Dark Undo snackbar banner
- * - Panning triggers map viewport centering via StateContext
+ * Displays the user's dynamic Recent Searches history inside the right drawer:
+ * - Reads centralized `recentSearched`, `setRecentSearched`, `recordRecentSearch`,
+ *   `deleteRecentSearch`, and `clearRecentSearches` from `StateContext` (which
+ *   synchronizes both MongoDB and `localStorage` under `"terramatch_recent_searches"`).
+ * - Displays an accurate live `"X Saved"` badge count from `useSaved()`.
+ * - Makes the entire recent location card clickable to promote it to the top of
+ *   Recent Searches, fly/zoom the map to its coordinates, open its marker popup,
+ *   and auto-collapse the mobile drawer (`onSelectLocation`).
+ * - Keeps `"Remove"` and `"Save"` buttons isolated with `e.stopPropagation()`.
+ * - Preserves the 5-second optimistic deletion + dark Undo snackbar banner.
  */
-const ShowRecentSearches = () => {
+const ShowRecentSearches = ({ onSelectLocation }) => {
     // ------------------------------------------------------------------------
-    // 1. Data Hooks & Global Context Subscriptions
+    // 1. Context Subscriptions & Data Hooks
     // ------------------------------------------------------------------------
-    // Fetches real recent search entries for the authenticated user from MongoDB
-    const { recentSearched, setRecentSearched } = useRecent();
-    // Fetches real saved bookmarks for the authenticated user from MongoDB
-    const { savedLoc, refetchSaved } = useSaved();
-    // Current authenticated user session credentials
+    // Centralized Recent Searches state & backend/localStorage actions + Map target setter
+    const {
+        recentSearched,
+        setRecentSearched,
+        recordRecentSearch,
+        deleteRecentSearch,
+        clearRecentSearches,
+        setMapTarget,
+    } = useContext(StateContext);
+
+    // User's saved bookmarks hook for badge count and Saved indicators
+    const { savedLoc, setSavedLoc, refetchSaved } = useSaved();
+
+    // Current Firebase user session for database writes
     const { user } = useAuth();
-    // State context for controlling map camera target position and zoom level
-    const { setMapTarget } = useContext(StateContext);
 
     // ------------------------------------------------------------------------
-    // 2. Optimistic Delete & Undo State Management
+    // 2. Optimistic Delete & 5-Second Undo Timer State Variables
     // ------------------------------------------------------------------------
-    // Tracks active item or list scheduled for backend deletion during 5s undo window
+    // Holds pending single-item or clear-all deletion state while undo banner is active
     const [pendingDeletion, setPendingDeletion] = useState(null);
-    // Reference to active timeout instance for committing removal to MongoDB
+
+    // Optimistic set of bookmarked keys for instant "Saved" UI feedback
+    const [optimisticSavedIds, setOptimisticSavedIds] = useState(() => new Set());
+
+    // Reference to active timeout committing the deletion to MongoDB after 5 seconds
     const deletionTimerRef = useRef(null);
 
-    // Cleanup deletion timer when component unmounts to prevent memory leaks
+    // Clear active timeout cleanly on unmount to prevent stale timer callbacks
     useEffect(() => {
         return () => {
             if (deletionTimerRef.current) {
@@ -50,41 +63,115 @@ const ShowRecentSearches = () => {
     }, []);
 
     // ------------------------------------------------------------------------
-    // 3. Dynamic Searches & Saved Count Derivation
+    // 3. Derived Lists, Identifiers & Saved Lookup Set
     // ------------------------------------------------------------------------
-    // 100% real dynamic searches from MongoDB (clean slate default if empty)
+    // Safe fallback array of recent searches from centralized StateProvider
     const displayedSearches = recentSearched || [];
-    // Dynamic saved count accurately matching user's actual MongoDB bookmarks (0 when empty)
+
+    // Live total count of saved locations from MongoDB
     const savedCount = savedLoc?.length || 0;
 
-    // ------------------------------------------------------------------------
-    // 4. Map Viewport Panning Handler
-    // ------------------------------------------------------------------------
-    // Re-centers map camera over the selected analog site coordinates
-    const handleViewOnMap = (loc) => {
-        if (loc?.coordinates?.latitude && loc?.coordinates?.longitude) {
-            setMapTarget({
-                latitude: loc.coordinates.latitude,
-                longitude: loc.coordinates.longitude,
-                zoom: 10,
+    // Fast lookup set of saved IDs / names so saved recent items display "Saved"
+    const savedLocationIds = useMemo(() => {
+        const set = new Set(optimisticSavedIds);
+        if (savedLoc && savedLoc.length > 0) {
+            savedLoc.forEach((item) => {
+                const keys = [item._id, item.locationId, item.id, item.name].filter(Boolean);
+                keys.forEach((key) => set.add(key));
             });
         }
-    };
+        return set;
+    }, [savedLoc, optimisticSavedIds]);
+
+    /**
+     * Resolves a stable unique key for matching items in local/MongoDB history.
+     */
+    const getRecentItemKey = (item) =>
+        item?._id || item?.locationId || item?.id || item?.name;
+
+    // ------------------------------------------------------------------------
+    // 4. Card / Map Selection Handler
+    // ------------------------------------------------------------------------
+    /**
+     * Triggered when clicking anywhere on a recent search card or "View on map":
+     * 1. Promotes the clicked site to the top of Recent Searches.
+     * 2. Pans/zooms Leaflet map smoothly to the site's coordinates and opens its popup.
+     * 3. Auto-collapses the sidebar drawer on mobile viewports (< 1024px).
+     */
+    const handleViewOnMap = useCallback(
+        (loc) => {
+            if (!loc) return;
+
+            // Re-record selection so it moves to the top of Recent Searches
+            recordRecentSearch?.(loc);
+
+            // Fly map camera to target coordinates with timestamp for repeatable clicks
+            if (
+                typeof loc?.coordinates?.latitude === "number" &&
+                typeof loc?.coordinates?.longitude === "number"
+            ) {
+                setMapTarget({
+                    latitude: loc.coordinates.latitude,
+                    longitude: loc.coordinates.longitude,
+                    zoom: 11,
+                    locationId: loc.locationId || loc.id || loc._id,
+                    name: loc.name,
+                    timestamp: Date.now(),
+                });
+            }
+
+            // Collapse mobile drawer immediately so user sees the animated zoom & popup
+            onSelectLocation?.(loc);
+        },
+        [recordRecentSearch, setMapTarget, onSelectLocation]
+    );
 
     // ------------------------------------------------------------------------
     // 5. Bookmark / Save Location Handler
     // ------------------------------------------------------------------------
-    // Persists the analog candidate site to the user's MongoDB Saved collection
-    const handleSave = (theId) => {
+    /**
+     * Saves a recent search location to the user's MongoDB Saved collection.
+     */
+    const handleSave = (locationToSave) => {
+        if (!locationToSave) return;
+
+        const locationId =
+            locationToSave.locationId ||
+            locationToSave.id ||
+            locationToSave._id ||
+            locationToSave.name;
+
+        setOptimisticSavedIds((prev) => {
+            const next = new Set(prev);
+            next.add(locationId);
+            return next;
+        });
+
         if (!user?.email) {
             toast.info("Please sign in to save locations to your account.");
             return;
         }
 
-        const locationToSave = displayedSearches.find(
-            (recent) => (recent._id || recent.id) === theId
-        );
-        if (!locationToSave) return;
+        if (setSavedLoc) {
+            setSavedLoc((prev) => {
+                if (
+                    prev.some(
+                        (s) => (s._id || s.locationId || s.id || s.name) === locationId
+                    )
+                ) {
+                    return prev;
+                }
+                return [
+                    {
+                        ...locationToSave,
+                        locationId,
+                        created_at: new Date(),
+                        created_by: user.email,
+                    },
+                    ...prev,
+                ];
+            });
+        }
 
         fetch(`${API_BASE_URL}/savedLocs`, {
             method: "POST",
@@ -93,6 +180,7 @@ const ShowRecentSearches = () => {
             },
             body: JSON.stringify({
                 ...locationToSave,
+                locationId,
                 created_at: new Date(),
                 created_by: user.email,
             }),
@@ -101,7 +189,6 @@ const ShowRecentSearches = () => {
             .then((data) => {
                 if (data.success) {
                     toast.success("Location saved to your profile!");
-                    // Refresh saved locations to update badge count instantly
                     refetchSaved?.();
                 }
             })
@@ -112,39 +199,34 @@ const ShowRecentSearches = () => {
     };
 
     // ------------------------------------------------------------------------
-    // 6. Backend Deletion Commit Routines
+    // 6. Backend Deletion Commit Helpers (Delegated to StateProvider)
     // ------------------------------------------------------------------------
-    // Finalizes permanent removal of a single recent search document from MongoDB
+    /**
+     * Commits permanent deletion of a single item to MongoDB via StateProvider.
+     */
     const commitBackendDelete = (itemToDelete) => {
-        const idToDelete = itemToDelete?._id || itemToDelete?.id;
-        if (user?.email && idToDelete) {
-            fetch(`${API_BASE_URL}/recent-searches/${idToDelete}`, {
-                method: "DELETE",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            }).catch((err) => console.error("Async delete error:", err));
+        const idToDelete =
+            itemToDelete?._id || itemToDelete?.locationId || itemToDelete?.id;
+        if (idToDelete) {
+            deleteRecentSearch?.(idToDelete);
         }
     };
 
-    // Finalizes permanent deletion of all recent searches for the user in MongoDB
+    /**
+     * Commits permanent clear-all wipe for the signed-in user via StateProvider.
+     */
     const commitBackendClearAll = () => {
-        if (user?.email) {
-            fetch(`${API_BASE_URL}/recent-searches/user/${encodeURIComponent(user.email)}`, {
-                method: "DELETE",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            }).catch((err) => console.error("Async clear error:", err));
-        }
+        clearRecentSearches?.();
     };
 
     // ------------------------------------------------------------------------
-    // 7. Optimistic Removal Handlers with 5-Second Undo Window
+    // 7. Optimistic Removal & 5-Second Undo Snackbar Handlers
     // ------------------------------------------------------------------------
-    // Removes single item immediately from UI and stages MongoDB deletion
-    const handleDelete = (theId) => {
-        // If an earlier deletion was pending, commit it immediately before queueing next
+    /**
+     * Optimistically removes a single recent search item and starts a 5s undo timer.
+     */
+    const handleDelete = (itemKey) => {
+        // Flush any earlier pending deletion before starting a new undo countdown
         if (pendingDeletion) {
             if (deletionTimerRef.current) clearTimeout(deletionTimerRef.current);
             if (pendingDeletion.isBatch) {
@@ -155,35 +237,34 @@ const ShowRecentSearches = () => {
         }
 
         const itemToDelete = displayedSearches.find(
-            (item) => (item._id || item.id) === theId
+            (item) => getRecentItemKey(item) === itemKey
         );
         if (!itemToDelete) return;
 
-        // Optimistically filter item out of local state
+        // Immediately remove from centralized state (and localStorage via StateProvider)
         setRecentSearched((prev) =>
-            prev.filter((item) => (item._id || item.id) !== theId)
+            prev.filter((item) => getRecentItemKey(item) !== itemKey)
         );
 
-        // Schedule backend deletion commit after 5 seconds
-        const timerId = setTimeout(() => {
+        // Schedule MongoDB DELETE call after the 5-second undo window expires
+        deletionTimerRef.current = setTimeout(() => {
             commitBackendDelete(itemToDelete);
             setPendingDeletion(null);
         }, 5000);
 
-        deletionTimerRef.current = timerId;
-
-        // Stage pending deletion state for undo bar
         setPendingDeletion({
             item: itemToDelete,
             isBatch: false,
         });
     };
 
-    // Clears all items immediately from UI and stages MongoDB collection wipe
+    /**
+     * Optimistically clears all recent searches and opens the 5s undo banner.
+     */
     const handleDeleteAll = () => {
         if (displayedSearches.length === 0) return;
 
-        // Commit any currently pending deletion first
+        // Flush any earlier pending deletion first
         if (pendingDeletion) {
             if (deletionTimerRef.current) clearTimeout(deletionTimerRef.current);
             if (pendingDeletion.isBatch) {
@@ -195,29 +276,27 @@ const ShowRecentSearches = () => {
 
         const backupItems = [...displayedSearches];
 
-        // Optimistically clear local state
+        // Clear centralized state (automatically mirrored to localStorage)
         setRecentSearched([]);
 
-        // Schedule backend wipe after 5 seconds
-        const timerId = setTimeout(() => {
+        // Schedule MongoDB bulk wipe after 5 seconds
+        deletionTimerRef.current = setTimeout(() => {
             commitBackendClearAll();
             setPendingDeletion(null);
         }, 5000);
 
-        deletionTimerRef.current = timerId;
-
-        // Stage pending batch deletion for undo bar
         setPendingDeletion({
             itemsList: backupItems,
             isBatch: true,
         });
     };
 
-    // Restores queued items if clicked within the 5-second window
+    /**
+     * Cancels the pending backend delete and restores removed item(s) immediately.
+     */
     const handleUndo = () => {
         if (!pendingDeletion) return;
 
-        // Cancel scheduled backend deletion timer
         if (deletionTimerRef.current) {
             clearTimeout(deletionTimerRef.current);
             deletionTimerRef.current = null;
@@ -235,14 +314,14 @@ const ShowRecentSearches = () => {
     };
 
     // ------------------------------------------------------------------------
-    // 8. Render
+    // 8. Component Render Block
     // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full flex flex-col text-[#F1EEE9] select-none relative">
-            {/* Header Toolbar: Title, Clear All, and Live Saved Badge Count */}
-            <div className="flex justify-between items-center mb-3 pr-9">
+            {/* Header Toolbar: Title, Clear All Action, and Live Saved Counter */}
+            <div className="flex justify-between items-center mb-3 pr-10">
                 <div className="flex items-center gap-2">
-                    <Clock3 size={16} className="text-[#8891A0]" />
+                    <Clock3 size={16} aria-hidden="true" className="text-[#8891A0]" />
                     <h2 className="font-semibold text-sm text-[#F1EEE9] tracking-tight">
                         Recent Searches
                     </h2>
@@ -258,28 +337,37 @@ const ShowRecentSearches = () => {
                             Clear all
                         </button>
                     )}
-                    {/* Live accurate count of bookmarked locations from MongoDB */}
+
+                    {/* Live Saved Sites Count Badge */}
                     <span className="text-[11px] font-medium text-[#8891A0] bg-[#181A21] border border-[#21242C] px-2 py-0.5 rounded-md">
                         {savedCount} Saved
                     </span>
                 </div>
             </div>
 
-            {/* List of Recent Search Cards or Clean Empty State */}
+            {/* Scrollable Recent Searches Card List or Clean Empty State */}
             <div className="space-y-3 overflow-y-auto flex-1 pr-1 custom-scrollbar">
                 {displayedSearches.length > 0 ? (
                     displayedSearches.map((item) => {
-                        const itemId = item._id || item.id;
+                        const itemKey = getRecentItemKey(item);
+                        const isSaved =
+                            savedLocationIds.has(item._id) ||
+                            savedLocationIds.has(item.locationId) ||
+                            savedLocationIds.has(item.id) ||
+                            savedLocationIds.has(item.name);
+
                         return (
-                            <div
-                                key={itemId}
-                                className="bg-[#181A21] border border-[#21242C] rounded-xl p-3.5 transition duration-150 hover:border-[#83CAD8]/50 shadow-md"
+                            /* Clickable Recent Location Card (Clicking anywhere focuses map) */
+                            <article
+                                key={itemKey}
+                                onClick={() => handleViewOnMap(item)}
+                                className="relative bg-[#181A21] border border-[#21242C] rounded-xl p-3.5 transition duration-150 hover:border-[#83CAD8]/50 has-[.card-primary-action:focus-visible]:outline-2 has-[.card-primary-action:focus-visible]:outline-[#83CAD8] shadow-md cursor-pointer"
                             >
-                                {/* Card Top Row: Globe Icon, Name, Country & Similarity Score */}
+                                {/* Card Header Row: Icon, Location Name, Country & Score */}
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#8891A0] shrink-0">
-                                            <Globe size={16} />
+                                            <Globe size={16} aria-hidden="true" />
                                         </div>
                                         <div className="min-w-0">
                                             <h3 className="text-xs sm:text-sm font-semibold text-[#F1EEE9] truncate leading-tight">
@@ -296,47 +384,86 @@ const ShowRecentSearches = () => {
                                     </span>
                                 </div>
 
-                                {/* Card Actions Footer: View on Map, Remove, Bookmark */}
+                                {/* Card Actions Footer: View on Map (stretched), Remove, Save */}
                                 <div className="flex items-center justify-between border-t border-[#21242C] pt-2.5 mt-2.5 text-xs">
+                                    {/* Primary Action stretched over card via ::after pseudo-element */}
                                     <button
                                         type="button"
-                                        onClick={() => handleViewOnMap(item)}
-                                        className="flex items-center gap-1.5 text-[#8891A0] hover:text-[#F1EEE9] transition duration-150 cursor-pointer"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleViewOnMap(item);
+                                        }}
+                                        aria-label={`View on map: ${item.name}`}
+                                        className="card-primary-action flex items-center gap-1.5 text-[#8891A0] hover:text-[#F1EEE9] focus-visible:outline-none transition duration-150 cursor-pointer after:content-[''] after:absolute after:inset-0 after:rounded-xl"
                                     >
-                                        <MapPin size={13} className="text-[#8891A0]" />
+                                        <MapPin
+                                            size={13}
+                                            aria-hidden="true"
+                                            className="text-[#8891A0]"
+                                        />
                                         <span>View on map</span>
                                     </button>
 
-                                    <div className="flex items-center gap-3">
+                                    {/* Isolated Remove & Save Controls (Elevated above card overlay) */}
+                                    <div className="relative z-10 flex items-center gap-3">
                                         <button
                                             type="button"
-                                            onClick={() => handleDelete(itemId)}
-                                            className="flex items-center gap-1 text-[#D04D39] hover:text-[#D04D39]/80 transition duration-150 cursor-pointer"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDelete(itemKey);
+                                            }}
+                                            aria-label={`Remove ${item.name}`}
+                                            className="flex items-center gap-1 text-[#D04D39] hover:text-[#D04D39]/80 transition duration-150 cursor-pointer py-0.5 px-1 rounded"
                                         >
-                                            <X size={13} />
+                                            <X size={13} aria-hidden="true" />
                                             <span>Remove</span>
                                         </button>
 
                                         <button
                                             type="button"
-                                            onClick={() => handleSave(itemId)}
-                                            className="flex items-center gap-1 text-[#8891A0] hover:text-[#83CAD8] transition duration-150 cursor-pointer"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleSave(item);
+                                            }}
+                                            aria-label={
+                                                isSaved
+                                                    ? `Saved ${item.name}`
+                                                    : `Save ${item.name}`
+                                            }
+                                            className="flex items-center gap-1 text-[#8891A0] hover:text-[#83CAD8] transition duration-150 cursor-pointer py-0.5 px-1 rounded"
                                         >
-                                            <Check size={13} className="text-[#83CAD8]" />
-                                            <span>Save</span>
+                                            <Check
+                                                size={13}
+                                                aria-hidden="true"
+                                                className="text-[#83CAD8]"
+                                            />
+                                            <span
+                                                className={
+                                                    isSaved ? "text-[#83CAD8] font-medium" : ""
+                                                }
+                                            >
+                                                {isSaved ? "Saved" : "Save"}
+                                            </span>
                                         </button>
                                     </div>
                                 </div>
-                            </div>
+                            </article>
                         );
                     })
                 ) : (
-                    /* Clean Empty State when user has no recent searches */
+                    /* Clean Empty State when Recent Searches list is empty */
                     <div className="text-center py-12 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs">
-                        <Clock3 size={24} className="mx-auto opacity-40 mb-2 text-[#8891A0]" />
-                        <p className="font-medium text-[#F1EEE9]">No recent searches yet.</p>
+                        <Clock3
+                            size={24}
+                            aria-hidden="true"
+                            className="mx-auto opacity-40 mb-2 text-[#8891A0]"
+                        />
+                        <p className="font-medium text-[#F1EEE9]">
+                            No recent searches yet.
+                        </p>
                         <p className="text-[11px] text-[#8891A0] mt-1">
-                            Explore candidate planetary analog sites in the Search tab or click a location on the map.
+                            Explore candidate planetary analog sites in the Search tab or
+                            click a location on the map.
                         </p>
                     </div>
                 )}
@@ -344,7 +471,11 @@ const ShowRecentSearches = () => {
 
             {/* 5-Second Dark Undo Snackbar Banner */}
             {pendingDeletion && (
-                <div className="mt-3 bg-[#090B10] border border-[#21242C] text-[#F1EEE9] rounded-xl px-3.5 py-2.5 shadow-2xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2 duration-150 shrink-0">
+                <div
+                    role="status"
+                    aria-live="polite"
+                    className="mt-3 bg-[#090B10] border border-[#21242C] text-[#F1EEE9] rounded-xl px-3.5 py-2.5 shadow-2xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2 duration-150 shrink-0"
+                >
                     <span className="text-xs text-[#8891A0] truncate">
                         {pendingDeletion.isBatch
                             ? "Cleared all recent searches"
@@ -355,7 +486,7 @@ const ShowRecentSearches = () => {
                         onClick={handleUndo}
                         className="flex items-center gap-1 text-xs font-semibold text-[#83CAD8] hover:text-[#83CAD8]/80 px-2 py-1 rounded bg-[#1A1D23] border border-[#21242C] transition cursor-pointer shrink-0"
                     >
-                        <RotateCcw size={12} />
+                        <RotateCcw size={12} aria-hidden="true" />
                         <span>Undo</span>
                     </button>
                 </div>

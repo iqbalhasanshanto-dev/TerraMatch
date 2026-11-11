@@ -2,7 +2,6 @@ import { useState, useEffect, useContext, useMemo, useCallback } from "react";
 import { Search, Globe, MapPin, Check } from "lucide-react";
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
-import useRecent from "../Hooks/useRecent";
 import StateContext from "../States/StateContext";
 import useAuth from "../Hooks/useAuth";
 import { toast } from "react-toastify";
@@ -12,63 +11,83 @@ import { API_BASE_URL } from "../utils/api";
  * ============================================================================
  * Tweaks Component ("Find a Match" Planetary Analog Filter Panel)
  * ============================================================================
- * Search and multi-variable filtering panel for planetary analog candidates:
- * - 100% dynamic MongoDB connection displaying "{locData.length} Sites Live"
- * - Automatically registers recent searches to MongoDB when user clicks "Search" or "View on map"
- * - Instant bookmarking via POST /savedLocs with immediate state synchronization
- * - Full deep-space theme styling with custom slider indicators and segmented controls
+ * Interactive search and multi-variable filtering panel for planetary analog sites:
+ * - Connects dynamically to MongoDB / static fallback via `useLocations()`
+ *   displaying `"{locData.length} Sites Live"`.
+ * - Records explored/searched sites into centralized Recent Searches via
+ *   `StateContext.recordRecentSearch` (MongoDB + `localStorage` mirror).
+ * - Entire result cards (as well as "View on map") are clickable to fly/zoom
+ *   the map to the selected target, open its popup, record it in Recent Searches,
+ *   and auto-collapse the mobile sidebar via `onSelectLocation`.
+ * - Bookmark ("Save") button uses `e.stopPropagation()` so saving does not
+ *   trigger card navigation or close the mobile drawer.
  */
-const Tweaks = () => {
+const Tweaks = ({ onSelectLocation }) => {
     // ------------------------------------------------------------------------
     // 1. Contexts, Custom Hooks & Global State Subscriptions
     // ------------------------------------------------------------------------
-    // Real catalog locations fetched from MongoDB Location collection
+    // Full catalog of planetary analog locations (MongoDB with static JSON fallback)
     const { locData } = useLocations();
-    // Filtered locations array and map camera positioning context
-    const { filteredLoc, setFilteredLoc, setMapTarget } = useContext(StateContext);
-    // User authentication state for associating database entries
+
+    // Global filtered locations, map fly-to target, and centralized recent-search logger
+    const { filteredLoc, setFilteredLoc, setMapTarget, recordRecentSearch } =
+        useContext(StateContext);
+
+    // Current Firebase user session for database bookmarking
     const { user } = useAuth();
-    // Saved locations hook providing user bookmarks and refetch function
+
+    // User's saved bookmarks hook for live Saved state indicators
     const { savedLoc, setSavedLoc, refetchSaved } = useSaved();
-    // Recent searches hook providing refetch trigger for real-time sidebar updates
-    const { refetchRecent } = useRecent();
 
     // ------------------------------------------------------------------------
-    // 2. Filter State Variables
+    // 2. Filter Control State Variables
     // ------------------------------------------------------------------------
-    // Text search query matching location name or country
+    // Free-text search query matching site name or country
     const [searchQuery, setSearchQuery] = useState("");
-    // Target planetary body filter ("mars", "moon", or "Any")
+
+    // Target planetary body selector ("moon" or "mars")
     const [targetBody, setTargetBody] = useState("mars");
-    // Qualitative terrain classification filter ("Any", "Rocky", "Sandy", etc.)
+
+    // Qualitative terrain category filter ("Any", "Rocky", "Sandy", "Icy", "Volcanic")
     const [terrain, setTerrain] = useState("Any");
-    // Earth humidity regime filter ("Any", "Very dry", "Dry", "Moderate", "Humid")
+
+    // Earth site humidity regime filter ("Any", "Very dry", "Dry", "Moderate", "Humid")
     const [humidity, setHumidity] = useState("Any");
-    // Qualitative temperature category filter ("Any", "Freezing", "Cold", etc.)
+
+    // Qualitative climate/temperature tier filter ("Any", "Freezing", "Cold", "Mild", "Hot")
     const [temperature, setTemperature] = useState("Any");
-    // Numeric minimum temperature limit slider (-60°C to 50°C)
+
+    // Numeric minimum surface temperature bound slider (-60°C to 50°C)
     const [tempMin, setTempMin] = useState(-50);
-    // Numeric maximum temperature limit slider (-60°C to 50°C)
+
+    // Numeric maximum surface temperature bound slider (-60°C to 50°C)
     const [tempMax, setTempMax] = useState(40);
-    // Optimistic set of bookmarked IDs to give instant UI feedback on save
+
+    // Optimistic set of bookmarked location keys for instantaneous "Saved" feedback
     const [optimisticSavedIds, setOptimisticSavedIds] = useState(() => new Set());
 
-    // Merged set of saved IDs derived from backend data and optimistic additions
+    // ------------------------------------------------------------------------
+    // 3. Derived Saved Location Keys Lookup Set
+    // ------------------------------------------------------------------------
+    // Combines persisted MongoDB bookmarks and optimistic local saves into one fast lookup Set
     const savedLocationIds = useMemo(() => {
         const set = new Set(optimisticSavedIds);
         if (savedLoc && savedLoc.length > 0) {
             savedLoc.forEach((item) => {
-                const key = item._id || item.id || item.name;
-                set.add(key);
+                const keys = [item._id, item.locationId, item.id, item.name].filter(Boolean);
+                keys.forEach((key) => set.add(key));
             });
         }
         return set;
     }, [savedLoc, optimisticSavedIds]);
 
     // ------------------------------------------------------------------------
-    // 3. Helper: Estimated Site Temperature Derivation
+    // 4. Helper Function: Estimated Surface Temperature Derivation
     // ------------------------------------------------------------------------
-    // Calculates a representative surface temperature based on site metadata
+    /**
+     * Derives an estimated representative temperature (°C) for sites that store
+     * qualitative climate descriptions instead of an explicit numeric `temperature`.
+     */
     const getEstimatedTemperature = useCallback((location) => {
         if (typeof location.temperature === "number") {
             return location.temperature;
@@ -77,30 +96,45 @@ const Tweaks = () => {
         const climate = (location.environment?.climate || "").toLowerCase();
         const lat = Math.abs(location.coordinates?.latitude || 0);
 
-        if (climate.includes("polar") || climate.includes("extremely cold") || lat > 70) {
+        if (
+            climate.includes("polar") ||
+            climate.includes("extremely cold") ||
+            lat > 70
+        ) {
             return -35;
         }
         if (climate.includes("cold") || climate.includes("subarctic") || lat > 55) {
             return -5;
         }
-        if (climate.includes("temperate") || climate.includes("mediterranean") || climate.includes("cool")) {
+        if (
+            climate.includes("temperate") ||
+            climate.includes("mediterranean") ||
+            climate.includes("cool")
+        ) {
             return 16;
         }
-        if (climate.includes("hot") || climate.includes("hyper-arid") || climate.includes("extremely hot")) {
+        if (
+            climate.includes("hot") ||
+            climate.includes("hyper-arid") ||
+            climate.includes("extremely hot")
+        ) {
             return 32;
         }
         return 20;
     }, []);
 
     // ------------------------------------------------------------------------
-    // 4. Multi-Variable Filtering Logic
+    // 5. Helper Function: Multi-Variable Analog Site Filtering Engine
     // ------------------------------------------------------------------------
-    // Filters all MongoDB candidate locations according to active search parameters
+    /**
+     * Evaluates all candidate locations against the active search text, target body,
+     * terrain tags, humidity class, temperature class, and numeric temperature range.
+     */
     const computeFilteredLocations = useCallback(() => {
         if (!locData || locData.length === 0) return [];
 
         return locData.filter((location) => {
-            // 1. Text Search Filter (name or country)
+            // Filter 1: Case-insensitive name or country text match
             if (searchQuery.trim()) {
                 const query = searchQuery.trim().toLowerCase();
                 const nameMatch = location.name?.toLowerCase().includes(query);
@@ -110,7 +144,7 @@ const Tweaks = () => {
                 }
             }
 
-            // 2. Target Planetary Body Filter ("mars" vs "moon")
+            // Filter 2: Target extraterrestrial body ("mars" vs "moon")
             if (targetBody !== "Any") {
                 const hasAnalogMatch = location.analogType?.some(
                     (type) => type.toLowerCase() === targetBody.toLowerCase()
@@ -120,7 +154,7 @@ const Tweaks = () => {
                 }
             }
 
-            // 3. Terrain Type Classification Filter
+            // Filter 3: Geological terrain keyword match
             if (terrain !== "Any") {
                 const terrainKeywordMap = {
                     Rocky: ["rocky", "rock", "boulder", "stone", "regolith"],
@@ -139,7 +173,7 @@ const Tweaks = () => {
                 }
             }
 
-            // 4. Humidity Regime Filter (Describes Earth Site)
+            // Filter 4: Terrestrial humidity classification match
             if (humidity !== "Any") {
                 const climateText = (location.environment?.climate || "").toLowerCase();
                 const humidityText = (location.environment?.humidity || "").toLowerCase();
@@ -159,7 +193,7 @@ const Tweaks = () => {
                 }
             }
 
-            // 5. Temperature Qualitative Category Filter
+            // Filter 5: Qualitative temperature tier match
             if (temperature !== "Any") {
                 const climateText = (location.environment?.climate || "").toLowerCase();
                 const tempCategoryMap = {
@@ -169,14 +203,18 @@ const Tweaks = () => {
                     Hot: ["hot", "hyper-arid", "extremely hot", "tropical"],
                 };
 
-                const keywords = tempCategoryMap[temperature] || [temperature.toLowerCase()];
-                const hasTempCategoryMatch = keywords.some((kw) => climateText.includes(kw));
+                const keywords = tempCategoryMap[temperature] || [
+                    temperature.toLowerCase(),
+                ];
+                const hasTempCategoryMatch = keywords.some((kw) =>
+                    climateText.includes(kw)
+                );
                 if (!hasTempCategoryMatch) {
                     return false;
                 }
             }
 
-            // 6. Numeric Temperature Range Limit Filter (-60°C to 50°C)
+            // Filter 6: Numeric temperature range bounds (-60°C to 50°C)
             const siteTemp = getEstimatedTemperature(location);
             if (siteTemp < tempMin || siteTemp > tempMax) {
                 return false;
@@ -197,9 +235,8 @@ const Tweaks = () => {
     ]);
 
     // ------------------------------------------------------------------------
-    // 5. Synchronization Effects
+    // 6. Synchronization Effect: Keep Filtered Results Updated with Dataset
     // ------------------------------------------------------------------------
-    // Sync initial filtered locations when MongoDB locations first load
     useEffect(() => {
         if (locData && locData.length > 0) {
             const initialResults = computeFilteredLocations();
@@ -208,60 +245,25 @@ const Tweaks = () => {
     }, [locData, computeFilteredLocations, setFilteredLoc]);
 
     // ------------------------------------------------------------------------
-    // 6. Natural Recent Search Logging Handler
+    // 7. User Action Handlers (Search, Reset, Card/Map Focus, Save)
     // ------------------------------------------------------------------------
-    // Automatically posts explored analog locations to MongoDB RecentSearches collection
-    const recordRecentSearch = useCallback(
-        async (loc) => {
-            if (!user?.email || !loc) return;
-
-            try {
-                // Prepare clean payload without internal _id to avoid duplicate key errors
-                const payload = {
-                    locationId: loc._id || loc.id,
-                    name: loc.name,
-                    country: loc.country,
-                    similarityScore: loc.similarityScore || 85,
-                    coordinates: loc.coordinates,
-                    analogType: loc.analogType || ["mars"],
-                    environment: loc.environment,
-                    terrain: loc.terrain,
-                    created_at: new Date(),
-                    created_by: user.email,
-                };
-
-                await fetch(`${API_BASE_URL}/recent-searches`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify(payload),
-                });
-
-                // Trigger sidebar refresh so recent searches populate dynamically
-                refetchRecent?.();
-            } catch (err) {
-                console.error("Failed to record recent search in MongoDB:", err);
-            }
-        },
-        [user, refetchRecent]
-    );
-
-    // ------------------------------------------------------------------------
-    // 7. User Action Handlers
-    // ------------------------------------------------------------------------
-    // Triggered when user clicks "Search" or presses Enter
+    /**
+     * Applies current filter parameters and logs the top matching site to
+     * centralized Recent Searches when results are found.
+     */
     const handleApplyFilters = () => {
         const results = computeFilteredLocations();
         setFilteredLoc(results);
 
-        // If logged in and search yielded matches, record top match to recent searches
-        if (user?.email && results.length > 0) {
-            recordRecentSearch(results[0]);
+        // Log the top match to Recent Searches (works locally with MongoDB and on static hosts)
+        if (results.length > 0) {
+            recordRecentSearch?.(results[0]);
         }
     };
 
-    // Resets all filters back to default Mars baseline
+    /**
+     * Restores all search criteria back to the default Mars baseline.
+     */
     const handleReset = () => {
         setSearchQuery("");
         setTargetBody("mars");
@@ -280,27 +282,49 @@ const Tweaks = () => {
         toast.info("Filters reset to default.");
     };
 
-    // Centers map camera on candidate coordinates and logs to MongoDB recent searches
-    const handleViewOnMap = (loc) => {
-        if (loc?.coordinates?.latitude && loc?.coordinates?.longitude) {
-            setMapTarget({
-                latitude: loc.coordinates.latitude,
-                longitude: loc.coordinates.longitude,
-                zoom: 10,
-            });
-        }
+    /**
+     * Handles clicking a location card or "View on map":
+     * 1. Records the location at the top of Recent Searches.
+     * 2. Updates `mapTarget` with a fresh timestamp so Map flies/zooms smoothly
+     *    and opens the corresponding marker popup even on repeat clicks.
+     * 3. Invokes `onSelectLocation` to collapse the sidebar drawer on mobile.
+     */
+    const handleViewOnMap = useCallback(
+        (loc) => {
+            if (!loc) return;
 
-        // Record location to user's MongoDB recent search history
-        if (user?.email && loc) {
-            recordRecentSearch(loc);
-        }
-    };
+            // Immediately record this location in centralized Recent Searches
+            recordRecentSearch?.(loc);
 
-    // Bookmarks location to user's MongoDB Saved collection and synchronizes state
+            // Dispatch smooth fly-to zoom & auto-open popup target to Map component
+            if (
+                typeof loc?.coordinates?.latitude === "number" &&
+                typeof loc?.coordinates?.longitude === "number"
+            ) {
+                setMapTarget({
+                    latitude: loc.coordinates.latitude,
+                    longitude: loc.coordinates.longitude,
+                    zoom: 11,
+                    locationId: loc._id || loc.id,
+                    name: loc.name,
+                    timestamp: Date.now(),
+                });
+            }
+
+            // Collapse mobile drawer if callback is provided by RightDashboard
+            onSelectLocation?.(loc);
+        },
+        [recordRecentSearch, setMapTarget, onSelectLocation]
+    );
+
+    /**
+     * Bookmarks a location optimistically and persists it to MongoDB `/savedLocs`
+     * when the user is signed in.
+     */
     const handleSave = (location) => {
         const locationId = location._id || location.id || location.name;
 
-        // Optimistically record ID in set for instant checkmark appearance
+        // Optimistically add key so the card immediately renders "Saved"
         setOptimisticSavedIds((prev) => {
             const updated = new Set(prev);
             updated.add(locationId);
@@ -308,14 +332,22 @@ const Tweaks = () => {
         });
 
         if (!user?.email) {
-            toast.success(`"${location.name}" bookmarked! (Sign in to sync across devices)`);
+            toast.success(
+                `"${location.name}" bookmarked! (Sign in to sync across devices)`
+            );
             return;
         }
 
-        // Optimistically update savedLoc list in useSaved hook
+        // Optimistically prepend to useSaved hook state
         if (setSavedLoc) {
             setSavedLoc((prev) => {
-                if (prev.some((s) => (s._id || s.id || s.name) === locationId)) return prev;
+                if (
+                    prev.some(
+                        (s) => (s._id || s.locationId || s.id || s.name) === locationId
+                    )
+                ) {
+                    return prev;
+                }
                 return [
                     {
                         ...location,
@@ -328,7 +360,7 @@ const Tweaks = () => {
             });
         }
 
-        // Persist to MongoDB Saved collection via backend endpoint
+        // Persist bookmark to MongoDB Saved collection
         fetch(`${API_BASE_URL}/savedLocs`, {
             method: "POST",
             headers: {
@@ -345,7 +377,6 @@ const Tweaks = () => {
             .then((data) => {
                 if (data.success) {
                     toast.success("Location saved to your profile!");
-                    // Refetch from MongoDB to ensure state parity
                     refetchSaved?.();
                 }
             })
@@ -356,8 +387,11 @@ const Tweaks = () => {
     };
 
     // ------------------------------------------------------------------------
-    // 8. Styling Helpers for Pills & Segmented Controls
+    // 8. Styling Helpers & Memoized Results List
     // ------------------------------------------------------------------------
+    /**
+     * Returns deep-space pill styling classes based on active selection state.
+     */
     const getPillClass = (isSelected) =>
         `px-2.5 py-1 rounded-md text-xs font-medium transition cursor-pointer ${
             isSelected
@@ -365,38 +399,46 @@ const Tweaks = () => {
                 : "bg-[#181A21] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9] hover:bg-[#1E2129]"
         }`;
 
+    // Memoized list of active result cards to render
     const displayedResults = useMemo(() => {
         return filteredLoc && filteredLoc.length > 0 ? filteredLoc : [];
     }, [filteredLoc]);
 
     // ------------------------------------------------------------------------
-    // 9. Render
+    // 9. Component Render Block
     // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full flex flex-col bg-[#0B0E13] text-[#F1EEE9] select-none">
-            {/* Panel Header: "Find a Match" and Live Sites Count */}
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#21242C] shrink-0 pr-9">
+            {/* Panel Header: Title and Dynamic Live Site Counter */}
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#21242C] shrink-0 pr-10">
                 <h2 className="text-sm font-medium text-[#F1EEE9] tracking-tight">
                     Find a Match
                 </h2>
-                {/* Replaced static mock label with dynamic MongoDB sites count */}
                 <span className="text-[10px] text-[#83CAD8] font-mono font-medium">
                     {locData.length} Sites Live
                 </span>
             </div>
 
-            {/* Scrollable Filter Controls & Results Container */}
+            {/* Scrollable Search Filters & Results Container */}
             <div className="space-y-3.5 overflow-y-auto flex-1 pr-1 custom-scrollbar">
                 {/* ---------------------------------------------------------- */}
-                {/* Section: LOCATION Text Input                               */}
+                {/* Filter Section: LOCATION Text Search Input                 */}
                 {/* ---------------------------------------------------------- */}
                 <div>
-                    <label className="block text-[10px] font-semibold tracking-wider text-[#8891A0] mb-1 uppercase">
+                    <label
+                        htmlFor="tweaks-location-search"
+                        className="block text-[10px] font-semibold tracking-wider text-[#8891A0] mb-1 uppercase"
+                    >
                         Location
                     </label>
                     <div className="flex items-center gap-2 bg-[#181A21] border border-[#272C34] rounded-lg px-2.5 py-1.5 focus-within:border-[#83CAD8] transition">
-                        <Search size={14} className="text-[#8891A0] shrink-0" />
+                        <Search
+                            size={14}
+                            aria-hidden="true"
+                            className="text-[#8891A0] shrink-0"
+                        />
                         <input
+                            id="tweaks-location-search"
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -408,17 +450,17 @@ const Tweaks = () => {
                 </div>
 
                 {/* ---------------------------------------------------------- */}
-                {/* Section: TARGET BODY Segmented Control (Moon vs. Mars)     */}
+                {/* Filter Section: TARGET BODY Segmented Control (Moon/Mars)  */}
                 {/* ---------------------------------------------------------- */}
                 <div>
-                    <label className="block text-[10px] font-semibold tracking-wider text-[#8891A0] mb-1 uppercase">
+                    <span className="block text-[10px] font-semibold tracking-wider text-[#8891A0] mb-1 uppercase">
                         Target Body
-                    </label>
+                    </span>
                     <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#07090E] border border-[#272C34] rounded-lg">
-                        {/* Moon Option */}
                         <button
                             type="button"
                             onClick={() => setTargetBody("moon")}
+                            aria-pressed={targetBody === "moon"}
                             className={`py-1.5 text-xs font-medium rounded-md text-center transition cursor-pointer ${
                                 targetBody === "moon"
                                     ? "bg-[#1E2129] border border-[#83CAD8] text-[#F1EEE9] shadow-sm"
@@ -428,10 +470,10 @@ const Tweaks = () => {
                             Moon
                         </button>
 
-                        {/* Mars Option */}
                         <button
                             type="button"
                             onClick={() => setTargetBody("mars")}
+                            aria-pressed={targetBody === "mars"}
                             className={`py-1.5 text-xs font-medium rounded-md text-center transition cursor-pointer ${
                                 targetBody === "mars"
                                     ? "bg-[#1E2129] border border-[#83CAD8] text-[#F1EEE9] shadow-sm"
@@ -444,18 +486,19 @@ const Tweaks = () => {
                 </div>
 
                 {/* ---------------------------------------------------------- */}
-                {/* Section: TERRAIN TYPE Pills                                */}
+                {/* Filter Section: TERRAIN TYPE Pill Selector                 */}
                 {/* ---------------------------------------------------------- */}
                 <div>
-                    <label className="block text-[10px] font-semibold tracking-wider text-[#8891A0] mb-1 uppercase">
+                    <span className="block text-[10px] font-semibold tracking-wider text-[#8891A0] mb-1 uppercase">
                         Terrain Type
-                    </label>
+                    </span>
                     <div className="flex flex-wrap gap-1.5">
                         {["Any", "Rocky", "Sandy", "Icy", "Volcanic"].map((item) => (
                             <button
                                 key={item}
                                 type="button"
                                 onClick={() => setTerrain(item)}
+                                aria-pressed={terrain === item}
                                 className={getPillClass(terrain === item)}
                             >
                                 {item}
@@ -465,12 +508,12 @@ const Tweaks = () => {
                 </div>
 
                 {/* ---------------------------------------------------------- */}
-                {/* Section: HUMIDITY Pills with Explanatory Subtext           */}
+                {/* Filter Section: HUMIDITY Pill Selector                     */}
                 {/* ---------------------------------------------------------- */}
                 <div>
-                    <label className="block text-[10px] font-semibold tracking-wider text-[#8891A0] mb-0.5 uppercase">
+                    <span className="block text-[10px] font-semibold tracking-wider text-[#8891A0] mb-0.5 uppercase">
                         Humidity
-                    </label>
+                    </span>
                     <p className="text-[10px] text-[#8891A0] mb-1.5">
                         Describes the Earth site, not the Moon or Mars.
                     </p>
@@ -480,6 +523,7 @@ const Tweaks = () => {
                                 key={item}
                                 type="button"
                                 onClick={() => setHumidity(item)}
+                                aria-pressed={humidity === item}
                                 className={getPillClass(humidity === item)}
                             >
                                 {item}
@@ -489,12 +533,12 @@ const Tweaks = () => {
                 </div>
 
                 {/* ---------------------------------------------------------- */}
-                {/* Section: TEMPERATURE Categories & Dual-Range Slider Box    */}
+                {/* Filter Section: TEMPERATURE Tiers & Numeric Range Sliders  */}
                 {/* ---------------------------------------------------------- */}
                 <div>
-                    <label className="block text-[10px] font-semibold tracking-wider text-[#8891A0] mb-1 uppercase">
+                    <span className="block text-[10px] font-semibold tracking-wider text-[#8891A0] mb-1 uppercase">
                         Temperature
-                    </label>
+                    </span>
 
                     {/* Qualitative Category Pills */}
                     <div className="flex flex-wrap gap-1.5 mb-2">
@@ -503,6 +547,7 @@ const Tweaks = () => {
                                 key={item}
                                 type="button"
                                 onClick={() => setTemperature(item)}
+                                aria-pressed={temperature === item}
                                 className={getPillClass(temperature === item)}
                             >
                                 {item}
@@ -510,9 +555,9 @@ const Tweaks = () => {
                         ))}
                     </div>
 
-                    {/* Contained Range Slider Box */}
+                    {/* Numeric Min/Max Temperature Range Slider Card */}
                     <div className="border border-[#272C34] rounded-lg p-3 bg-[#181A21] space-y-2">
-                        {/* Top Indicator Row */}
+                        {/* Range Summary Header */}
                         <div className="flex items-center justify-between text-xs">
                             <span className="text-[11px] text-[#8891A0] font-medium">
                                 Range limit:
@@ -522,12 +567,16 @@ const Tweaks = () => {
                             </span>
                         </div>
 
-                        {/* Minimum Slider Row */}
+                        {/* Minimum Bound Range Slider */}
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-[#8891A0] w-7 shrink-0 font-medium">
+                            <label
+                                htmlFor="tweaks-temp-min"
+                                className="text-[10px] text-[#8891A0] w-7 shrink-0 font-medium"
+                            >
                                 Min
-                            </span>
+                            </label>
                             <input
+                                id="tweaks-temp-min"
                                 type="range"
                                 min="-60"
                                 max="50"
@@ -540,12 +589,16 @@ const Tweaks = () => {
                             />
                         </div>
 
-                        {/* Maximum Slider Row */}
+                        {/* Maximum Bound Range Slider */}
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-[#8891A0] w-7 shrink-0 font-medium">
+                            <label
+                                htmlFor="tweaks-temp-max"
+                                className="text-[10px] text-[#8891A0] w-7 shrink-0 font-medium"
+                            >
                                 Max
-                            </span>
+                            </label>
                             <input
+                                id="tweaks-temp-max"
                                 type="range"
                                 min="-60"
                                 max="50"
@@ -558,7 +611,7 @@ const Tweaks = () => {
                             />
                         </div>
 
-                        {/* Bottom Limit Markers */}
+                        {/* Slider Scale Endpoints */}
                         <div className="flex justify-between text-[10px] text-[#8891A0] font-mono pt-0.5">
                             <span>-60°C</span>
                             <span>50°C</span>
@@ -567,20 +620,18 @@ const Tweaks = () => {
                 </div>
 
                 {/* ---------------------------------------------------------- */}
-                {/* Section: ACTION BUTTONS (Search & Reset Filters)           */}
+                {/* Filter Action Buttons: Apply Search & Reset Filters        */}
                 {/* ---------------------------------------------------------- */}
                 <div className="flex items-center gap-2 pt-1">
-                    {/* Primary Search Button */}
                     <button
                         type="button"
                         onClick={handleApplyFilters}
                         className="flex-1 bg-[#83CAD8] hover:opacity-90 text-[#090D15] font-semibold px-4 py-2 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
                     >
-                        <Search size={13} className="text-[#090D15]" />
+                        <Search size={13} aria-hidden="true" className="text-[#090D15]" />
                         <span>Search</span>
                     </button>
 
-                    {/* Reset Button */}
                     <button
                         type="button"
                         onClick={handleReset}
@@ -591,7 +642,7 @@ const Tweaks = () => {
                 </div>
 
                 {/* ---------------------------------------------------------- */}
-                {/* Section: RESULTS List (${displayedResults.length})         */}
+                {/* Results List Section: Full-Card Clickable Analog Sites     */}
                 {/* ---------------------------------------------------------- */}
                 <div className="border-t border-[#21242C] pt-3">
                     <div className="flex justify-between items-center mb-2">
@@ -600,23 +651,27 @@ const Tweaks = () => {
                         </span>
                     </div>
 
-                    {/* List of Result Location Cards */}
                     <div className="space-y-3">
                         {displayedResults.length > 0 ? (
                             displayedResults.map((location) => {
                                 const locKey = location._id || location.id || location.name;
-                                const isSaved = savedLocationIds.has(locKey);
+                                const isSaved =
+                                    savedLocationIds.has(locKey) ||
+                                    savedLocationIds.has(location.id) ||
+                                    savedLocationIds.has(location.name);
 
                                 return (
-                                    <div
+                                    /* Clickable Analog Result Card (Entire surface selects location) */
+                                    <article
                                         key={locKey}
-                                        className="bg-[#181A21] border border-[#21242C] rounded-xl p-3.5 transition duration-150 hover:border-[#83CAD8]/50 shadow-md"
+                                        onClick={() => handleViewOnMap(location)}
+                                        className="relative bg-[#181A21] border border-[#21242C] rounded-xl p-3.5 transition duration-150 hover:border-[#83CAD8]/50 has-[.card-primary-action:focus-visible]:outline-2 has-[.card-primary-action:focus-visible]:outline-[#83CAD8] shadow-md cursor-pointer"
                                     >
-                                        {/* Card Top Row: Icon, Name, Country & Score */}
+                                        {/* Top Row: Site Icon, Title, Country & Match Score */}
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#8891A0] shrink-0">
-                                                    <Globe size={16} />
+                                                    <Globe size={16} aria-hidden="true" />
                                                 </div>
 
                                                 <div className="min-w-0">
@@ -634,37 +689,68 @@ const Tweaks = () => {
                                             </span>
                                         </div>
 
-                                        {/* Card Bottom Row: View on Map & Saved Indicator */}
+                                        {/* Footer Actions Row: Stretched "View on map" + Independent "Save" */}
                                         <div className="flex items-center justify-between border-t border-[#21242C] pt-2.5 mt-2.5 text-xs">
+                                            {/* Primary Card Trigger stretched across the entire card via ::after */}
                                             <button
                                                 type="button"
-                                                onClick={() => handleViewOnMap(location)}
-                                                className="flex items-center gap-1.5 text-[#8891A0] hover:text-[#F1EEE9] transition duration-150 cursor-pointer"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleViewOnMap(location);
+                                                }}
+                                                aria-label={`View on map: ${location.name}`}
+                                                className="card-primary-action flex items-center gap-1.5 text-[#8891A0] hover:text-[#F1EEE9] focus-visible:outline-none transition duration-150 cursor-pointer after:content-[''] after:absolute after:inset-0 after:rounded-xl"
                                             >
-                                                <MapPin size={13} className="text-[#8891A0]" />
+                                                <MapPin
+                                                    size={13}
+                                                    aria-hidden="true"
+                                                    className="text-[#8891A0]"
+                                                />
                                                 <span>View on map</span>
                                             </button>
 
+                                            {/* Independent Save Action (Elevated above card overlay with stopPropagation) */}
                                             <button
                                                 type="button"
-                                                onClick={() => handleSave(location)}
-                                                className="flex items-center gap-1 text-[#8891A0] hover:text-[#83CAD8] transition duration-150 cursor-pointer"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleSave(location);
+                                                }}
+                                                aria-label={
+                                                    isSaved
+                                                        ? `Saved ${location.name}`
+                                                        : `Save ${location.name}`
+                                                }
+                                                className="relative z-10 flex items-center gap-1 text-[#8891A0] hover:text-[#83CAD8] transition duration-150 cursor-pointer py-0.5 px-1 rounded"
                                             >
                                                 <Check
                                                     size={13}
-                                                    className={isSaved ? "text-[#83CAD8]" : "text-[#8891A0]"}
+                                                    aria-hidden="true"
+                                                    className={
+                                                        isSaved
+                                                            ? "text-[#83CAD8]"
+                                                            : "text-[#8891A0]"
+                                                    }
                                                 />
-                                                <span className={isSaved ? "text-[#83CAD8] font-medium" : ""}>
+                                                <span
+                                                    className={
+                                                        isSaved
+                                                            ? "text-[#83CAD8] font-medium"
+                                                            : ""
+                                                    }
+                                                >
                                                     {isSaved ? "Saved" : "Save"}
                                                 </span>
                                             </button>
                                         </div>
-                                    </div>
+                                    </article>
                                 );
                             })
                         ) : (
+                            /* Empty Results Feedback Box */
                             <div className="text-center py-8 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs">
-                                No candidate analog sites match the current filter criteria. Try adjusting parameters or resetting filters.
+                                No candidate analog sites match the current filter criteria. Try
+                                adjusting parameters or resetting filters.
                             </div>
                         )}
                     </div>

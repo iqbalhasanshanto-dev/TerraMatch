@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef } from "react";
+import { useContext, useEffect, useRef, useCallback } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -8,7 +8,9 @@ import Loader from "./Loader";
 import Modal from "./Modal";
 import StateContext from "../States/StateContext";
 
-// Fix for default Leaflet icon paths in Vite/React bundling
+// ============================================================================
+// Leaflet Default Marker Icon Asset Resolution for Vite Bundling
+// ============================================================================
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
@@ -24,32 +26,64 @@ L.Icon.Default.mergeOptions({
  * ============================================================================
  * Map Component
  * ============================================================================
- * Renders the realistic satellite imagery world map with candidate planetary
- * analog site markers using Esri World Imagery tiles, styled to match the
- * custom deep-space color tokens:
- * - Map Background: `#07090E`
- * - Custom Bottom-Right Zoom Buttons: `#0B0E13` with `#21242C` border and hover `#1E2129`
- * - Popup Theming: Starlight text `#F1EEE9`, muted metadata `#8891A0`, and `#83CAD8` similarity score
+ * Renders the Esri World Imagery satellite map with interactive markers for
+ * Earth-based planetary analog sites, styled with TerraMatch deep-space tokens:
+ * - Background Void: `#07090E`
+ * - Custom Zoom Controls: `#0B0E13` with `#21242C` border and `#1E2129` hover
+ * - Popup Styling: `#F1EEE9` headings, `#8891A0` labels, `#83CAD8` scores
+ * - Smooth Fly-To & Auto-Popup:
+ *   Maintains `markerRefs.current[locId]` for all markers so updating `mapTarget`
+ *   smoothly flies the map (`duration: 1.6`, `easeLinearity: 0.25`) and opens
+ *   the target marker's Leaflet `<Popup>` automatically upon arrival.
+ * - Marker Click Logging:
+ *   Clicking any marker on the map records the site in centralized Recent Searches
+ *   (`recordRecentSearch`) and smoothly flies/zooms into that marker.
  */
 const Map = ({ isSidebarOpen }) => {
     // ------------------------------------------------------------------------
-    // 1. Context Subscriptions & Data Hooks
+    // 1. Context Subscriptions & Location Dataset Hook
     // ------------------------------------------------------------------------
-    const { filteredLoc, mapTarget } = useContext(StateContext);
+    const { filteredLoc, mapTarget, setMapTarget, recordRecentSearch } =
+        useContext(StateContext);
     const { locData, loading } = useLocations();
 
     // ------------------------------------------------------------------------
-    // 2. DOM & Leaflet Map References
+    // 2. DOM, Leaflet Map & Marker Dictionary References
     // ------------------------------------------------------------------------
+    // Container element observed for responsive container resizing
     const containerRef = useRef(null);
+
+    // Leaflet Map instance reference assigned via `<MapContainer ref={mapRef} />`
     const mapRef = useRef(null);
 
-    // Global default map center coordinates (equatorial view)
+    // Dictionary mapping location IDs (and fallback name keys) to Leaflet Marker refs
+    const markerRefs = useRef({});
+
+    // Global default map center coordinates (equatorial overview)
     const defaultPosition = [20.0, 10.0];
 
     // ------------------------------------------------------------------------
-    // 3. Automatic Map Re-rendering on Resize & Sidebar Transition
+    // 3. Helper Function: Target Marker Ref Resolver
     // ------------------------------------------------------------------------
+    /**
+     * Looks up a rendered Leaflet Marker instance by `locationId` (primary) or
+     * `"name:<locationName>"` fallback key inside `markerRefs.current`.
+     */
+    const resolveTargetMarker = useCallback((target) => {
+        if (!target) return null;
+        if (target.locationId && markerRefs.current[target.locationId]) {
+            return markerRefs.current[target.locationId];
+        }
+        if (target.name && markerRefs.current[`name:${target.name}`]) {
+            return markerRefs.current[`name:${target.name}`];
+        }
+        return null;
+    }, []);
+
+    // ------------------------------------------------------------------------
+    // 4. Automatic Map Resize Synchronization (Container & Sidebar Toggle)
+    // ------------------------------------------------------------------------
+    // Observes map container dimensions so Leaflet tiles adapt seamlessly across breakpoints
     useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
@@ -67,14 +101,16 @@ const Map = ({ isSidebarOpen }) => {
         };
     }, []);
 
+    // Revalidates Leaflet canvas dimensions after the desktop/mobile drawer transition settles
     useEffect(() => {
         if (!mapRef.current) return;
 
-        mapRef.current.invalidateSize({ animate: true });
+        // Pass `animate: false` so layout resize revalidation never cancels an active flyTo flight
+        mapRef.current.invalidateSize({ animate: false });
 
         const transitionTimer = setTimeout(() => {
             if (mapRef.current) {
-                mapRef.current.invalidateSize({ animate: true });
+                mapRef.current.invalidateSize({ animate: false });
             }
         }, 320);
 
@@ -82,42 +118,130 @@ const Map = ({ isSidebarOpen }) => {
     }, [isSidebarOpen]);
 
     // ------------------------------------------------------------------------
-    // 4. Smooth Fly-To Animations for External Targets
+    // 5. Smooth Fly-To Animation & Auto-Open Marker Popup Effect
     // ------------------------------------------------------------------------
+    // Triggers whenever `mapTarget` (including `mapTarget.timestamp`) updates
     useEffect(() => {
-        if (mapTarget && mapRef.current) {
-            const { latitude, longitude, zoom = 10 } = mapTarget;
-            mapRef.current.flyTo([latitude, longitude], zoom, {
-                duration: 1.8,
-                easeLinearity: 0.25,
-            });
+        if (!mapTarget || !mapRef.current || loading) return;
+
+        const map = mapRef.current;
+        const { latitude, longitude, zoom = 11 } = mapTarget;
+
+        if (typeof latitude !== "number" || typeof longitude !== "number") return;
+
+        let isCancelled = false;
+        let popupOpened = false;
+
+        /**
+         * Opens the Leaflet popup for the target location once the camera finishes flying.
+         */
+        const openTargetPopup = () => {
+            if (isCancelled || popupOpened) return;
+            const targetMarker = resolveTargetMarker(mapTarget);
+            if (targetMarker && typeof targetMarker.openPopup === "function") {
+                popupOpened = true;
+                targetMarker.openPopup();
+            }
+        };
+
+        // Check whether the viewport is already positioned at the requested target
+        const currentCenter = map.getCenter();
+        const isAlreadyAtTarget =
+            Math.abs(currentCenter.lat - latitude) < 0.0005 &&
+            Math.abs(currentCenter.lng - longitude) < 0.0005 &&
+            Math.abs(map.getZoom() - zoom) < 0.05;
+
+        // Initiate smooth Leaflet camera flight to the selected coordinates
+        map.flyTo([latitude, longitude], zoom, {
+            animate: true,
+            duration: 1.6,
+            easeLinearity: 0.25,
+        });
+
+        // If already centered at this location (e.g. clicking same card twice), open popup promptly
+        if (isAlreadyAtTarget) {
+            const quickPopupTimer = setTimeout(openTargetPopup, 150);
+            return () => {
+                isCancelled = true;
+                clearTimeout(quickPopupTimer);
+            };
         }
-    }, [mapTarget]);
+
+        // Attach `moveend` listener AFTER `flyTo` starts so stopping a prior flight cannot fire early
+        map.once("moveend", openTargetPopup);
+
+        // Safety fallback timer ensures popup opens even if a short animation skips `moveend`
+        const fallbackTimer = setTimeout(openTargetPopup, 1750);
+
+        return () => {
+            isCancelled = true;
+            map.off("moveend", openTargetPopup);
+            clearTimeout(fallbackTimer);
+        };
+    }, [mapTarget, mapTarget?.timestamp, loading, resolveTargetMarker]);
 
     // ------------------------------------------------------------------------
-    // 5. Zoom Control Handlers
+    // 6. User Interaction Handlers (Marker Clicks & Custom Zoom Buttons)
     // ------------------------------------------------------------------------
+    /**
+     * Logs a clicked map marker to centralized Recent Searches and flies smoothly
+     * to that marker while ensuring its popup stays centered and open.
+     */
+    const handleMarkerClick = useCallback(
+        (loc) => {
+            if (!loc) return;
+
+            // Record clicked marker in centralized Recent Searches (MongoDB + localStorage)
+            recordRecentSearch?.(loc);
+
+            // Fly/zoom smoothly to the clicked marker via shared `mapTarget` pipeline
+            if (
+                typeof loc?.coordinates?.latitude === "number" &&
+                typeof loc?.coordinates?.longitude === "number"
+            ) {
+                setMapTarget({
+                    latitude: loc.coordinates.latitude,
+                    longitude: loc.coordinates.longitude,
+                    zoom: 11,
+                    locationId: loc._id || loc.id,
+                    name: loc.name,
+                    timestamp: Date.now(),
+                });
+            }
+        },
+        [recordRecentSearch, setMapTarget]
+    );
+
+    /**
+     * Increases map zoom level by one step via the custom bottom-right "+" control.
+     */
     const handleZoomIn = () => {
         if (mapRef.current) {
             mapRef.current.zoomIn();
         }
     };
 
+    /**
+     * Decreases map zoom level by one step via the custom bottom-right "-" control.
+     */
     const handleZoomOut = () => {
         if (mapRef.current) {
             mapRef.current.zoomOut();
         }
     };
 
+    // Show loading spinner while initial planetary analog sites fetch completes
     if (loading) return <Loader />;
 
     // ------------------------------------------------------------------------
-    // 6. Dataset Resolution
+    // 7. Active Dataset Resolution
     // ------------------------------------------------------------------------
-    const dataToMap = filteredLoc && filteredLoc.length > 0 ? filteredLoc : locData || [];
+    // Display filtered subset when search criteria are active; otherwise show all sites
+    const dataToMap =
+        filteredLoc && filteredLoc.length > 0 ? filteredLoc : locData || [];
 
     // ------------------------------------------------------------------------
-    // 7. Render
+    // 8. Component Render Block
     // ------------------------------------------------------------------------
     return (
         <div
@@ -142,27 +266,61 @@ const Map = ({ isSidebarOpen }) => {
                     maxZoom={18}
                 />
 
-                {/* Markers for Candidate Planetary Analog Sites */}
+                {/* Candidate Planetary Analog Site Markers */}
                 {dataToMap.map((loc) => {
-                    if (!loc?.coordinates?.latitude || !loc?.coordinates?.longitude) return null;
+                    if (
+                        typeof loc?.coordinates?.latitude !== "number" ||
+                        typeof loc?.coordinates?.longitude !== "number"
+                    ) {
+                        return null;
+                    }
+
+                    const locId = loc._id || loc.id;
+
                     return (
                         <Marker
-                            key={loc._id || loc.id}
+                            key={locId || loc.name}
                             position={[loc.coordinates.latitude, loc.coordinates.longitude]}
+                            ref={(instance) => {
+                                // Store ref under all canonical keys for reliable popup lookup
+                                if (instance) {
+                                    if (locId) markerRefs.current[locId] = instance;
+                                    if (loc.id) markerRefs.current[loc.id] = instance;
+                                    if (loc.name) {
+                                        markerRefs.current[`name:${loc.name}`] = instance;
+                                    }
+                                } else {
+                                    if (locId) delete markerRefs.current[locId];
+                                    if (loc.id) delete markerRefs.current[loc.id];
+                                    if (loc.name) {
+                                        delete markerRefs.current[`name:${loc.name}`];
+                                    }
+                                }
+                            }}
+                            eventHandlers={{
+                                click: () => handleMarkerClick(loc),
+                            }}
                         >
+                            {/* Deep-Space Styled Site Summary Popup */}
                             <Popup className="terramatch-popup">
                                 <div className="p-1 text-[#F1EEE9] min-w-44">
                                     <h4 className="font-bold text-sm text-[#F1EEE9] leading-tight">
                                         {loc.name}
                                     </h4>
-                                    <p className="text-xs text-[#8891A0] mb-1.5">{loc.country}</p>
+                                    <p className="text-xs text-[#8891A0] mb-1.5">
+                                        {loc.country}
+                                    </p>
                                     <div className="space-y-0.5 text-[11px] text-[#8891A0] mb-2 border-t border-[#21242C] pt-1.5">
                                         <p>
-                                            <span className="font-semibold text-[#F1EEE9]">Climate:</span>{" "}
+                                            <span className="font-semibold text-[#F1EEE9]">
+                                                Climate:
+                                            </span>{" "}
                                             {loc.environment?.climate || "Extreme Arid"}
                                         </p>
                                         <p>
-                                            <span className="font-semibold text-[#F1EEE9]">Similarity:</span>{" "}
+                                            <span className="font-semibold text-[#F1EEE9]">
+                                                Similarity:
+                                            </span>{" "}
                                             <span className="font-mono text-[#83CAD8] font-bold">
                                                 {loc.similarityScore}%
                                             </span>
@@ -186,7 +344,7 @@ const Map = ({ isSidebarOpen }) => {
                     title="Zoom in"
                     aria-label="Zoom in"
                 >
-                    <Plus size={16} />
+                    <Plus size={16} aria-hidden="true" />
                 </button>
 
                 {/* Zoom Out Button */}
@@ -197,7 +355,7 @@ const Map = ({ isSidebarOpen }) => {
                     title="Zoom out"
                     aria-label="Zoom out"
                 >
-                    <Minus size={16} />
+                    <Minus size={16} aria-hidden="true" />
                 </button>
             </div>
         </div>
