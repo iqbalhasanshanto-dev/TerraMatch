@@ -16,10 +16,14 @@ import {
  * ============================================================================
  * ShowRecentSearches Component
  * ============================================================================
- * Displays the user's dynamic Recent Searches history inside the right drawer:
- * - Reads centralized `recentSearched`, `setRecentSearched`, `recordRecentSearch`,
- *   `deleteRecentSearch`, and `clearRecentSearches` from `StateContext` (which
- *   synchronizes both MongoDB and `localStorage` under `"terramatch_recent_searches"`).
+ * Displays the authenticated user's dynamic Recent Searches history inside the
+ * right drawer:
+ * - Reads strictly user-scoped `recentSearched`, `setRecentSearched`,
+ *   `recordRecentSearch`, `deleteRecentSearch`, and `clearRecentSearches` from
+ *   `StateContext` (`terramatch_recent_searches_${user.email}` + MongoDB sync).
+ * - Guarantees `displayedSearches` is `[]` and `savedCount` is `0` whenever the
+ *   user is signed out (`!user?.email`), presenting a clean guest sign-in prompt
+ *   with a direct `"Sign in →"` button navigating to `/login`.
  * - Displays an accurate live `"X Saved"` badge count from `useSaved()`.
  * - Makes the entire recent location card clickable to promote it to the top of
  *   Recent Searches, fly/zoom the map to its coordinates, open its marker popup,
@@ -31,7 +35,7 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     // ------------------------------------------------------------------------
     // 1. Context Subscriptions & Data Hooks
     // ------------------------------------------------------------------------
-    // Centralized Recent Searches state & backend/localStorage actions + Map target setter
+    /** Centralized Recent Searches state & backend/scoped-storage actions + Map target setter. */
     const {
         recentSearched,
         setRecentSearched,
@@ -41,22 +45,25 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
         setMapTarget,
     } = useContext(StateContext);
 
-    // Router navigation helper used by the guest "Sign in →" toast CTA
+    /** Router navigation helper used by the guest `"Sign in →"` button and toast CTA. */
     const navigate = useNavigate();
 
-    // Centralized saved bookmarks hook for badge count, Saved indicators, and saving
+    /** Centralized saved bookmarks hook for badge count, Saved indicators, and saving. */
     const { savedLoc, saveLocation } = useSaved();
 
-    // Current Firebase user session for database writes
+    /** Current Firebase user session (`null` when signed out). */
     const { user } = useAuth();
+
+    /** Convenience boolean indicating whether an authenticated user session is active. */
+    const isAuthenticated = Boolean(user?.email);
 
     // ------------------------------------------------------------------------
     // 2. Optimistic Delete & 5-Second Undo Timer State Variables
     // ------------------------------------------------------------------------
-    // Holds pending single-item or clear-all deletion state while undo banner is active
+    /** Holds pending single-item or clear-all deletion state while undo banner is active. */
     const [pendingDeletion, setPendingDeletion] = useState(null);
 
-    // Reference to active timeout committing the deletion to MongoDB after 5 seconds
+    /** Reference to active timeout committing the deletion to MongoDB after 5 seconds. */
     const deletionTimerRef = useRef(null);
 
     // Clear active timeout cleanly on unmount to prevent stale timer callbacks
@@ -69,25 +76,27 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     }, []);
 
     // ------------------------------------------------------------------------
-    // 3. Derived Lists, Identifiers & Saved Lookup Set
+    // 3. Derived Lists, Identifiers & Saved Lookup Set (Auth-Guarded)
     // ------------------------------------------------------------------------
-    // Safe fallback array of recent searches from centralized StateProvider
-    const displayedSearches = recentSearched || [];
+    /** Strictly empty `[]` when signed out; otherwise reflects user-scoped searches. */
+    const displayedSearches = isAuthenticated ? recentSearched || [] : [];
 
-    // Live total count of saved locations from MongoDB
-    const savedCount = savedLoc?.length || 0;
+    /** Strictly `0` when signed out; otherwise reflects user's live saved count. */
+    const savedCount = isAuthenticated ? savedLoc?.length || 0 : 0;
 
-    // Fast lookup set of saved IDs / names so saved recent items display "Saved"
+    /** Fast lookup set of saved IDs / names so saved recent items display `"Saved"`. */
     const savedLocationIds = useMemo(() => {
         const set = new Set();
-        if (savedLoc && savedLoc.length > 0) {
+        if (isAuthenticated && savedLoc && savedLoc.length > 0) {
             savedLoc.forEach((item) => {
-                const keys = [item._id, item.locationId, item.id, item.name].filter(Boolean);
+                const keys = [item._id, item.locationId, item.id, item.name].filter(
+                    Boolean
+                );
                 keys.forEach((key) => set.add(key));
             });
         }
         return set;
-    }, [savedLoc]);
+    }, [isAuthenticated, savedLoc]);
 
     /**
      * Resolves a stable unique key for matching items in local/MongoDB history.
@@ -418,8 +427,31 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
                             </article>
                         );
                     })
+                ) : !isAuthenticated ? (
+                    /* Clean Guest Empty State prompting sign-in before tracking history */
+                    <div className="text-center py-12 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs">
+                        <Clock3
+                            size={24}
+                            aria-hidden="true"
+                            className="mx-auto opacity-40 mb-2 text-[#8891A0]"
+                        />
+                        <p className="font-medium text-[#F1EEE9]">
+                            Sign in to track recent searches
+                        </p>
+                        <p className="text-[11px] text-[#8891A0] mt-1">
+                            Sign in to save your search history and bookmark candidate
+                            analog sites across sessions.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => navigate("/login")}
+                            className="bg-[#1A1D23] border border-[#21242C] hover:border-[#83CAD8] text-[#83CAD8] text-xs font-semibold px-3 py-1.5 rounded-lg mt-3 inline-flex items-center gap-1 cursor-pointer transition"
+                        >
+                            <span>Sign in →</span>
+                        </button>
+                    </div>
                 ) : (
-                    /* Clean Empty State when Recent Searches list is empty */
+                    /* Clean Empty State for signed-in users with no search history yet */
                     <div className="text-center py-12 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs">
                         <Clock3
                             size={24}
@@ -437,8 +469,8 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
                 )}
             </div>
 
-            {/* 5-Second Dark Undo Snackbar Banner */}
-            {pendingDeletion && (
+            {/* 5-Second Dark Undo Snackbar Banner (Only shown while authenticated) */}
+            {isAuthenticated && pendingDeletion && (
                 <div
                     role="status"
                     aria-live="polite"
