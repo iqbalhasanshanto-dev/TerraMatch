@@ -22,6 +22,17 @@
     Cross-Origin-Opener-Policy = "same-origin-allow-popups"
 
 # ==============================================================================
+# Firebase Auth Same-Origin Reverse Proxy
+# ==============================================================================
+# Proxies Firebase Authentication handler routes (`/__/auth/*`) through Netlify
+# so OAuth redirect flows stay same-origin and avoid third-party storage blocks.
+[[redirects]]
+  from = "/__/auth/*"
+  to = "https://terramatch-890dd.firebaseapp.com/__/auth/:splat"
+  status = 200
+  force = true
+
+# ==============================================================================
 # Single-Page Application (SPA) Routing Fallback
 # ==============================================================================
 # Rewrites all routes to `/index.html` with HTTP 200 so React Router handles
