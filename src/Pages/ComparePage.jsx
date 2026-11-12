@@ -17,8 +17,10 @@ import Loader from "../Components/Loader";
 import {
     formatSurfaceTemp,
     getAnalogCategory,
+    getAnalogRecognitionStatus,
     getMineralogy,
     getRoversTested,
+    getScientificFidelityAnalysis,
     getSurfaceTemperature,
     getTargetBodyInfo,
 } from "../utils/analogSpec";
@@ -155,6 +157,8 @@ const getScientificProfile = (loc) => {
     const analogCategory = getAnalogCategory(loc);
     const roversTested = getRoversTested(loc);
     const mineralogy = getMineralogy(loc);
+    const recognition = getAnalogRecognitionStatus(loc);
+    const fidelity = getScientificFidelityAnalysis(loc);
 
     // 1. Thermal Extremity / Temperature Axis (Normalized 0-100; colder/extreme maps cleanly)
     const normTemp = Math.min(
@@ -242,6 +246,8 @@ const getScientificProfile = (loc) => {
         soilDisplay,
         aridityDisplay: `${aridityVal} /100`,
         elevationDisplay: `${elevation.toLocaleString()} m`,
+        recognition,
+        fidelity,
         metrics: {
             temperature: normTemp,
             slope: normSlope,
@@ -600,11 +606,20 @@ const ComparePage = () => {
                                         {/* Site Telemetry & Terrain Preview Panel */}
                                         <div className="w-full bg-[#07090E] border border-[#21242C] rounded-lg p-3 mb-3 relative overflow-hidden">
                                             <div className="flex items-center justify-between gap-2 mb-2">
-                                                <span
-                                                    className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${locationA.pillClassName}`}
-                                                >
-                                                    {locationA.targetSpec}
-                                                </span>
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <span
+                                                        className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${locationA.pillClassName}`}
+                                                    >
+                                                        {locationA.targetSpec}
+                                                    </span>
+                                                    {locationA.recognition?.isEmerging && (
+                                                        <span
+                                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${locationA.recognition.badgeClass}`}
+                                                        >
+                                                            {locationA.recognition.label}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <div className="flex items-center gap-1 text-[10px] font-mono text-[#8891A0]">
                                                     <Compass
                                                         size={11}
@@ -668,7 +683,10 @@ const ComparePage = () => {
                                                 Primary Analog Fidelity
                                             </span>
                                             <p className="text-xs font-semibold text-[#F1EEE9] truncate mt-0.5">
-                                                {locationA.analogCategory}
+                                                {locationA.analogCategory}{" "}
+                                                <span className="text-[#83CAD8] font-mono text-[11px]">
+                                                    ({locationA.fidelity?.overallFidelityScore}% Match)
+                                                </span>
                                             </p>
                                         </div>
                                         <div className="text-right shrink-0">
@@ -722,11 +740,20 @@ const ComparePage = () => {
                                         {/* Site Telemetry & Terrain Preview Panel */}
                                         <div className="w-full bg-[#07090E] border border-[#21242C] rounded-lg p-3 mb-3 relative overflow-hidden">
                                             <div className="flex items-center justify-between gap-2 mb-2">
-                                                <span
-                                                    className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${locationB.pillClassName}`}
-                                                >
-                                                    {locationB.targetSpec}
-                                                </span>
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <span
+                                                        className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${locationB.pillClassName}`}
+                                                    >
+                                                        {locationB.targetSpec}
+                                                    </span>
+                                                    {locationB.recognition?.isEmerging && (
+                                                        <span
+                                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${locationB.recognition.badgeClass}`}
+                                                        >
+                                                            {locationB.recognition.label}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <div className="flex items-center gap-1 text-[10px] font-mono text-[#8891A0]">
                                                     <Compass
                                                         size={11}
@@ -790,7 +817,10 @@ const ComparePage = () => {
                                                 Primary Analog Fidelity
                                             </span>
                                             <p className="text-xs font-semibold text-[#F1EEE9] truncate mt-0.5">
-                                                {locationB.analogCategory}
+                                                {locationB.analogCategory}{" "}
+                                                <span className="text-[#D67051] font-mono text-[11px]">
+                                                    ({locationB.fidelity?.overallFidelityScore}% Match)
+                                                </span>
                                             </p>
                                         </div>
                                         <div className="text-right shrink-0">
@@ -1059,7 +1089,41 @@ const ComparePage = () => {
                                         </td>
                                     </tr>
 
-                                    {/* Row 2: Mean Surface Temperature */}
+                                    {/* Row 2: Analog Recognition Status */}
+                                    <tr className="hover:bg-[#181A21]/40 transition">
+                                        <td className="py-3 px-5 text-[#8891A0] font-medium">
+                                            Analog Recognition Status
+                                        </td>
+                                        <td className="py-3 px-5 font-semibold text-[#F1EEE9]">
+                                            <span
+                                                className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider inline-flex items-center gap-1 ${locationA.recognition?.badgeClass}`}
+                                            >
+                                                {locationA.recognition?.label}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-5 font-semibold text-[#F1EEE9]">
+                                            <span
+                                                className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider inline-flex items-center gap-1 ${locationB.recognition?.badgeClass}`}
+                                            >
+                                                {locationB.recognition?.label}
+                                            </span>
+                                        </td>
+                                    </tr>
+
+                                    {/* Row 3: Scientific Fidelity Match */}
+                                    <tr className="hover:bg-[#181A21]/40 transition">
+                                        <td className="py-3 px-5 text-[#8891A0] font-medium">
+                                            Scientific Fidelity Match
+                                        </td>
+                                        <td className="py-3 px-5 font-mono text-[#83CAD8] font-bold">
+                                            {locationA.fidelity?.overallFidelityScore}% Overall Match
+                                        </td>
+                                        <td className="py-3 px-5 font-mono text-[#D67051] font-bold">
+                                            {locationB.fidelity?.overallFidelityScore}% Overall Match
+                                        </td>
+                                    </tr>
+
+                                    {/* Row 4: Mean Surface Temperature */}
                                     <tr className="hover:bg-[#181A21]/40 transition">
                                         <td className="py-3 px-5 text-[#8891A0] font-medium">
                                             Mean Surface Temperature
@@ -1072,7 +1136,7 @@ const ComparePage = () => {
                                         </td>
                                     </tr>
 
-                                    {/* Row 3: Climate & Aridity Regime */}
+                                    {/* Row 5: Climate & Aridity Regime */}
                                     <tr className="hover:bg-[#181A21]/40 transition">
                                         <td className="py-3 px-5 text-[#8891A0] font-medium">
                                             Climate &amp; Aridity Regime
@@ -1085,7 +1149,7 @@ const ComparePage = () => {
                                         </td>
                                     </tr>
 
-                                    {/* Row 4: Soil & Regolith Mineralogy */}
+                                    {/* Row 6: Soil & Regolith Mineralogy */}
                                     <tr className="hover:bg-[#181A21]/40 transition">
                                         <td className="py-3 px-5 text-[#8891A0] font-medium">
                                             Soil &amp; Regolith Mineralogy
@@ -1098,7 +1162,7 @@ const ComparePage = () => {
                                         </td>
                                     </tr>
 
-                                    {/* Row 5: Surface Elevation */}
+                                    {/* Row 7: Surface Elevation */}
                                     <tr className="hover:bg-[#181A21]/40 transition">
                                         <td className="py-3 px-5 text-[#8891A0] font-medium">
                                             Surface Elevation
@@ -1111,7 +1175,7 @@ const ComparePage = () => {
                                         </td>
                                     </tr>
 
-                                    {/* Row 6: Historical Rovers / Missions Tested */}
+                                    {/* Row 8: Historical Rovers / Missions Tested */}
                                     <tr className="hover:bg-[#181A21]/40 transition">
                                         <td className="py-3 px-5 text-[#8891A0] font-medium">
                                             Historical Rovers / Missions Tested
@@ -1121,6 +1185,65 @@ const ComparePage = () => {
                                         </td>
                                         <td className="py-3 px-5 text-[#F1EEE9]/90 leading-relaxed">
                                             {locationB.roversTested}
+                                        </td>
+                                    </tr>
+
+                                    {/* Row 9: Analogy Limitations & Earth Boundary Conditions */}
+                                    <tr className="hover:bg-[#181A21]/40 transition bg-[#140D09]/30">
+                                        <td className="py-3.5 px-5 text-[#D67051] font-semibold align-top">
+                                            Analogy Limitations &amp; Earth Boundary Conditions
+                                        </td>
+                                        <td className="py-3.5 px-5 text-xs text-[#8891A0] leading-relaxed align-top space-y-2">
+                                            <div>
+                                                <span className="text-[#F1EEE9] font-medium block">
+                                                    Gravity:
+                                                </span>
+                                                <p className="text-[11px] text-[#8891A0] mt-0.5">
+                                                    {locationA.fidelity?.whereAnalogyBreaksDown?.[0]?.explanation}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <span className="text-[#F1EEE9] font-medium block">
+                                                    Atmosphere &amp; Radiation:
+                                                </span>
+                                                <p className="text-[11px] text-[#8891A0] mt-0.5">
+                                                    {locationA.fidelity?.whereAnalogyBreaksDown?.[1]?.targetValue} • {locationA.fidelity?.whereAnalogyBreaksDown?.[2]?.earthValue}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <span className="text-[#D67051] font-medium block">
+                                                    Site Boundary Limit:
+                                                </span>
+                                                <p className="text-[11px] text-[#8891A0] mt-0.5">
+                                                    {locationA.fidelity?.whereAnalogyBreaksDown?.[3]?.explanation}
+                                                </p>
+                                            </div>
+                                        </td>
+                                        <td className="py-3.5 px-5 text-xs text-[#8891A0] leading-relaxed align-top space-y-2">
+                                            <div>
+                                                <span className="text-[#F1EEE9] font-medium block">
+                                                    Gravity:
+                                                </span>
+                                                <p className="text-[11px] text-[#8891A0] mt-0.5">
+                                                    {locationB.fidelity?.whereAnalogyBreaksDown?.[0]?.explanation}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <span className="text-[#F1EEE9] font-medium block">
+                                                    Atmosphere &amp; Radiation:
+                                                </span>
+                                                <p className="text-[11px] text-[#8891A0] mt-0.5">
+                                                    {locationB.fidelity?.whereAnalogyBreaksDown?.[1]?.targetValue} • {locationB.fidelity?.whereAnalogyBreaksDown?.[2]?.earthValue}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <span className="text-[#D67051] font-medium block">
+                                                    Site Boundary Limit:
+                                                </span>
+                                                <p className="text-[11px] text-[#8891A0] mt-0.5">
+                                                    {locationB.fidelity?.whereAnalogyBreaksDown?.[3]?.explanation}
+                                                </p>
+                                            </div>
                                         </td>
                                     </tr>
                                 </tbody>

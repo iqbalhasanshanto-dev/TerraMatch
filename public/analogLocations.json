@@ -115,6 +115,7 @@
       "roversTested": "NASA RAVEN / SAND-E Campaigns, ESA PANGAEA-X, JPL ATHLETE & Field Robotics",
       "mineralogy": "Tholeiitic basaltic sand, hyaloclastite glass & palagonite tuffs",
       "terrain": [
+        "caves & lava tubes",
         "lava fields",
         "volcanic rock",
         "geothermal terrain"
@@ -354,10 +355,11 @@
       ],
       "temperature": 21,
       "targetSpec": "Moon & Mars Analog",
-      "analogCategory": "Lava Tube Exploration & Astronaut Geologic Training",
+      "analogCategory": "Subsurface Caves & Lava Tubes",
       "roversTested": "ESA PANGAEA Astronaut Training, ESA CaveX & LUNA Analog Robotics",
       "mineralogy": "Alkali olivine basalt, pyroclastic lapilli & intact lava tube basalt",
       "terrain": [
+        "caves & lava tubes",
         "basaltic lava",
         "volcanic cones",
         "bare rock"
@@ -449,6 +451,7 @@
       "roversTested": "NASA Apollo Lunar Surface Training, NASA/HI-SEAS Basalt Traverses & FIDO Rover Tests",
       "mineralogy": "Tholeiitic ʻaʻā and pāhoehoe basalt, Pele's tears volcanic glass & sulfur fumaroles",
       "terrain": [
+        "caves & lava tubes",
         "basaltic lava",
         "volcanic terrain",
         "rough rock"
@@ -661,6 +664,7 @@
       "roversTested": "NASA BASALT Research Program, Apollo 15-17 Geology Training",
       "mineralogy": "Glassy ropy pāhoehoe basalt, plagioclase phenocrysts & vesicular crust",
       "terrain": [
+        "caves & lava tubes",
         "smooth basalt",
         "lava flows",
         "volcanic plains"
@@ -1024,6 +1028,7 @@
       "roversTested": "NASA/USGS Fissure-Flow Radar Mapping & Icelandic Analog Rover Traverses",
       "mineralogy": "Fresh olivine tholeiite basalt, volcanic glass & sulfur-clay alteration zones",
       "terrain": [
+        "caves & lava tubes",
         "basaltic lava",
         "fissures",
         "volcanic plains"
@@ -1418,6 +1423,7 @@
       "roversTested": "NASA/USGS Mars Pseudocrater Comparative Studies & Nordic Field Robotics",
       "mineralogy": "Scoriaceous basalt, rootless cone tephra & silica-rich geothermal sinters",
       "terrain": [
+        "caves & lava tubes",
         "lava fields",
         "volcanic craters",
         "basalt"
@@ -1520,6 +1526,38 @@
         "elevationMeters": 2600
       },
       "description": "Resurgent volcanic caldera complex with welded ash-flow tuffs and hydrothermal alteration zones studied by Apollo astronauts and Mars geologists.",
+      "color": "#8b5cf6",
+      "dataSource": "planetary-analog-catalog"
+    },
+    {
+      "id": "analog-051",
+      "name": "Craters of the Moon Lava Field",
+      "country": "United States",
+      "coordinates": {
+        "latitude": 43.4617,
+        "longitude": -113.5627
+      },
+      "analogType": [
+        "moon",
+        "mars"
+      ],
+      "temperature": 8,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "Subsurface Caves & Lava Tubes",
+      "roversTested": "NASA Apollo 14 Astronaut Geology Training, NASA FINESSE Project, NASA BRAILLE Subsurface Speleology",
+      "mineralogy": "Vesicular olivine basalt, pahoehoe crusts, spatter cones & intact subterranean lava tubes",
+      "terrain": [
+        "caves & lava tubes",
+        "basaltic lava",
+        "lava flows",
+        "cinder cones"
+      ],
+      "environment": {
+        "climate": "semi-arid cold steppe",
+        "vegetation": "sparse sagebrush on lava",
+        "elevationMeters": 1790
+      },
+      "description": "Extensive Holocene basaltic flood lava field featuring intact subterranean lava tubes, spatter vents, and collapse pits used by Apollo astronauts and modern robotic speleology missions for permanent Moon base shelter analogs.",
       "color": "#8b5cf6",
       "dataSource": "planetary-analog-catalog"
     }

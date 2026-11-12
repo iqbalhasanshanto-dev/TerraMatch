@@ -35,6 +35,7 @@ import StateContext from "../States/StateContext";
 import {
     formatSurfaceTemp,
     getAnalogCategory,
+    getAnalogRecognitionStatus,
     getSurfaceTemperature,
     getTargetBodyInfo,
 } from "../utils/analogSpec";
@@ -48,48 +49,96 @@ import {
 // ============================================================================
 
 /**
- * Rover Test Objective options displayed in the Environment accordion row.
+ * Exploration & Mission Objective options covering both Permanent Moon Base and Mars exploration.
  */
 const MISSION_OBJECTIVE_OPTIONS = [
     "Any objective",
-    "Mobility & Traction",
-    "Subsurface Drilling",
-    "Astrobiology / Life Detection",
-    "ISRU & Excavation",
+    "Permanent Moon Base & Habitation",
+    "Subsurface Caves & Lava Tubes",
+    "Water-Ice & ISRU Resources",
+    "Rover Mobility & Navigation",
+    "Astrobiology & Biosignatures",
 ];
 
 /**
- * Keyword mapping translating each Rover Test Objective option into terms
+ * Keyword mapping translating each Exploration Objective option into terms
  * matched against `analogCategory`, `roversTested`, `description`, and `terrain`.
  */
 const MISSION_OBJECTIVE_KEYWORDS = {
-    "Mobility & Traction": [
+    "Permanent Moon Base & Habitation": [
+        "moon base",
+        "habitation",
+        "habitat",
+        "permanent",
+        "outpost",
+        "shelter",
+        "regolith shielding",
+        "lunar",
+        "radiation shielding",
+        "structure",
+        "construction",
+        "simulant",
+        "apollo",
+        "artemis",
+        "lava tube",
+        "subsurface",
+        "base",
+    ],
+    "Subsurface Caves & Lava Tubes": [
+        "lava tube",
+        "tube",
+        "cave",
+        "caves",
+        "subsurface",
+        "cavern",
+        "void",
+        "skylight",
+        "subterranean",
+        "basaltic lava",
+        "speleology",
+        "pangaea",
+        "cavex",
+        "underground",
+        "shelter",
+    ],
+    "Water-Ice & ISRU Resources": [
+        "water-ice",
+        "water",
+        "ice",
+        "isru",
+        "resource",
+        "regolith",
+        "permafrost",
+        "extraction",
+        "volatiles",
+        "drilling",
+        "cryogenic",
+        "polar",
+        "resolve",
+        "viper",
+        "prospecting",
+        "simulant",
+        "excavation",
+        "hydrate",
+    ],
+    "Rover Mobility & Navigation": [
         "mobility",
+        "navigation",
         "rover",
+        "traverse",
         "traction",
         "slip",
-        "navigation",
-        "dune",
-        "traverse",
+        "wheel",
         "slope",
         "boulder",
-        "wheel",
-        "habitat",
+        "dune",
         "sand",
+        "obstacle",
+        "autonomous",
+        "locomotion",
+        "exofit",
     ],
-    "Subsurface Drilling": [
-        "drill",
-        "drilling",
-        "coring",
-        "subsurface",
-        "radar",
-        "sounding",
-        "icebreaker",
-        "permafrost",
-        "lava tube",
-        "excavation",
-    ],
-    "Astrobiology / Life Detection": [
+    "Astrobiology & Biosignatures": [
         "astrobiology",
         "biosignature",
         "life",
@@ -101,26 +150,21 @@ const MISSION_OBJECTIVE_KEYWORDS = {
         "halite",
         "perchlorate",
         "brine",
-    ],
-    "ISRU & Excavation": [
-        "isru",
-        "regolith",
-        "volatiles",
-        "excavation",
-        "simulant",
-        "basalt",
-        "tephra",
-        "extraction",
-        "resource",
-        "evaporite",
+        "extremophile",
+        "hypersaline",
+        "iron-sulfate",
+        "sulfate",
+        "fossil",
     ],
 };
 
 /**
- * Geological Terrain & Mineralogy options for the Environment accordion row.
+ * Geological Terrain & Mineralogy options for the Environment accordion row,
+ * including Subsurface Caves & Lava Tubes.
  */
 const TERRAIN_OPTIONS = [
     "Any",
+    "Caves & Lava Tubes",
     "Rocky",
     "Sandy",
     "Icy",
@@ -135,6 +179,21 @@ const TERRAIN_OPTIONS = [
  * `mineralogy`, `analogCategory`, and `description` catalog fields.
  */
 const TERRAIN_KEYWORD_MAP = {
+    "Caves & Lava Tubes": [
+        "lava tube",
+        "tube",
+        "cave",
+        "caves",
+        "subsurface",
+        "subterranean",
+        "cavern",
+        "skylight",
+        "basaltic lava",
+        "lava flows",
+        "volcanic cones",
+        "vesicular",
+        "pangaea",
+    ],
     Rocky: [
         "rock",
         "rocky",
@@ -220,6 +279,7 @@ const TERRAIN_KEYWORD_MAP = {
  */
 const WHOLE_EARTH_TERRAIN_MAP = {
     Any: "Any",
+    "Caves & Lava Tubes": "Volcanic Basalt",
     Rocky: "rock",
     Sandy: "Hyper-Arid Desert",
     Icy: "Polar & Ice",
@@ -275,7 +335,8 @@ const WHOLE_EARTH_HUMIDITY_MAP = {
 
 /**
  * Preconfigured Mission Presets for the "Mission preset" dropdown.
- * Selecting a preset automatically populates target body and environment filters.
+ * Selecting a preset automatically populates target body and environment filters
+ * covering permanent lunar habitation, subterranean lava tubes, and Mars science.
  */
 const MISSION_PRESETS = [
     {
@@ -284,11 +345,37 @@ const MISSION_PRESETS = [
         config: null,
     },
     {
-        id: "moon-grey-zone",
-        label: "Moon Grey Zone (Polar / Cold / High-Alt)",
+        id: "moon-base-outpost",
+        label: "Permanent Moon Base & Habitation Site",
         config: {
             targetBody: "moon",
-            missionObjective: "Any objective",
+            missionObjective: "Permanent Moon Base & Habitation",
+            terrain: "Volcanic",
+            humidity: "Any",
+            tempMin: -60,
+            tempMax: 50,
+            minElevation: 0,
+        },
+    },
+    {
+        id: "lunar-lava-tubes",
+        label: "Subsurface Caves & Lava Tubes Outpost",
+        config: {
+            targetBody: "moon",
+            missionObjective: "Subsurface Caves & Lava Tubes",
+            terrain: "Caves & Lava Tubes",
+            humidity: "Any",
+            tempMin: -30,
+            tempMax: 35,
+            minElevation: 0,
+        },
+    },
+    {
+        id: "moon-polar-water-ice",
+        label: "Moon Polar Water-Ice & Cryogenic ISRU",
+        config: {
+            targetBody: "moon",
+            missionObjective: "Water-Ice & ISRU Resources",
             terrain: "Any",
             humidity: "Any",
             tempMin: -60,
@@ -299,10 +386,10 @@ const MISSION_PRESETS = [
     },
     {
         id: "mars-highlands",
-        label: "Mars Highlands (Hyper-Arid / UV / Cold)",
+        label: "Mars Highlands (Astrobiology & UV Cold Desert)",
         config: {
             targetBody: "mars",
-            missionObjective: "Any objective",
+            missionObjective: "Astrobiology & Biosignatures",
             terrain: "Any",
             humidity: "Very dry",
             tempMin: -50,
@@ -311,24 +398,11 @@ const MISSION_PRESETS = [
         },
     },
     {
-        id: "lunar-mare-basalt",
-        label: "Lunar Mare Volcanic Basalt",
-        config: {
-            targetBody: "moon",
-            missionObjective: "ISRU & Excavation",
-            terrain: "Volcanic",
-            humidity: "Any",
-            tempMin: -60,
-            tempMax: 50,
-            minElevation: 0,
-        },
-    },
-    {
         id: "martian-aeolian-dune",
         label: "Martian Aeolian Dune Mobility",
         config: {
             targetBody: "mars",
-            missionObjective: "Mobility & Traction",
+            missionObjective: "Rover Mobility & Navigation",
             terrain: "Sandy",
             humidity: "Dry",
             tempMin: -60,
@@ -1010,7 +1084,7 @@ const Tweaks = ({ onSelectLocation }) => {
     const environmentRows = [
         {
             id: "objective",
-            label: "Rover objective",
+            label: "Exploration objective",
             displayValue: missionObjective,
             isDefault: missionObjective === "Any objective",
             selectedValue: missionObjective,
@@ -1107,6 +1181,7 @@ const Tweaks = ({ onSelectLocation }) => {
                                 location._id || location.id || location.name;
                             const { pillLabel, pillClassName } =
                                 getTargetBodyInfo(location);
+                            const recognition = getAnalogRecognitionStatus(location);
                             const surfaceTemp = formatSurfaceTemp(location);
 
                             return (
@@ -1126,6 +1201,11 @@ const Tweaks = ({ onSelectLocation }) => {
                                     </div>
 
                                     <div className="flex items-center gap-1.5 shrink-0">
+                                        <span
+                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${recognition.badgeClass}`}
+                                        >
+                                            {recognition.label}
+                                        </span>
                                         <span
                                             className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${pillClassName}`}
                                         >
@@ -1695,6 +1775,8 @@ const Tweaks = ({ onSelectLocation }) => {
                                             savedLocationIds.has(location.name);
                                         const { pillLabel, pillClassName } =
                                             getTargetBodyInfo(location);
+                                        const recognition =
+                                            getAnalogRecognitionStatus(location);
                                         const surfaceTemp =
                                             formatSurfaceTemp(location);
                                         const analogCategory =
@@ -1732,13 +1814,20 @@ const Tweaks = ({ onSelectLocation }) => {
                                                         </div>
                                                     </div>
 
-                                                    {/* Target Body Pill & Real Mean Surface Temperature */}
+                                                    {/* Target Body Pill, Recognition Status & Real Mean Surface Temperature */}
                                                     <div className="flex flex-col items-end gap-1 shrink-0">
-                                                        <span
-                                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${pillClassName}`}
-                                                        >
-                                                            {pillLabel}
-                                                        </span>
+                                                        <div className="flex items-center gap-1">
+                                                            <span
+                                                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${recognition.badgeClass}`}
+                                                            >
+                                                                {recognition.label}
+                                                            </span>
+                                                            <span
+                                                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${pillClassName}`}
+                                                            >
+                                                                {pillLabel}
+                                                            </span>
+                                                        </div>
                                                         <span className="font-mono text-xs text-[#83CAD8] font-medium">
                                                             {surfaceTemp}
                                                         </span>
