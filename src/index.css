@@ -219,3 +219,14 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #272C34;
 }
+
+/* ============================================================================
+ * Netlify Deploy-Preview & Identity Overlay Suppression
+ * Ensures injected Netlify badge drawers, iframes, and floating identity
+ * widgets do not obscure map controls, attribution, or interactive panels.
+ * ============================================================================ */
+div[data-netlify-deploy-drawer],
+iframe[id*="netlify"],
+.netlify-identity-button {
+  display: none !important;
+}

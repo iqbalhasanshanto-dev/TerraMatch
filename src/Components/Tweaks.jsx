@@ -1,5 +1,12 @@
 import { useState, useEffect, useContext, useMemo, useCallback } from "react";
-import { Search, Globe, MapPin, Check } from "lucide-react";
+import {
+    Search,
+    Globe,
+    MapPin,
+    Check,
+    ChevronDown,
+    ChevronUp,
+} from "lucide-react";
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
 import StateContext from "../States/StateContext";
@@ -45,8 +52,8 @@ const Tweaks = ({ onSelectLocation }) => {
     // Free-text search query matching site name or country
     const [searchQuery, setSearchQuery] = useState("");
 
-    // Target planetary body selector ("moon" or "mars")
-    const [targetBody, setTargetBody] = useState("mars");
+    // Target planetary body selector ("", "moon", or "mars" — unselected by default)
+    const [targetBody, setTargetBody] = useState("");
 
     // Qualitative terrain category filter ("Any", "Rocky", "Sandy", "Icy", "Volcanic")
     const [terrain, setTerrain] = useState("Any");
@@ -62,6 +69,12 @@ const Tweaks = ({ onSelectLocation }) => {
 
     // Numeric maximum surface temperature bound slider (-60°C to 50°C)
     const [tempMax, setTempMax] = useState(40);
+
+    // Controls visibility of the collapsible full analog sites directory dropdown
+    const [showAllSitesCatalog, setShowAllSitesCatalog] = useState(false);
+
+    // Tracks whether the user has explicitly submitted a search/filter query yet
+    const [hasSearched, setHasSearched] = useState(false);
 
     // Optimistic set of bookmarked location keys for instantaneous "Saved" feedback
     const [optimisticSavedIds, setOptimisticSavedIds] = useState(() => new Set());
@@ -144,8 +157,8 @@ const Tweaks = ({ onSelectLocation }) => {
                 }
             }
 
-            // Filter 2: Target extraterrestrial body ("mars" vs "moon")
-            if (targetBody !== "Any") {
+            // Filter 2: Target extraterrestrial body ("moon" or "mars" when explicitly selected)
+            if (targetBody !== "" && targetBody !== "Any") {
                 const hasAnalogMatch = location.analogType?.some(
                     (type) => type.toLowerCase() === targetBody.toLowerCase()
                 );
@@ -235,24 +248,25 @@ const Tweaks = ({ onSelectLocation }) => {
     ]);
 
     // ------------------------------------------------------------------------
-    // 6. Synchronization Effect: Keep Filtered Results Updated with Dataset
+    // 6. Synchronization Effect: Show All Markers Until a Search Is Submitted
     // ------------------------------------------------------------------------
     useEffect(() => {
-        if (locData && locData.length > 0) {
-            const initialResults = computeFilteredLocations();
-            setFilteredLoc(initialResults);
+        // Keep all 50 analog pins visible on the map on initial load / after reset
+        if (locData && locData.length > 0 && !hasSearched) {
+            setFilteredLoc(locData);
         }
-    }, [locData, computeFilteredLocations, setFilteredLoc]);
+    }, [locData, hasSearched, setFilteredLoc]);
 
     // ------------------------------------------------------------------------
     // 7. User Action Handlers (Search, Reset, Card/Map Focus, Save)
     // ------------------------------------------------------------------------
     /**
-     * Applies current filter parameters and logs the top matching site to
-     * centralized Recent Searches when results are found.
+     * Applies current filter parameters, reveals the matching Results section,
+     * updates map pins, and logs the top matching site to Recent Searches.
      */
     const handleApplyFilters = () => {
         const results = computeFilteredLocations();
+        setHasSearched(true);
         setFilteredLoc(results);
 
         // Log the top match to Recent Searches (works locally with MongoDB and on static hosts)
@@ -262,32 +276,31 @@ const Tweaks = ({ onSelectLocation }) => {
     };
 
     /**
-     * Restores all search criteria back to the default Mars baseline.
+     * Restores all search criteria back to neutral defaults ("Any" / unselected),
+     * hides the results list, and restores all 50 markers on the map.
      */
     const handleReset = () => {
         setSearchQuery("");
-        setTargetBody("mars");
+        setTargetBody("");
         setTerrain("Any");
         setHumidity("Any");
         setTemperature("Any");
         setTempMin(-50);
         setTempMax(40);
+        setHasSearched(false);
 
         if (locData) {
-            const defaultMarsList = locData.filter((loc) =>
-                loc.analogType?.some((t) => t.toLowerCase() === "mars")
-            );
-            setFilteredLoc(defaultMarsList);
+            setFilteredLoc(locData);
         }
         toast.info("Filters reset to default.");
     };
 
     /**
-     * Handles clicking a location card or "View on map":
+     * Handles clicking a location card, catalog row, or "View on map":
      * 1. Records the location at the top of Recent Searches.
      * 2. Updates `mapTarget` with a fresh timestamp so Map flies/zooms smoothly
      *    and opens the corresponding marker popup even on repeat clicks.
-     * 3. Invokes `onSelectLocation` to collapse the sidebar drawer on mobile.
+     * 3. Closes the All Sites catalog dropdown and collapses the mobile drawer.
      */
     const handleViewOnMap = useCallback(
         (loc) => {
@@ -310,6 +323,9 @@ const Tweaks = ({ onSelectLocation }) => {
                     timestamp: Date.now(),
                 });
             }
+
+            // Close the collapsible catalog dropdown when a site is chosen
+            setShowAllSitesCatalog(false);
 
             // Collapse mobile drawer if callback is provided by RightDashboard
             onSelectLocation?.(loc);
@@ -409,15 +425,85 @@ const Tweaks = ({ onSelectLocation }) => {
     // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full flex flex-col bg-[#0B0E13] text-[#F1EEE9] select-none">
-            {/* Panel Header: Title and Dynamic Live Site Counter */}
+            {/* Panel Header: Title and Interactive All-Sites Directory Toggle */}
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#21242C] shrink-0 pr-10">
                 <h2 className="text-sm font-medium text-[#F1EEE9] tracking-tight">
                     Find a Match
                 </h2>
-                <span className="text-[10px] text-[#83CAD8] font-mono font-medium">
-                    {locData.length} Sites Live
-                </span>
+
+                {/* Toggle button opening/closing the full analog catalog directory */}
+                <button
+                    type="button"
+                    onClick={() => setShowAllSitesCatalog((prev) => !prev)}
+                    aria-expanded={showAllSitesCatalog}
+                    aria-controls="tweaks-all-sites-catalog"
+                    className="px-2 py-1 rounded-md bg-[#181A21] border border-[#21242C] hover:border-[#83CAD8] text-[10px] text-[#83CAD8] font-mono font-medium flex items-center gap-1 cursor-pointer transition"
+                >
+                    <span>{locData.length} Sites Live</span>
+                    {showAllSitesCatalog ? (
+                        <ChevronUp size={12} aria-hidden="true" />
+                    ) : (
+                        <ChevronDown size={12} aria-hidden="true" />
+                    )}
+                </button>
             </div>
+
+            {/* -------------------------------------------------------------- */}
+            {/* Collapsible Directory Panel: All Planetary Analog Sites        */}
+            {/* -------------------------------------------------------------- */}
+            {showAllSitesCatalog && (
+                <div
+                    id="tweaks-all-sites-catalog"
+                    className="mb-3 bg-[#07090E] border border-[#21242C] rounded-xl p-2.5 shrink-0"
+                >
+                    <div className="flex items-center justify-between mb-2 px-0.5">
+                        <span className="text-[10px] font-semibold tracking-wider text-[#8891A0] uppercase">
+                            All Planetary Analog Sites ({locData.length})
+                        </span>
+                        <span className="text-[10px] text-[#83CAD8] font-mono">
+                            Select site
+                        </span>
+                    </div>
+
+                    {/* Scrollable list of compact clickable site directory cards */}
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
+                        {locData.map((location) => {
+                            const catalogKey =
+                                location._id || location.id || location.name;
+                            return (
+                                <button
+                                    key={catalogKey}
+                                    type="button"
+                                    onClick={() => handleViewOnMap(location)}
+                                    className="w-full text-left bg-[#181A21] border border-[#21242C] hover:border-[#83CAD8]/60 rounded-lg p-2.5 flex items-center justify-between gap-2 cursor-pointer transition"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-medium text-[#F1EEE9] truncate leading-tight">
+                                            {location.name}
+                                        </p>
+                                        <p className="text-[10px] text-[#8891A0] truncate mt-0.5">
+                                            {location.country}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        {typeof location.similarityScore === "number" && (
+                                            <span className="font-mono text-[10px] text-[#83CAD8]">
+                                                {location.similarityScore}%
+                                            </span>
+                                        )}
+                                        <MapPin
+                                            size={12}
+                                            aria-hidden="true"
+                                            className="text-[#8891A0]"
+                                        />
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Scrollable Search Filters & Results Container */}
             <div className="space-y-3.5 overflow-y-auto flex-1 pr-1 custom-scrollbar">
@@ -457,9 +543,12 @@ const Tweaks = ({ onSelectLocation }) => {
                         Target Body
                     </span>
                     <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#07090E] border border-[#272C34] rounded-lg">
+                        {/* Moon Toggle Button (re-clicking deselects back to "") */}
                         <button
                             type="button"
-                            onClick={() => setTargetBody("moon")}
+                            onClick={() =>
+                                setTargetBody((prev) => (prev === "moon" ? "" : "moon"))
+                            }
                             aria-pressed={targetBody === "moon"}
                             className={`py-1.5 text-xs font-medium rounded-md text-center transition cursor-pointer ${
                                 targetBody === "moon"
@@ -470,9 +559,12 @@ const Tweaks = ({ onSelectLocation }) => {
                             Moon
                         </button>
 
+                        {/* Mars Toggle Button (re-clicking deselects back to "") */}
                         <button
                             type="button"
-                            onClick={() => setTargetBody("mars")}
+                            onClick={() =>
+                                setTargetBody((prev) => (prev === "mars" ? "" : "mars"))
+                            }
                             aria-pressed={targetBody === "mars"}
                             className={`py-1.5 text-xs font-medium rounded-md text-center transition cursor-pointer ${
                                 targetBody === "mars"
@@ -642,118 +734,128 @@ const Tweaks = ({ onSelectLocation }) => {
                 </div>
 
                 {/* ---------------------------------------------------------- */}
-                {/* Results List Section: Full-Card Clickable Analog Sites     */}
+                {/* Results List Section: Shown Only After Explicit Search     */}
                 {/* ---------------------------------------------------------- */}
                 <div className="border-t border-[#21242C] pt-3">
-                    <div className="flex justify-between items-center mb-2">
-                        <span className="text-[10px] font-semibold tracking-wider text-[#8891A0] uppercase">
-                            Results ({displayedResults.length})
-                        </span>
-                    </div>
-
-                    <div className="space-y-3">
-                        {displayedResults.length > 0 ? (
-                            displayedResults.map((location) => {
-                                const locKey = location._id || location.id || location.name;
-                                const isSaved =
-                                    savedLocationIds.has(locKey) ||
-                                    savedLocationIds.has(location.id) ||
-                                    savedLocationIds.has(location.name);
-
-                                return (
-                                    /* Clickable Analog Result Card (Entire surface selects location) */
-                                    <article
-                                        key={locKey}
-                                        onClick={() => handleViewOnMap(location)}
-                                        className="relative bg-[#181A21] border border-[#21242C] rounded-xl p-3.5 transition duration-150 hover:border-[#83CAD8]/50 has-[.card-primary-action:focus-visible]:outline-2 has-[.card-primary-action:focus-visible]:outline-[#83CAD8] shadow-md cursor-pointer"
-                                    >
-                                        {/* Top Row: Site Icon, Title, Country & Match Score */}
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#8891A0] shrink-0">
-                                                    <Globe size={16} aria-hidden="true" />
-                                                </div>
-
-                                                <div className="min-w-0">
-                                                    <h3 className="text-xs sm:text-sm font-semibold text-[#F1EEE9] truncate leading-tight">
-                                                        {location.name}
-                                                    </h3>
-                                                    <p className="text-[11px] text-[#8891A0] truncate mt-0.5">
-                                                        {location.country}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <span className="font-mono text-xs text-[#83CAD8] shrink-0 font-medium">
-                                                {location.similarityScore}%
-                                            </span>
-                                        </div>
-
-                                        {/* Footer Actions Row: Stretched "View on map" + Independent "Save" */}
-                                        <div className="flex items-center justify-between border-t border-[#21242C] pt-2.5 mt-2.5 text-xs">
-                                            {/* Primary Card Trigger stretched across the entire card via ::after */}
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleViewOnMap(location);
-                                                }}
-                                                aria-label={`View on map: ${location.name}`}
-                                                className="card-primary-action flex items-center gap-1.5 text-[#8891A0] hover:text-[#F1EEE9] focus-visible:outline-none transition duration-150 cursor-pointer after:content-[''] after:absolute after:inset-0 after:rounded-xl"
-                                            >
-                                                <MapPin
-                                                    size={13}
-                                                    aria-hidden="true"
-                                                    className="text-[#8891A0]"
-                                                />
-                                                <span>View on map</span>
-                                            </button>
-
-                                            {/* Independent Save Action (Elevated above card overlay with stopPropagation) */}
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleSave(location);
-                                                }}
-                                                aria-label={
-                                                    isSaved
-                                                        ? `Saved ${location.name}`
-                                                        : `Save ${location.name}`
-                                                }
-                                                className="relative z-10 flex items-center gap-1 text-[#8891A0] hover:text-[#83CAD8] transition duration-150 cursor-pointer py-0.5 px-1 rounded"
-                                            >
-                                                <Check
-                                                    size={13}
-                                                    aria-hidden="true"
-                                                    className={
-                                                        isSaved
-                                                            ? "text-[#83CAD8]"
-                                                            : "text-[#8891A0]"
-                                                    }
-                                                />
-                                                <span
-                                                    className={
-                                                        isSaved
-                                                            ? "text-[#83CAD8] font-medium"
-                                                            : ""
-                                                    }
-                                                >
-                                                    {isSaved ? "Saved" : "Save"}
-                                                </span>
-                                            </button>
-                                        </div>
-                                    </article>
-                                );
-                            })
-                        ) : (
-                            /* Empty Results Feedback Box */
-                            <div className="text-center py-8 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs">
-                                No candidate analog sites match the current filter criteria. Try
-                                adjusting parameters or resetting filters.
+                    {hasSearched ? (
+                        <>
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-[10px] font-semibold tracking-wider text-[#8891A0] uppercase">
+                                    Results ({displayedResults.length})
+                                </span>
                             </div>
-                        )}
-                    </div>
+
+                            <div className="space-y-3">
+                                {displayedResults.length > 0 ? (
+                                    displayedResults.map((location) => {
+                                        const locKey =
+                                            location._id || location.id || location.name;
+                                        const isSaved =
+                                            savedLocationIds.has(locKey) ||
+                                            savedLocationIds.has(location.id) ||
+                                            savedLocationIds.has(location.name);
+
+                                        return (
+                                            /* Clickable Analog Result Card (Entire surface selects location) */
+                                            <article
+                                                key={locKey}
+                                                onClick={() => handleViewOnMap(location)}
+                                                className="relative bg-[#181A21] border border-[#21242C] rounded-xl p-3.5 transition duration-150 hover:border-[#83CAD8]/50 has-[.card-primary-action:focus-visible]:outline-2 has-[.card-primary-action:focus-visible]:outline-[#83CAD8] shadow-md cursor-pointer"
+                                            >
+                                                {/* Top Row: Site Icon, Title, Country & Match Score */}
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#8891A0] shrink-0">
+                                                            <Globe size={16} aria-hidden="true" />
+                                                        </div>
+
+                                                        <div className="min-w-0">
+                                                            <h3 className="text-xs sm:text-sm font-semibold text-[#F1EEE9] truncate leading-tight">
+                                                                {location.name}
+                                                            </h3>
+                                                            <p className="text-[11px] text-[#8891A0] truncate mt-0.5">
+                                                                {location.country}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <span className="font-mono text-xs text-[#83CAD8] shrink-0 font-medium">
+                                                        {location.similarityScore}%
+                                                    </span>
+                                                </div>
+
+                                                {/* Footer Actions Row: Stretched "View on map" + Independent "Save" */}
+                                                <div className="flex items-center justify-between border-t border-[#21242C] pt-2.5 mt-2.5 text-xs">
+                                                    {/* Primary Card Trigger stretched across the entire card via ::after */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleViewOnMap(location);
+                                                        }}
+                                                        aria-label={`View on map: ${location.name}`}
+                                                        className="card-primary-action flex items-center gap-1.5 text-[#8891A0] hover:text-[#F1EEE9] focus-visible:outline-none transition duration-150 cursor-pointer after:content-[''] after:absolute after:inset-0 after:rounded-xl"
+                                                    >
+                                                        <MapPin
+                                                            size={13}
+                                                            aria-hidden="true"
+                                                            className="text-[#8891A0]"
+                                                        />
+                                                        <span>View on map</span>
+                                                    </button>
+
+                                                    {/* Independent Save Action (Elevated above card overlay with stopPropagation) */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleSave(location);
+                                                        }}
+                                                        aria-label={
+                                                            isSaved
+                                                                ? `Saved ${location.name}`
+                                                                : `Save ${location.name}`
+                                                        }
+                                                        className="relative z-10 flex items-center gap-1 text-[#8891A0] hover:text-[#83CAD8] transition duration-150 cursor-pointer py-0.5 px-1 rounded"
+                                                    >
+                                                        <Check
+                                                            size={13}
+                                                            aria-hidden="true"
+                                                            className={
+                                                                isSaved
+                                                                    ? "text-[#83CAD8]"
+                                                                    : "text-[#8891A0]"
+                                                            }
+                                                        />
+                                                        <span
+                                                            className={
+                                                                isSaved
+                                                                    ? "text-[#83CAD8] font-medium"
+                                                                    : ""
+                                                            }
+                                                        >
+                                                            {isSaved ? "Saved" : "Save"}
+                                                        </span>
+                                                    </button>
+                                                </div>
+                                            </article>
+                                        );
+                                    })
+                                ) : (
+                                    /* Empty Results Feedback Box */
+                                    <div className="text-center py-8 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs">
+                                        No candidate analog sites match the current filter criteria.
+                                        Try adjusting parameters or resetting filters.
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        /* Compact Pre-Search Prompt Before User Submits Filters */
+                        <p className="text-[11px] leading-relaxed text-[#8891A0] bg-[#181A21]/60 border border-[#21242C] rounded-xl p-3">
+                            {`Select your target parameters above and click Search to view matching analog sites, or click '${locData.length} Sites Live' at the top to browse the full catalog.`}
+                        </p>
+                    )}
                 </div>
             </div>
         </div>
