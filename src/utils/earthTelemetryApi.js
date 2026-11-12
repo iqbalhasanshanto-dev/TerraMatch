@@ -726,7 +726,8 @@ const fetchNasaPowerClimatology = async (lat, lon, signal) => {
  * }>}
  */
 const fetchOpenMeteoForecastFallback = async (lat, lon, signal) => {
-    const forecastUrl = `${OPEN_METEO_FORECAST_URL}?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,shortwave_radiation&elevation=nan`;
+    // Note: We omit `&elevation=nan` because Open-Meteo returns NASADEM/SRTM elevation by default
+    const forecastUrl = `${OPEN_METEO_FORECAST_URL}?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,shortwave_radiation`;
 
     const response = await fetch(forecastUrl, {
         headers: { Accept: "application/json" },
@@ -1401,38 +1402,104 @@ const matchesWholeEarthCriteria = (profile, criteria = {}) => {
 };
 
 /**
- * Scans the entire 45-point `GLOBAL_EXPLORATION_GRID` in ONE single batch
- * Open-Meteo API request (`latitude=...&longitude=...`), synthesizes full
- * TerraMatch analog profiles with real NASADEM/SRTM elevation, temperature,
- * relative humidity, precipitation, and solar radiation, and filters them
- * against the scientist's environmental criteria.
+ * Number of coordinate points queried per batch HTTP request to Open-Meteo.
+ *
+ * WHY CHUNK INTO BATCHES OF 15?
+ * 1. URL Length Limits: Building a single URL with 45+ coordinates (each containing
+ *    floating-point latitudes and longitudes) creates an excessively long query string
+ *    that can exceed browser or proxy URL character limits and trigger HTTP 414 / HTTP 400.
+ * 2. API Stability: Open-Meteo processes multi-location queries efficiently in smaller
+ *    parallel batches. Querying in chunks of 15 ensures each batch stays well within
+ *    recommended bounds without overloading a single request.
+ * 3. Concurrency: Fetching the chunks in parallel via Promise.all(...) keeps total latency
+ *    minimal (~equal to a single request) while eliminating payload dropouts or HTTP 400 errors.
+ */
+const WHOLE_EARTH_BATCH_CHUNK_SIZE = 15;
+
+/**
+ * Scans the entire 45-point `GLOBAL_EXPLORATION_GRID` in parallel batches of 15
+ * coordinates via Open-Meteo API requests (`latitude=...&longitude=...`), synthesizes
+ * full TerraMatch analog profiles with real NASADEM/SRTM elevation, temperature,
+ * relative humidity, precipitation, and solar radiation, and filters them against
+ * the scientist's environmental criteria.
  *
  * @param {Object} [criteria={}] - Mission and environmental search criteria.
  * @param {AbortSignal} [signal] - Optional AbortSignal for request cancellation.
  * @returns {Promise<Array<Object>>} Matching non-NASA Earth discovery profiles.
  */
 export const scanWholeEarthAnalogs = async (criteria = {}, signal) => {
-    // Build comma-separated latitude & longitude vectors for one batch HTTP call
-    const lats = GLOBAL_EXPLORATION_GRID.map((pt) => normalizeLatitude(pt.lat)).join(",");
-    const lons = GLOBAL_EXPLORATION_GRID.map((pt) => normalizeLongitude(pt.lon)).join(",");
-
-    const batchUrl = `${OPEN_METEO_FORECAST_URL}?latitude=${lats}&longitude=${lons}&current=temperature_2m,relative_humidity_2m,precipitation,shortwave_radiation&elevation=nan`;
-
-    const response = await fetch(batchUrl, {
-        headers: { Accept: "application/json" },
-        signal,
-    });
-
-    if (!response.ok) {
-        throw new Error(
-            `Whole-Earth satellite scan failed (Open-Meteo HTTP ${response.status}).`
+    // ------------------------------------------------------------------------
+    // 1. Chunk Global Grid into Batches of 15 Coordinates
+    // ------------------------------------------------------------------------
+    // WHY WE CHUNK:
+    // Querying all 45+ exploration sites in a single query string results in a very
+    // long URL that is prone to HTTP 400 Bad Request or server timeouts.
+    // Slicing the grid into smaller chunks of 15 allows us to dispatch manageable,
+    // lightweight requests concurrently.
+    const gridChunks = [];
+    for (
+        let i = 0;
+        i < GLOBAL_EXPLORATION_GRID.length;
+        i += WHOLE_EARTH_BATCH_CHUNK_SIZE
+    ) {
+        gridChunks.push(
+            GLOBAL_EXPLORATION_GRID.slice(i, i + WHOLE_EARTH_BATCH_CHUNK_SIZE)
         );
     }
 
-    const rawPayload = await response.json();
-    const entries = Array.isArray(rawPayload) ? rawPayload : [rawPayload];
+    // ------------------------------------------------------------------------
+    // 2. Fetch All Chunks Concurrently via Promise.all
+    // ------------------------------------------------------------------------
+    const chunkResponses = await Promise.all(
+        gridChunks.map(async (chunk, chunkIndex) => {
+            // Build comma-separated latitude & longitude vectors for this chunk
+            const lats = chunk
+                .map((pt) => normalizeLatitude(pt.lat))
+                .join(",");
+            const lons = chunk
+                .map((pt) => normalizeLongitude(pt.lon))
+                .join(",");
 
-    // Map each remote grid point + live satellite telemetry response into an analog profile
+            // WHY &elevation=nan WAS REMOVED:
+            // In Open-Meteo, the `elevation` query parameter is an optional manual
+            // altitude override. By default, Open-Meteo automatically uses high-resolution
+            // 90m NASADEM / SRTM data and returns the correct `elevation` (in meters)
+            // for EVERY coordinate in the output JSON.
+            // When querying multiple coordinates, passing `&elevation=nan` as a single scalar
+            // value triggers an HTTP 400 Bad Request from Open-Meteo because the server
+            // cannot match a single NaN to an array of coordinate pairs.
+            // Omitting `elevation` completely allows Open-Meteo to provide authentic,
+            // automated DEM elevations without errors.
+            const batchUrl = `${OPEN_METEO_FORECAST_URL}?latitude=${lats}&longitude=${lons}&current=temperature_2m,relative_humidity_2m,precipitation,shortwave_radiation`;
+
+            const response = await fetch(batchUrl, {
+                headers: { Accept: "application/json" },
+                signal,
+            });
+
+            if (!response.ok) {
+                throw new Error(
+                    `Whole-Earth satellite scan chunk ${chunkIndex + 1} failed (Open-Meteo HTTP ${response.status}).`
+                );
+            }
+
+            const rawPayload = await response.json();
+            // Open-Meteo returns an array of response objects for multi-coordinate queries,
+            // or a single object if only one coordinate was queried.
+            return Array.isArray(rawPayload) ? rawPayload : [rawPayload];
+        })
+    );
+
+    // ------------------------------------------------------------------------
+    // 3. Flatten Parallel Results
+    // ------------------------------------------------------------------------
+    // Promise.all guarantees result ordering matching `gridChunks`, so flattening
+    // yields a clean array strictly aligned 1:1 with `GLOBAL_EXPLORATION_GRID`.
+    const entries = chunkResponses.flat();
+
+    // ------------------------------------------------------------------------
+    // 4. Synthesize Analog Profiles from Live Satellite Telemetry
+    // ------------------------------------------------------------------------
     const synthesizedSites = GLOBAL_EXPLORATION_GRID.map((gridPoint, index) => {
         const entry = entries[index] || {};
         const current = entry?.current || {};
@@ -1471,7 +1538,9 @@ export const scanWholeEarthAnalogs = async (criteria = {}, signal) => {
         });
     });
 
-    // Filter synthesized global candidates against the scientist's criteria
+    // ------------------------------------------------------------------------
+    // 5. Filter Candidates Against Scientist Criteria
+    // ------------------------------------------------------------------------
     return synthesizedSites.filter((site) =>
         matchesWholeEarthCriteria(site, criteria)
     );
