@@ -123,7 +123,9 @@ const Login = () => {
                     return;
                 }
                 console.error("Sign-in error:", error);
-                toast.error(error.message || "Failed to sign in. Please try again.");
+                toast.error(error.message || "Failed to sign in. Please try again.", {
+                    toastId: "google-signin-error",
+                });
             })
             .finally(() => {
                 setIsSigningIn(false);
