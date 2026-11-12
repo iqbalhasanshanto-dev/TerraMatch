@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import { AuthContext } from "./AuthContext";
 import {
     GoogleAuthProvider,
-    getRedirectResult,
     onAuthStateChanged,
     signInWithPopup,
-    signInWithRedirect,
     signOut,
 } from "firebase/auth";
 import { toast } from "react-toastify";
@@ -13,35 +11,17 @@ import { toast } from "react-toastify";
 import { auth } from "./Firebase.ini";
 
 // ============================================================================
-// Google OAuth Provider & Popup-to-Redirect Fallback Configuration
+// Google OAuth Provider Configuration (Popup-Only)
 // ============================================================================
 
 /**
  * Shared GoogleAuthProvider instance configured to always prompt for account
  * selection so multi-account users can explicitly choose their Google profile.
+ * Uses popup-only authentication (`signInWithPopup`) because cross-origin
+ * redirect storage is blocked by third-party cookie restrictions in Chrome.
  */
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
-
-/**
- * Firebase Auth error codes that indicate the browser blocked popup-based
- * OAuth and should fall back to redirect authentication.
- * Excludes `auth/popup-closed-by-user` and `auth/internal-error` so user
- * cancellations and internal errors are never hidden by a silent redirect.
- */
-const REDIRECT_FALLBACK_ERROR_CODES = new Set([
-    "auth/popup-blocked",
-]);
-
-/**
- * Checks whether a Firebase Authentication error should trigger an automatic
- * fallback from `signInWithPopup` to `signInWithRedirect`.
- *
- * @param {unknown} error - Caught error object from Firebase Auth.
- * @returns {boolean} True when redirect fallback should be invoked.
- */
-const shouldFallbackToRedirect = (error) =>
-    Boolean(error?.code && REDIRECT_FALLBACK_ERROR_CODES.has(error.code));
 
 // ============================================================================
 // AuthProvider Context Component
@@ -59,19 +39,21 @@ const AuthProvider = ({ children }) => {
     const isAuthAvailable = Boolean(auth && !auth.isFallback);
     /** Currently signed-in Firebase User object, or `null` when unauthenticated. */
     const [user, setUser] = useState(null);
-    /** Tracks pending auth initialization, redirect resolution, or sign-in/out actions. */
+    /** Tracks pending auth initialization or sign-in/out actions. */
     const [loading, setLoading] = useState(isAuthAvailable);
 
     // ------------------------------------------------------------------------
     // 2. Authentication Action Helpers
     // ------------------------------------------------------------------------
     /**
-     * Signs the user in with Google OAuth.
-     * Calls `signInWithPopup(auth, googleProvider)` synchronously on the user
-     * click handler stack (without any `async/await` delay) so browsers do not
-     * block the popup. Falls back to `signInWithRedirect` only for
-     * `auth/popup-blocked`; all other errors (including `auth/internal-error`)
-     * are logged and surfaced via toast with their exact code and message.
+     * Signs the user in with Google OAuth using `signInWithPopup` exclusively.
+     * Invokes `signInWithPopup(auth, googleProvider)` synchronously inside the
+     * user click call stack (without any `async/await` delay) so browsers allow
+     * the popup window, and immediately hydrates `user` upon resolution.
+     *
+     * Redirect-based fallback (`signInWithRedirect`) is intentionally omitted
+     * because cross-origin redirect storage is blocked by third-party cookie
+     * restrictions in modern browsers.
      *
      * @returns {Promise<import("firebase/auth").UserCredential | null>}
      */
@@ -87,13 +69,13 @@ const AuthProvider = ({ children }) => {
         }
 
         // Invoke signInWithPopup synchronously inside the click handler stack
-        // before any async gap or state update so browsers allow the popup.
+        // before any async gap or state update so browsers do not block it.
         const popupPromise = signInWithPopup(auth, googleProvider);
         setLoading(true);
 
         return popupPromise
             .then((result) => {
-                // Synchronously hydrate `user` immediately without waiting for the next auth observer tick
+                // Immediately hydrate `user` without waiting for the next auth observer tick
                 if (result?.user) {
                     setUser(result.user);
                 }
@@ -114,46 +96,28 @@ const AuthProvider = ({ children }) => {
                     return null;
                 }
 
-                // Do not fall back to redirect or show an error toast when the user closes the popup
+                // Do not surface an error toast when the user intentionally closes the popup
                 if (error?.code === "auth/popup-closed-by-user") {
                     setLoading(false);
                     throw error;
                 }
 
-                if (shouldFallbackToRedirect(error)) {
-                    const errorCode = error?.code || "auth/popup-blocked";
-                    const errorMessage =
-                        error?.message || "Popup was blocked by your browser.";
-                    console.warn(
-                        `Google popup sign-in blocked (${errorCode}: ${errorMessage}); falling back to redirect sign-in.`
-                    );
-                    toast.info(
-                        "Popup was blocked. Redirecting to Google sign-in, or allow popups for this site and try again.",
-                        { toastId: "google-signin-popup-blocked" }
-                    );
-                    return signInWithRedirect(auth, googleProvider).catch(
-                        (redirectError) => {
-                            const redirectCode = redirectError?.code || "unknown";
-                            const redirectMessage =
-                                redirectError?.message ||
-                                "Redirect sign-in failed. Please allow popups for this site and try again.";
-                            console.error(
-                                `Google redirect sign-in failed (${redirectCode}): ${redirectMessage}`,
-                                redirectError
-                            );
-                            toast.error(
-                                `Sign-in failed (${redirectCode}): ${redirectMessage}`,
-                                { toastId: "google-signin-error" }
-                            );
-                            setLoading(false);
-                            throw redirectError;
-                        }
-                    );
-                }
-
                 const errorCode = error?.code || "unknown";
                 const errorMessage =
                     error?.message || "Failed to sign in with Google.";
+
+                if (errorCode === "auth/popup-blocked") {
+                    console.warn(
+                        `Google sign-in popup blocked (${errorCode}): ${errorMessage}`
+                    );
+                    toast.error(
+                        "Sign-in popup was blocked by your browser. Please allow popups for this site and try again.",
+                        { toastId: "google-signin-error" }
+                    );
+                    setLoading(false);
+                    throw error;
+                }
+
                 console.error(
                     `Google sign-in failed (${errorCode}): ${errorMessage}`,
                     error
@@ -185,7 +149,7 @@ const AuthProvider = ({ children }) => {
     };
 
     // ------------------------------------------------------------------------
-    // 3. Mount Effect: Redirect Result Capture & Auth State Subscription
+    // 3. Mount Effect: Auth State Subscription
     // ------------------------------------------------------------------------
     useEffect(() => {
         if (!isAuthAvailable) {
@@ -196,32 +160,6 @@ const AuthProvider = ({ children }) => {
         let isMounted = true;
         /** Unsubscribe callback returned by `onAuthStateChanged`. */
         let unSubscribe;
-
-        // Capture user credentials if returning from a `signInWithRedirect` OAuth flow
-        getRedirectResult(auth)
-            .then((result) => {
-                if (!isMounted) return;
-                if (result?.user) {
-                    setUser(result.user);
-                    setLoading(false);
-                }
-            })
-            .catch((error) => {
-                const errorCode = error?.code || "unknown";
-                const errorMessage =
-                    error?.message || "Failed to complete Google redirect sign-in.";
-                console.error(
-                    `Google redirect sign-in error (${errorCode}): ${errorMessage}`,
-                    error
-                );
-                toast.error(
-                    `Redirect sign-in failed (${errorCode}): ${errorMessage}`,
-                    { toastId: "google-signin-error" }
-                );
-                if (isMounted) {
-                    setLoading(false);
-                }
-            });
 
         // Subscribe to persistent Firebase authentication state changes
         try {
