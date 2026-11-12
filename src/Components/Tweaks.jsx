@@ -14,6 +14,12 @@ import StateContext from "../States/StateContext";
 import useAuth from "../Hooks/useAuth";
 import { toast } from "react-toastify";
 import { showSignInPromptToast } from "../utils/authToast";
+import {
+    formatSurfaceTemp,
+    getAnalogCategory,
+    getSurfaceTemperature,
+    getTargetBodyInfo,
+} from "../utils/analogSpec";
 
 /**
  * ============================================================================
@@ -96,46 +102,16 @@ const Tweaks = ({ onSelectLocation }) => {
     }, [savedLoc]);
 
     // ------------------------------------------------------------------------
-    // 4. Helper Function: Estimated Surface Temperature Derivation
+    // 4. Helper Function: Surface Temperature Resolution
     // ------------------------------------------------------------------------
     /**
-     * Derives an estimated representative temperature (°C) for sites that store
-     * qualitative climate descriptions instead of an explicit numeric `temperature`.
+     * Resolves the real mean surface temperature (°C) for each candidate site,
+     * falling back to climate/latitude estimates only if temperature is omitted.
      */
-    const getEstimatedTemperature = useCallback((location) => {
-        if (typeof location.temperature === "number") {
-            return location.temperature;
-        }
-
-        const climate = (location.environment?.climate || "").toLowerCase();
-        const lat = Math.abs(location.coordinates?.latitude || 0);
-
-        if (
-            climate.includes("polar") ||
-            climate.includes("extremely cold") ||
-            lat > 70
-        ) {
-            return -35;
-        }
-        if (climate.includes("cold") || climate.includes("subarctic") || lat > 55) {
-            return -5;
-        }
-        if (
-            climate.includes("temperate") ||
-            climate.includes("mediterranean") ||
-            climate.includes("cool")
-        ) {
-            return 16;
-        }
-        if (
-            climate.includes("hot") ||
-            climate.includes("hyper-arid") ||
-            climate.includes("extremely hot")
-        ) {
-            return 32;
-        }
-        return 20;
-    }, []);
+    const getEstimatedTemperature = useCallback(
+        (location) => getSurfaceTemperature(location),
+        []
+    );
 
     // ------------------------------------------------------------------------
     // 5. Helper Function: Multi-Variable Analog Site Filtering Engine
@@ -420,6 +396,10 @@ const Tweaks = ({ onSelectLocation }) => {
                         {locData.map((location) => {
                             const catalogKey =
                                 location._id || location.id || location.name;
+                            const { pillLabel, pillClassName } =
+                                getTargetBodyInfo(location);
+                            const surfaceTemp = formatSurfaceTemp(location);
+
                             return (
                                 <button
                                     key={catalogKey}
@@ -437,11 +417,14 @@ const Tweaks = ({ onSelectLocation }) => {
                                     </div>
 
                                     <div className="flex items-center gap-1.5 shrink-0">
-                                        {typeof location.similarityScore === "number" && (
-                                            <span className="font-mono text-[10px] text-[#83CAD8]">
-                                                {location.similarityScore}%
-                                            </span>
-                                        )}
+                                        <span
+                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${pillClassName}`}
+                                        >
+                                            {pillLabel}
+                                        </span>
+                                        <span className="font-mono text-[10px] text-[#83CAD8] font-medium">
+                                            {surfaceTemp}
+                                        </span>
                                         <MapPin
                                             size={12}
                                             aria-hidden="true"
@@ -704,6 +687,10 @@ const Tweaks = ({ onSelectLocation }) => {
                                             savedLocationIds.has(locKey) ||
                                             savedLocationIds.has(location.id) ||
                                             savedLocationIds.has(location.name);
+                                        const { pillLabel, pillClassName } =
+                                            getTargetBodyInfo(location);
+                                        const surfaceTemp = formatSurfaceTemp(location);
+                                        const analogCategory = getAnalogCategory(location);
 
                                         return (
                                             /* Clickable Analog Result Card (Entire surface selects location) */
@@ -712,10 +699,10 @@ const Tweaks = ({ onSelectLocation }) => {
                                                 onClick={() => handleViewOnMap(location)}
                                                 className="relative bg-[#181A21] border border-[#21242C] rounded-xl p-3.5 transition duration-150 hover:border-[#83CAD8]/50 has-[.card-primary-action:focus-visible]:outline-2 has-[.card-primary-action:focus-visible]:outline-[#83CAD8] shadow-md cursor-pointer"
                                             >
-                                                {/* Top Row: Site Icon, Title, Country & Match Score */}
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="flex items-center gap-3 min-w-0">
-                                                        <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#8891A0] shrink-0">
+                                                {/* Top Row: Site Icon, Title, Country, Target Body & Temp */}
+                                                <div className="flex items-start justify-between gap-2.5">
+                                                    <div className="flex items-start gap-3 min-w-0">
+                                                        <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#8891A0] shrink-0 mt-0.5">
                                                             <Globe size={16} aria-hidden="true" />
                                                         </div>
 
@@ -726,12 +713,23 @@ const Tweaks = ({ onSelectLocation }) => {
                                                             <p className="text-[11px] text-[#8891A0] truncate mt-0.5">
                                                                 {location.country}
                                                             </p>
+                                                            <p className="text-[10px] text-[#8891A0]/85 truncate mt-1">
+                                                                {analogCategory}
+                                                            </p>
                                                         </div>
                                                     </div>
 
-                                                    <span className="font-mono text-xs text-[#83CAD8] shrink-0 font-medium">
-                                                        {location.similarityScore}%
-                                                    </span>
+                                                    {/* Target Body Pill & Real Mean Surface Temperature */}
+                                                    <div className="flex flex-col items-end gap-1 shrink-0">
+                                                        <span
+                                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${pillClassName}`}
+                                                        >
+                                                            {pillLabel}
+                                                        </span>
+                                                        <span className="font-mono text-xs text-[#83CAD8] font-medium">
+                                                            {surfaceTemp}
+                                                        </span>
+                                                    </div>
                                                 </div>
 
                                                 {/* Footer Actions Row: Stretched "View on map" + Independent "Save" */}

@@ -3,6 +3,13 @@ import { toast } from "react-toastify";
 import StateContext from "./StateContext";
 import useAuth from "../Hooks/useAuth";
 import { API_BASE_URL } from "../utils/api";
+import {
+    getAnalogCategory,
+    getMineralogy,
+    getRoversTested,
+    getSurfaceTemperature,
+    getTargetBodyInfo,
+} from "../utils/analogSpec";
 
 // ============================================================================
 // Constants & LocalStorage Persistence Helpers (Recent Searches & Saved Sites)
@@ -124,11 +131,13 @@ const mergeSavedLocations = (serverItems, localItems) => {
 
 /**
  * Normalizes a candidate analog location object into a consistent recent-search
- * or saved-location record with canonical `locationId` and timestamps.
+ * or saved-location record with canonical `locationId`, real scientific fields,
+ * and timestamps.
  */
 const normalizeLocationEntry = (loc, userEmail) => {
     const canonicalLocationId = loc.locationId || loc._id || loc.id || loc.name;
     const nowIso = new Date().toISOString();
+    const { specLabel } = getTargetBodyInfo(loc);
 
     return {
         ...loc,
@@ -137,7 +146,11 @@ const normalizeLocationEntry = (loc, userEmail) => {
         locationId: canonicalLocationId,
         name: loc.name,
         country: loc.country,
-        similarityScore: loc.similarityScore ?? 85,
+        temperature: getSurfaceTemperature(loc),
+        targetSpec: loc.targetSpec || specLabel,
+        analogCategory: getAnalogCategory(loc),
+        roversTested: getRoversTested(loc),
+        mineralogy: getMineralogy(loc),
         coordinates: loc.coordinates,
         analogType: loc.analogType || ["mars"],
         environment: loc.environment,

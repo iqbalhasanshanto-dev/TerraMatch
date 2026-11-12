@@ -2,19 +2,25 @@ import { useState, useMemo, useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import {
     ChevronDown,
-    Trophy,
-    Bookmark,
     Compass,
     Mountain,
     Thermometer,
     Wind,
     Columns3,
     ArrowRight,
+    Sparkles,
+    Bot,
 } from "lucide-react";
 import useSaved from "../Hooks/useSaved";
 import Loader from "../Components/Loader";
-import useAuth from "../Hooks/useAuth";
-import { showSignInPromptToast } from "../utils/authToast";
+import {
+    formatSurfaceTemp,
+    getAnalogCategory,
+    getMineralogy,
+    getRoversTested,
+    getSurfaceTemperature,
+    getTargetBodyInfo,
+} from "../utils/analogSpec";
 
 /**
  * ============================================================================
@@ -30,25 +36,31 @@ const getLocationKey = (loc) =>
  * ============================================================================
  * Helper: Scientific Profile & Dynamic Telemetry Extractor
  * ============================================================================
- * Transforms any saved planetary analog location document into normalized
- * scientific metrics for the SVG Radar Chart, radial gauges, and comparison matrix.
+ * Transforms any saved planetary analog location document into real telemetry
+ * values and normalized 0-100 radar chart axes without relying on simulated
+ * similarity percentages.
  */
 const getScientificProfile = (loc) => {
-    // Graceful fallback profile if a record is temporarily undefined
     if (!loc) {
         return {
             name: "Selecting Location...",
             country: "Candidate Analog",
             targetBody: "MARS",
-            similarityScore: 80,
-            coordinates: { latitude: 0, longitude: 0 },
-            temperatureDisplay: "0 °C",
+            targetSpec: "Mars Analog",
+            bodySummary: "Mars",
+            temperature: 18,
+            temperatureDisplay: "18 °C",
+            temperatureCompact: "18°C",
+            analogCategory: "Planetary Surface Analog",
+            roversTested: "Planetary Analog Field Campaigns",
+            mineralogy: "Basaltic & Silicate Regolith",
             slopeDisplay: "5 °",
             radiationDisplay: "5 /10",
             soilDisplay: "Regolith breccia",
             aridityDisplay: "50 /100",
             elevationDisplay: "500 m",
             climate: "Arid Desert",
+            coordinates: { latitude: 0, longitude: 0 },
             metrics: {
                 temperature: 50,
                 slope: 50,
@@ -60,74 +72,59 @@ const getScientificProfile = (loc) => {
         };
     }
 
-    const elevation = loc.environment?.elevationMeters || 1200;
+    const elevation = loc.environment?.elevationMeters ?? 1200;
     const climate = loc.environment?.climate || "Arid surface";
-    const score = loc.similarityScore || 75;
-    const targetBody =
-        loc.analogType && loc.analogType[0]
-            ? loc.analogType[0].toUpperCase()
-            : "MARS";
+    const tempVal = getSurfaceTemperature(loc);
+    const { bodySummary, specLabel, pillLabel, pillClassName } =
+        getTargetBodyInfo(loc);
+    const analogCategory = getAnalogCategory(loc);
+    const roversTested = getRoversTested(loc);
+    const mineralogy = getMineralogy(loc);
 
-    // 1. Dynamic Temperature Extraction
-    let tempVal;
-    if (typeof loc.temperature === "number") {
-        tempVal = loc.temperature;
-    } else {
-        const climateLower = climate.toLowerCase();
-        const lat = Math.abs(loc.coordinates?.latitude || 0);
-        if (
-            climateLower.includes("polar") ||
-            climateLower.includes("extremely cold") ||
-            lat > 70
-        ) {
-            tempVal = -22;
-        } else if (
-            climateLower.includes("cold") ||
-            climateLower.includes("subarctic") ||
-            lat > 55
-        ) {
-            tempVal = -8;
-        } else if (
-            climateLower.includes("temperate") ||
-            climateLower.includes("mediterranean") ||
-            climateLower.includes("cool")
-        ) {
-            tempVal = 14;
-        } else if (
-            climateLower.includes("hot") ||
-            climateLower.includes("hyper-arid") ||
-            climateLower.includes("extremely hot")
-        ) {
-            tempVal = 34;
-        } else {
-            tempVal = 18;
-        }
-    }
-    // Normalized 0-100 scale for radar chart
+    // 1. Thermal Extremity / Temperature Axis (Normalized 0-100; colder/extreme maps cleanly)
     const normTemp = Math.min(
         95,
         Math.max(25, Math.round(((tempVal + 40) / 85) * 100))
     );
 
-    // 2. Dynamic Topographic Slope Extraction
+    // 2. Topographic Slope Axis (derived from elevation relief tier)
     const slopeDeg =
         elevation > 3000 ? 16 : elevation > 1500 ? 11 : elevation > 500 ? 7 : 4;
     const normSlope = Math.min(95, Math.max(30, Math.round(slopeDeg * 5.5)));
 
-    // 3. Dynamic Cosmic/UV Radiation Index
-    const radIndex = Math.min(10, Math.max(3, Math.round(elevation / 450 + 2)));
+    // 3. Cosmic / Solar UV Radiation Exposure Index (scales with elevation)
+    const radIndex = Math.min(
+        10,
+        Math.max(3, Math.round(Math.max(0, elevation) / 450 + 2))
+    );
     const normRadiation = Math.min(95, Math.max(30, Math.round(radIndex * 9.5)));
 
-    // 4. Dynamic Soil & Regolith Composition
+    // 4. Soil & Regolith Mineralogical Fidelity Axis (based on key planetary minerals)
     const primaryTerrain =
         Array.isArray(loc.terrain) && loc.terrain.length > 0
             ? loc.terrain[0]
             : "Regolith breccia";
     const soilDisplay =
         primaryTerrain.charAt(0).toUpperCase() + primaryTerrain.slice(1);
-    const normSoil = Math.min(95, Math.max(35, Math.round(score * 0.95)));
+    const mineralLower = mineralogy.toLowerCase();
+    let soilFidelity = 68;
+    if (
+        mineralLower.includes("basalt") ||
+        mineralLower.includes("perchlorate") ||
+        mineralLower.includes("jarosite") ||
+        mineralLower.includes("permafrost")
+    ) {
+        soilFidelity = 90;
+    } else if (
+        mineralLower.includes("gypsum") ||
+        mineralLower.includes("halite") ||
+        mineralLower.includes("breccia") ||
+        mineralLower.includes("smectite")
+    ) {
+        soilFidelity = 82;
+    }
 
-    // 5. Dynamic Aridity Index
+    // 5. Aridity Index (derived from climate dryness classification)
     let aridityVal;
     const climateStr = climate.toLowerCase();
     if (climateStr.includes("hyper-arid") || climateStr.includes("extremely dry")) {
@@ -145,19 +142,26 @@ const getScientificProfile = (loc) => {
     }
     const normAridity = Math.min(95, Math.max(30, aridityVal));
 
-    // 6. Dynamic Surface Elevation
+    // 6. Surface Elevation Axis
     const normElevation = Math.min(
         95,
-        Math.max(25, Math.round((elevation / 4500) * 100))
+        Math.max(25, Math.round((Math.max(0, elevation) / 4500) * 100))
     );
 
     return {
         ...loc,
-        targetBody,
-        climate,
-        similarityScore: score,
-        coordinates: loc.coordinates || { latitude: 0, longitude: 0 },
+        targetBody: pillLabel,
+        pillClassName,
+        targetSpec: specLabel,
+        bodySummary,
+        temperature: tempVal,
         temperatureDisplay: `${tempVal} °C`,
+        temperatureCompact: formatSurfaceTemp(loc),
+        analogCategory,
+        roversTested,
+        mineralogy,
+        climate,
+        coordinates: loc.coordinates || { latitude: 0, longitude: 0 },
         slopeDisplay: `${slopeDeg} °`,
         radiationDisplay: `${radIndex} /10`,
         soilDisplay,
@@ -167,7 +171,7 @@ const getScientificProfile = (loc) => {
             temperature: normTemp,
             slope: normSlope,
             radiation: normRadiation,
-            soil: normSoil,
+            soil: soilFidelity,
             aridity: normAridity,
             elevation: normElevation,
         },
@@ -181,11 +185,12 @@ const getScientificProfile = (loc) => {
  * Provides a side-by-side scientific comparison strictly across the user's
  * saved analog locations (`savedLoc` from centralized `useSaved()`):
  * - 0 Saved Locations: Renders a clean, centered empty state card guiding the
- *   user to `/search` (never pre-fills unrelated catalog sites).
+ *   user to `/search`.
  * - 1 Saved Location: Prompts the user to save at least 1 more site to compare
  *   against their currently bookmarked location.
- * - >= 2 Saved Locations: Populates Location A, Location B, the 6-axis SVG Radar
- *   Chart, and the parameter comparison matrix strictly from `savedLoc` (or `?ids=`).
+ * - >= 2 Saved Locations: Displays Target Body Specification, Mean Temperature,
+ *   Primary Analog Fidelity, 6-axis Radar Chart, and full Comparison Matrix
+ *   strictly from `savedLoc` (or `?ids=`).
  * - Deep-space color tokens: Cyan (`#83CAD8`) for Location A, Terracotta (`#D67051`) for Location B.
  */
 const ComparePage = () => {
@@ -196,9 +201,7 @@ const ComparePage = () => {
     // URL search parameters for loading pre-selected comparison pairs (`?ids=id1,id2`)
     const [searchParams, setSearchParams] = useSearchParams();
     // Centralized saved locations hook (localStorage + MongoDB)
-    const { savedLoc, saveLocation, loading: savedLoading } = useSaved();
-    // Current Firebase authentication state
-    const { user } = useAuth();
+    const { savedLoc, loading: savedLoading } = useSaved();
 
     // ------------------------------------------------------------------------
     // 2. Saved-Only Candidate Locations Pool
@@ -322,14 +325,14 @@ const ComparePage = () => {
     // 6-axis polar coordinate dimensions for the correlation radar chart
     const axes = useMemo(
         () => [
-            { key: "temperature", label: "Temperature", angle: -Math.PI / 2 },
+            { key: "temperature", label: "Thermal", angle: -Math.PI / 2 },
             { key: "slope", label: "Slope", angle: -Math.PI / 2 + Math.PI / 3 },
             {
                 key: "radiation",
                 label: "Radiation",
                 angle: -Math.PI / 2 + (2 * Math.PI) / 3,
             },
-            { key: "soil", label: "Soil", angle: Math.PI / 2 },
+            { key: "soil", label: "Mineralogy", angle: Math.PI / 2 },
             {
                 key: "aridity",
                 label: "Aridity",
@@ -382,29 +385,15 @@ const ComparePage = () => {
     }, [axes, locationB, getCoordinates]);
 
     // ------------------------------------------------------------------------
-    // 5. Best Overall Match Determination & Save Winner Handler
+    // 5. Scientific Contrast Summary Highlight
     // ------------------------------------------------------------------------
-    const winnerLocation = useMemo(() => {
-        return locationA.similarityScore >= locationB.similarityScore
+    const colderSite = useMemo(() => {
+        return locationA.temperature <= locationB.temperature
             ? locationA
             : locationB;
     }, [locationA, locationB]);
 
-    /**
-     * Saves the winning comparison candidate using centralized `saveLocation`,
-     * or prompts unauthenticated guests with the interactive `"Sign in →"` toast.
-     */
-    const handleSaveWinner = () => {
-        if (!user?.email) {
-            showSignInPromptToast(navigate);
-            return;
-        }
-        saveLocation?.(winnerLocation);
-    };
-
     if (savedLoading) return <Loader />;
-
-    const arcCircumference = Math.PI * 55;
 
     // ------------------------------------------------------------------------
     // 6. Component Render Block (Empty States for 0 or 1 Saved Sites + Comparison)
@@ -496,7 +485,7 @@ const ComparePage = () => {
                             {/* Left Column: Location A & Location B Cards     */}
                             {/* ---------------------------------------------- */}
                             <div className="lg:col-span-5 flex flex-col gap-4">
-                                {/* Location A Card (Chart 1 - Cyan #83CAD8) */}
+                                {/* Location A Card (Cyan #83CAD8) */}
                                 <div className="bg-[#0B0E13] border border-[#21242C] rounded-xl p-4 flex flex-col justify-between">
                                     <div>
                                         <label
@@ -536,8 +525,10 @@ const ComparePage = () => {
                                         {/* Site Telemetry & Terrain Preview Panel */}
                                         <div className="w-full bg-[#07090E] border border-[#21242C] rounded-lg p-3 mb-3 relative overflow-hidden">
                                             <div className="flex items-center justify-between gap-2 mb-2">
-                                                <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider bg-[#181A21] border border-[#21242C] text-[#83CAD8]">
-                                                    {locationA.targetBody || "ANALOG"}
+                                                <span
+                                                    className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${locationA.pillClassName}`}
+                                                >
+                                                    {locationA.targetSpec}
                                                 </span>
                                                 <div className="flex items-center gap-1 text-[10px] font-mono text-[#8891A0]">
                                                     <Compass
@@ -569,7 +560,7 @@ const ComparePage = () => {
                                                         aria-hidden="true"
                                                         className="text-[#83CAD8] shrink-0"
                                                     />
-                                                    <span className="truncate">
+                                                    <span className="truncate font-mono">
                                                         {locationA.temperatureDisplay}
                                                     </span>
                                                 </div>
@@ -579,7 +570,7 @@ const ComparePage = () => {
                                                         aria-hidden="true"
                                                         className="text-[#83CAD8] shrink-0"
                                                     />
-                                                    <span className="truncate">
+                                                    <span className="truncate capitalize">
                                                         {locationA.climate}
                                                     </span>
                                                 </div>
@@ -587,7 +578,7 @@ const ComparePage = () => {
                                                     <span className="text-[#8891A0] font-mono">
                                                         Alt:
                                                     </span>
-                                                    <span className="truncate">
+                                                    <span className="truncate font-mono">
                                                         {locationA.elevationDisplay}
                                                     </span>
                                                 </div>
@@ -595,52 +586,28 @@ const ComparePage = () => {
                                         </div>
                                     </div>
 
-                                    {/* Radial Gauge Meter: Location A with #83CAD8 Arc */}
-                                    <div className="flex flex-col items-center justify-center relative pt-1">
-                                        <svg
-                                            width="150"
-                                            height="80"
-                                            viewBox="0 0 150 80"
-                                            className="overflow-visible"
-                                        >
-                                            <path
-                                                d="M 20 75 A 55 55 0 0 1 130 75"
-                                                fill="none"
-                                                stroke="#181A21"
-                                                strokeWidth="9"
-                                                strokeLinecap="round"
-                                            />
-                                            <path
-                                                d="M 20 75 A 55 55 0 0 1 130 75"
-                                                fill="none"
-                                                stroke="#83CAD8"
-                                                strokeWidth="9"
-                                                strokeLinecap="round"
-                                                strokeDasharray={arcCircumference}
-                                                strokeDashoffset={
-                                                    arcCircumference *
-                                                    (1 -
-                                                        Math.min(
-                                                            100,
-                                                            Math.max(0, locationA.similarityScore)
-                                                        ) /
-                                                            100)
-                                                }
-                                                className="transition-all duration-700 ease-out"
-                                            />
-                                        </svg>
-                                        <div className="absolute bottom-1 text-center flex flex-col items-center">
-                                            <span className="text-lg font-bold font-mono text-[#F1EEE9] leading-tight">
-                                                {locationA.similarityScore}%
+                                    {/* Real Scientific Analog Fidelity Summary (Replaces Fake % Gauge) */}
+                                    <div className="bg-[#181A21]/70 border border-[#21242C] rounded-lg px-3 py-2.5 flex items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <span className="text-[9px] font-semibold tracking-wider text-[#8891A0] uppercase block">
+                                                Primary Analog Fidelity
                                             </span>
-                                            <span className="text-[9px] font-semibold tracking-wider text-[#8891A0] mt-0.5">
-                                                MATCH
+                                            <p className="text-xs font-semibold text-[#F1EEE9] truncate mt-0.5">
+                                                {locationA.analogCategory}
+                                            </p>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <span className="text-[9px] font-semibold tracking-wider text-[#8891A0] uppercase block">
+                                                Mean Temp
+                                            </span>
+                                            <span className="text-sm font-bold font-mono text-[#83CAD8]">
+                                                {locationA.temperatureCompact}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Location B Card (Chart 2 - Terracotta #D67051) */}
+                                {/* Location B Card (Terracotta #D67051) */}
                                 <div className="bg-[#0B0E13] border border-[#21242C] rounded-xl p-4 flex flex-col justify-between">
                                     <div>
                                         <label
@@ -680,8 +647,10 @@ const ComparePage = () => {
                                         {/* Site Telemetry & Terrain Preview Panel */}
                                         <div className="w-full bg-[#07090E] border border-[#21242C] rounded-lg p-3 mb-3 relative overflow-hidden">
                                             <div className="flex items-center justify-between gap-2 mb-2">
-                                                <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider bg-[#181A21] border border-[#21242C] text-[#D67051]">
-                                                    {locationB.targetBody || "ANALOG"}
+                                                <span
+                                                    className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ${locationB.pillClassName}`}
+                                                >
+                                                    {locationB.targetSpec}
                                                 </span>
                                                 <div className="flex items-center gap-1 text-[10px] font-mono text-[#8891A0]">
                                                     <Compass
@@ -713,7 +682,7 @@ const ComparePage = () => {
                                                         aria-hidden="true"
                                                         className="text-[#D67051] shrink-0"
                                                     />
-                                                    <span className="truncate">
+                                                    <span className="truncate font-mono">
                                                         {locationB.temperatureDisplay}
                                                     </span>
                                                 </div>
@@ -723,7 +692,7 @@ const ComparePage = () => {
                                                         aria-hidden="true"
                                                         className="text-[#D67051] shrink-0"
                                                     />
-                                                    <span className="truncate">
+                                                    <span className="truncate capitalize">
                                                         {locationB.climate}
                                                     </span>
                                                 </div>
@@ -731,7 +700,7 @@ const ComparePage = () => {
                                                     <span className="text-[#8891A0] font-mono">
                                                         Alt:
                                                     </span>
-                                                    <span className="truncate">
+                                                    <span className="truncate font-mono">
                                                         {locationB.elevationDisplay}
                                                     </span>
                                                 </div>
@@ -739,46 +708,22 @@ const ComparePage = () => {
                                         </div>
                                     </div>
 
-                                    {/* Radial Gauge Meter: Location B with #D67051 Arc */}
-                                    <div className="flex flex-col items-center justify-center relative pt-1">
-                                        <svg
-                                            width="150"
-                                            height="80"
-                                            viewBox="0 0 150 80"
-                                            className="overflow-visible"
-                                        >
-                                            <path
-                                                d="M 20 75 A 55 55 0 0 1 130 75"
-                                                fill="none"
-                                                stroke="#181A21"
-                                                strokeWidth="9"
-                                                strokeLinecap="round"
-                                            />
-                                            <path
-                                                d="M 20 75 A 55 55 0 0 1 130 75"
-                                                fill="none"
-                                                stroke="#D67051"
-                                                strokeWidth="9"
-                                                strokeLinecap="round"
-                                                strokeDasharray={arcCircumference}
-                                                strokeDashoffset={
-                                                    arcCircumference *
-                                                    (1 -
-                                                        Math.min(
-                                                            100,
-                                                            Math.max(0, locationB.similarityScore)
-                                                        ) /
-                                                            100)
-                                                }
-                                                className="transition-all duration-700 ease-out"
-                                            />
-                                        </svg>
-                                        <div className="absolute bottom-1 text-center flex flex-col items-center">
-                                            <span className="text-lg font-bold font-mono text-[#F1EEE9] leading-tight">
-                                                {locationB.similarityScore}%
+                                    {/* Real Scientific Analog Fidelity Summary (Replaces Fake % Gauge) */}
+                                    <div className="bg-[#181A21]/70 border border-[#21242C] rounded-lg px-3 py-2.5 flex items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <span className="text-[9px] font-semibold tracking-wider text-[#8891A0] uppercase block">
+                                                Primary Analog Fidelity
                                             </span>
-                                            <span className="text-[9px] font-semibold tracking-wider text-[#8891A0] mt-0.5">
-                                                MATCH
+                                            <p className="text-xs font-semibold text-[#F1EEE9] truncate mt-0.5">
+                                                {locationB.analogCategory}
+                                            </p>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <span className="text-[9px] font-semibold tracking-wider text-[#8891A0] uppercase block">
+                                                Mean Temp
+                                            </span>
+                                            <span className="text-sm font-bold font-mono text-[#D67051]">
+                                                {locationB.temperatureCompact}
                                             </span>
                                         </div>
                                     </div>
@@ -795,7 +740,7 @@ const ComparePage = () => {
                                         Analog Profile Correlation
                                     </h2>
                                     <span className="text-[10px] text-[#8891A0] font-mono">
-                                        Normalized scale (0-100)
+                                        Normalized environmental indices (0-100)
                                     </span>
                                 </div>
 
@@ -916,162 +861,98 @@ const ComparePage = () => {
                         </div>
 
                         {/* ================================================== */}
-                        {/* 4. Parameter Comparison Matrix Table               */}
+                        {/* 4. Scientific Parameter Comparison Matrix Table    */}
                         {/* ================================================== */}
                         <div className="bg-[#0B0E13] border border-[#21242C] rounded-xl overflow-hidden shadow-md">
                             <table className="w-full text-left text-xs">
                                 <thead>
                                     <tr className="bg-[#181A21] border-b border-[#21242C] text-[#8891A0] font-semibold uppercase text-[11px] tracking-wider">
-                                        <th className="py-3 px-5 w-2/5">Parameter</th>
-                                        <th className="py-3 px-5 w-[30%]">{locationA.name}</th>
-                                        <th className="py-3 px-5 w-[30%]">{locationB.name}</th>
+                                        <th className="py-3 px-5 w-1/3">Parameter</th>
+                                        <th className="py-3 px-5 w-1/3 text-[#83CAD8]">
+                                            {locationA.name}
+                                        </th>
+                                        <th className="py-3 px-5 w-1/3 text-[#D67051]">
+                                            {locationB.name}
+                                        </th>
                                     </tr>
                                 </thead>
 
                                 <tbody className="divide-y divide-[#21242C]">
-                                    {/* Row 1: Average Temperature */}
+                                    {/* Row 1: Target Planetary Body */}
                                     <tr className="hover:bg-[#181A21]/40 transition">
                                         <td className="py-3 px-5 text-[#8891A0] font-medium">
-                                            Average Temperature
+                                            Target Planetary Body
+                                        </td>
+                                        <td className="py-3 px-5 font-semibold text-[#F1EEE9]">
+                                            {locationA.bodySummary}
+                                        </td>
+                                        <td className="py-3 px-5 font-semibold text-[#F1EEE9]">
+                                            {locationB.bodySummary}
+                                        </td>
+                                    </tr>
+
+                                    {/* Row 2: Mean Surface Temperature */}
+                                    <tr className="hover:bg-[#181A21]/40 transition">
+                                        <td className="py-3 px-5 text-[#8891A0] font-medium">
+                                            Mean Surface Temperature
                                         </td>
                                         <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                            {locationA.metrics.temperature >=
-                                                locationB.metrics.temperature && (
-                                                <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">
-                                                    ✓
-                                                </span>
-                                            )}
                                             {locationA.temperatureDisplay}
                                         </td>
                                         <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                            {locationB.metrics.temperature >
-                                                locationA.metrics.temperature && (
-                                                <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">
-                                                    ✓
-                                                </span>
-                                            )}
                                             {locationB.temperatureDisplay}
                                         </td>
                                     </tr>
 
-                                    {/* Row 2: Topographic Slope */}
+                                    {/* Row 3: Climate & Aridity Regime */}
                                     <tr className="hover:bg-[#181A21]/40 transition">
                                         <td className="py-3 px-5 text-[#8891A0] font-medium">
-                                            Topographic Slope
+                                            Climate &amp; Aridity Regime
                                         </td>
-                                        <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                            {locationA.metrics.slope >= locationB.metrics.slope && (
-                                                <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">
-                                                    ✓
-                                                </span>
-                                            )}
-                                            {locationA.slopeDisplay}
+                                        <td className="py-3 px-5 text-[#F1EEE9] capitalize">
+                                            {locationA.climate}
                                         </td>
-                                        <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                            {locationB.metrics.slope > locationA.metrics.slope && (
-                                                <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">
-                                                    ✓
-                                                </span>
-                                            )}
-                                            {locationB.slopeDisplay}
+                                        <td className="py-3 px-5 text-[#F1EEE9] capitalize">
+                                            {locationB.climate}
                                         </td>
                                     </tr>
 
-                                    {/* Row 3: Radiation Index */}
+                                    {/* Row 4: Soil & Regolith Mineralogy */}
                                     <tr className="hover:bg-[#181A21]/40 transition">
                                         <td className="py-3 px-5 text-[#8891A0] font-medium">
-                                            Radiation Index
+                                            Soil &amp; Regolith Mineralogy
                                         </td>
-                                        <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                            {locationA.metrics.radiation >=
-                                                locationB.metrics.radiation && (
-                                                <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">
-                                                    ✓
-                                                </span>
-                                            )}
-                                            {locationA.radiationDisplay}
+                                        <td className="py-3 px-5 text-[#F1EEE9] leading-relaxed">
+                                            {locationA.mineralogy || locationA.soilDisplay}
                                         </td>
-                                        <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                            {locationB.metrics.radiation >
-                                                locationA.metrics.radiation && (
-                                                <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">
-                                                    ✓
-                                                </span>
-                                            )}
-                                            {locationB.radiationDisplay}
+                                        <td className="py-3 px-5 text-[#F1EEE9] leading-relaxed">
+                                            {locationB.mineralogy || locationB.soilDisplay}
                                         </td>
                                     </tr>
 
-                                    {/* Row 4: Soil & Regolith Composition */}
-                                    <tr className="hover:bg-[#181A21]/40 transition">
-                                        <td className="py-3 px-5 text-[#8891A0] font-medium">
-                                            Soil &amp; Regolith Composition
-                                        </td>
-                                        <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                            {locationA.metrics.soil >= locationB.metrics.soil && (
-                                                <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">
-                                                    ✓
-                                                </span>
-                                            )}
-                                            {locationA.soilDisplay}
-                                        </td>
-                                        <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                            {locationB.metrics.soil > locationA.metrics.soil && (
-                                                <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">
-                                                    ✓
-                                                </span>
-                                            )}
-                                            {locationB.soilDisplay}
-                                        </td>
-                                    </tr>
-
-                                    {/* Row 5: Aridity Index */}
-                                    <tr className="hover:bg-[#181A21]/40 transition">
-                                        <td className="py-3 px-5 text-[#8891A0] font-medium">
-                                            Aridity Index
-                                        </td>
-                                        <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                            {locationA.metrics.aridity >=
-                                                locationB.metrics.aridity && (
-                                                <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">
-                                                    ✓
-                                                </span>
-                                            )}
-                                            {locationA.aridityDisplay}
-                                        </td>
-                                        <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                            {locationB.metrics.aridity >
-                                                locationA.metrics.aridity && (
-                                                <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">
-                                                    ✓
-                                                </span>
-                                            )}
-                                            {locationB.aridityDisplay}
-                                        </td>
-                                    </tr>
-
-                                    {/* Row 6: Surface Elevation */}
+                                    {/* Row 5: Surface Elevation */}
                                     <tr className="hover:bg-[#181A21]/40 transition">
                                         <td className="py-3 px-5 text-[#8891A0] font-medium">
                                             Surface Elevation
                                         </td>
                                         <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                            {locationA.metrics.elevation >=
-                                                locationB.metrics.elevation && (
-                                                <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">
-                                                    ✓
-                                                </span>
-                                            )}
                                             {locationA.elevationDisplay}
                                         </td>
                                         <td className="py-3 px-5 font-mono text-[#F1EEE9]">
-                                            {locationB.metrics.elevation >
-                                                locationA.metrics.elevation && (
-                                                <span className="text-[#83CAD8] mr-1.5 font-bold font-mono">
-                                                    ✓
-                                                </span>
-                                            )}
                                             {locationB.elevationDisplay}
+                                        </td>
+                                    </tr>
+
+                                    {/* Row 6: Historical Rovers / Missions Tested */}
+                                    <tr className="hover:bg-[#181A21]/40 transition">
+                                        <td className="py-3 px-5 text-[#8891A0] font-medium">
+                                            Historical Rovers / Missions Tested
+                                        </td>
+                                        <td className="py-3 px-5 text-[#F1EEE9]/90 leading-relaxed">
+                                            {locationA.roversTested}
+                                        </td>
+                                        <td className="py-3 px-5 text-[#F1EEE9]/90 leading-relaxed">
+                                            {locationB.roversTested}
                                         </td>
                                     </tr>
                                 </tbody>
@@ -1079,38 +960,43 @@ const ComparePage = () => {
                         </div>
 
                         {/* ================================================== */}
-                        {/* 5. Bottom Best Overall Match Banner                */}
+                        {/* 5. Bottom Scientific Comparison Summary Banner     */}
                         {/* ================================================== */}
                         <div className="bg-[#0B0E13] border border-[#21242C] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
-                            {/* Left: Trophy Icon and Match Narrative */}
+                            {/* Left: Scientific Highlight Narrative */}
                             <div className="flex items-center gap-3.5">
                                 <div className="w-9 h-9 rounded-full bg-[#1A1D23] text-[#83CAD8] border border-[#21242C] flex items-center justify-center shrink-0">
-                                    <Trophy size={18} aria-hidden="true" />
+                                    <Sparkles size={17} aria-hidden="true" />
                                 </div>
                                 <div>
                                     <h3 className="text-xs sm:text-sm font-semibold text-[#F1EEE9] leading-tight">
-                                        Best overall match: {winnerLocation.name} (
-                                        {winnerLocation.similarityScore}%)
+                                        Thermal &amp; Mission Highlight: {colderSite.name} ({colderSite.temperatureCompact})
                                     </h3>
                                     <p className="text-[11px] text-[#8891A0] mt-0.5 leading-relaxed">
-                                        {winnerLocation.name} demonstrates a superior planetary analog correlation ({winnerLocation.similarityScore}%), exhibiting closer regolith composition and aridity characteristics.
+                                        {colderSite.name} offers the colder thermal regime ({colderSite.temperatureDisplay}) focused on{" "}
+                                        <span className="text-[#F1EEE9] font-medium">
+                                            {colderSite.analogCategory}
+                                        </span>
+                                        .
                                     </p>
                                 </div>
                             </div>
 
-                            {/* Right: Save Winner Action Button */}
+                            {/* Right: Inspect Site Details CTA */}
                             <div className="shrink-0 flex justify-end">
                                 <button
                                     type="button"
-                                    onClick={handleSaveWinner}
+                                    onClick={() =>
+                                        navigate(`/details/${getLocationKey(colderSite)}`)
+                                    }
                                     className="bg-[#1A1D23] border border-[#21242C] hover:bg-[#1E2129] text-[#F1EEE9] hover:text-[#83CAD8] px-3.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-sm transition cursor-pointer"
                                 >
-                                    <Bookmark
-                                        size={13}
+                                    <Bot
+                                        size={14}
                                         aria-hidden="true"
                                         className="text-[#83CAD8]"
                                     />
-                                    <span>Save winner</span>
+                                    <span>Inspect Site Specs</span>
                                 </button>
                             </div>
                         </div>

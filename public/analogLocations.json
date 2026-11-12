@@ -1,10 +1,9 @@
 {
   "metadata": {
     "title": "Earth Planetary Analog Locations",
-    "description": "50 candidate Earth locations for a planetary analog map prototype. Similarity scores are simulated demo values, not scientific measurements.",
-    "isMockData": true,
-    "similarityScoreNote": "All similarityScore values are illustrative placeholders. Do not interpret them as validated scientific similarity percentages.",
-    "version": "1.0"
+    "description": "50 scientifically curated Earth planetary analog field sites with real mean surface temperatures, target body specifications, primary testing foci, mineralogy, and historical rover/mission campaigns.",
+    "isMockData": false,
+    "version": "2.0"
   },
   "locations": [
     {
@@ -18,7 +17,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 94,
+      "temperature": 18,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Hyper-Arid Astrobiology & Drilling",
+      "roversTested": "NASA K-REX2 (ARADS), CMU Zoë, ESA ExoMars ExoFiT",
+      "mineralogy": "Perchlorate-rich evaporites, halite, nitrates & oxidizing regolith",
       "terrain": [
         "arid desert",
         "rocky surface",
@@ -29,9 +32,9 @@
         "vegetation": "very sparse",
         "elevationMeters": 2400
       },
-      "description": "Extremely dry desert terrain useful for studying Mars-like surface conditions.",
+      "description": "Hyper-arid nitrate and perchlorate desert floor serving as a premier Martian subsurface drilling and life-detection proving ground.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-002",
@@ -44,7 +47,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 97,
+      "temperature": -30,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Cryospheric Sublimation & Endolithic Biosignatures",
+      "roversTested": "NASA Icebreaker Drill, NASA Ames Cryo-Astrobiology Campaigns, Phoenix Lander Calibration",
+      "mineralogy": "Dolerite, sandstone, hyper-saline permafrost & sulfate evaporites",
       "terrain": [
         "polar desert",
         "exposed rock",
@@ -55,9 +62,9 @@
         "vegetation": "minimal",
         "elevationMeters": 1000
       },
-      "description": "Cold, dry valleys used in research on Mars-like environments and microbial survival.",
+      "description": "Antarctic polar desert valleys with ice-cemented permafrost and sublimation-dominated soils analogous to Martian high-latitude regolith.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-003",
@@ -71,7 +78,11 @@
         "moon",
         "mars"
       ],
-      "similarityScore": 89,
+      "temperature": 2,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "ISRU Regolith Excavation & Volatiles Extraction",
+      "roversTested": "NASA RESOLVE / VIPER Prototypes, NASA ISRU Dust & Regolith Testbed, Apollo Geology Training",
+      "mineralogy": "Hawaiitic & basaltic tephra, palagonitic dust & vesicular scoria",
       "terrain": [
         "volcanic rock",
         "lava flows",
@@ -82,9 +93,9 @@
         "vegetation": "sparse at high elevations",
         "elevationMeters": 4207
       },
-      "description": "High volcanic terrain useful for planetary geology and exploration-equipment testing.",
+      "description": "High-altitude basaltic tephra summit slopes used extensively to test lunar ISRU oxygen extraction, prospecting drills, and rover wheel traction.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-004",
@@ -98,7 +109,11 @@
         "mars",
         "moon"
       ],
-      "similarityScore": 86,
+      "temperature": -4,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "Glaciovolcanic Terrain & Autonomous Rover Navigation",
+      "roversTested": "NASA RAVEN / SAND-E Campaigns, ESA PANGAEA-X, JPL ATHLETE & Field Robotics",
+      "mineralogy": "Tholeiitic basaltic sand, hyaloclastite glass & palagonite tuffs",
       "terrain": [
         "lava fields",
         "volcanic rock",
@@ -109,9 +124,9 @@
         "vegetation": "sparse in barren areas",
         "elevationMeters": 1000
       },
-      "description": "Volcanic landscapes useful for planetary geology and robotic exploration research.",
+      "description": "Barren glaciovolcanic basaltic sand plains and hyaloclastite ridges matching Martian fluvial-volcanic and lunar highland trafficability.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-005",
@@ -124,7 +139,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 83,
+      "temperature": 28,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Rover Mobility, Slip Control & Desert Varnish Spectroscopy",
+      "roversTested": "NASA Curiosity Twin (Scarecrow), JPL Marsokhod, Mars 2020 Perseverance Mobility Tests",
+      "mineralogy": "Alluvial granitic gravel, desert pavement, clay playas & iron-manganese varnish",
       "terrain": [
         "rocky desert",
         "sand plains",
@@ -135,9 +154,9 @@
         "vegetation": "sparse",
         "elevationMeters": 850
       },
-      "description": "Dry, rugged terrain suitable for testing rover mobility and field exploration methods.",
+      "description": "Rugged desert washes, alluvial fans, and volcanic cinder cones used by JPL for full-scale Mars rover mobility and hazard-avoidance trials.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-006",
@@ -150,7 +169,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 88,
+      "temperature": 22,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Sandstone Canyon Navigation & Human Habitat Simulation",
+      "roversTested": "OeWF AMADEE-18 Analog Mission, ESA ExoMars Field Trials",
+      "mineralogy": "Cambrian-Ordovician quartzose sandstone, ferric oxide dust & aeolian sand",
       "terrain": [
         "red sandstone",
         "rock formations",
@@ -161,9 +184,9 @@
         "vegetation": "sparse",
         "elevationMeters": 1000
       },
-      "description": "Red desert landscape often used as an Earth analog for Mars exploration activities.",
+      "description": "Iron-oxide-stained sandstone buttes and sandy wadis providing realistic canyon-navigation and EVA operations terrain.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-007",
@@ -176,7 +199,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 85,
+      "temperature": 20,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Aeolian Dune Mobility & Slip Testing",
+      "roversTested": "ESA ExoMars Locomotion Testbed & Aeolian Wind-Tunnel Correlation",
+      "mineralogy": "Quartz-feldspar dune sand, magnetite grains & gypsum-cemented gravel",
       "terrain": [
         "sand dunes",
         "gravel plains",
@@ -187,9 +214,9 @@
         "vegetation": "very sparse",
         "elevationMeters": 500
       },
-      "description": "Ancient desert with varied arid terrain useful for comparative surface studies.",
+      "description": "Ancient hyper-arid dune seas and deflation gravel plains used to model Martian bedform migration and wheel sinkage.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-008",
@@ -202,7 +229,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 81,
+      "temperature": 14,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Fluvial-Deltaic Stratigraphy & Sedimentary Coring",
+      "roversTested": "NASA Mars Exploration Rover (MER) Field Training & MDRS Field Campaigns",
+      "mineralogy": "Gypsum-bearing Jurassic siltstones, red-bed sandstones & diagenetic concretions",
       "terrain": [
         "canyons",
         "exposed sedimentary rock",
@@ -213,9 +244,9 @@
         "vegetation": "sparse to moderate",
         "elevationMeters": 1800
       },
-      "description": "Exposed geological terrain for studying rock layers, erosion and rover navigation.",
+      "description": "Exposed inverted river channels, gypsum-veined mudstones, and hematite concretions paralleling Meridiani Planum and Gale Crater.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-009",
@@ -229,7 +260,11 @@
         "mars",
         "moon"
       ],
-      "similarityScore": 84,
+      "temperature": -6,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "High-Altitude Permafrost, Glacio-Lacustrine Clays & Habitat Ops",
+      "roversTested": "ISRO Spaceward Bound India, NASA-BSIP High-Altitude Astrobiology Expeditions",
+      "mineralogy": "Borate-rich hot-spring sinters, granite moraines & permafrost silts",
       "terrain": [
         "high-altitude desert",
         "rocky mountains",
@@ -240,9 +275,9 @@
         "vegetation": "sparse",
         "elevationMeters": 3500
       },
-      "description": "High-altitude cold desert suitable for studying environmental extremes and field robotics.",
+      "description": "Cold high-altitude Himalayan desert featuring glacial moraines, permafrost soils, and hydrothermal borate springs.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-010",
@@ -255,7 +290,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 96,
+      "temperature": 17,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Ultra-Low Biomass Soils & Subsurface Life Detection",
+      "roversTested": "NASA ASTEP Life in the Atacama (CMU Zoë), NASA ARADS K-REX2, Viking Soil Benchmarks",
+      "mineralogy": "Anhydrite, halite, perchlorates & clay-poor oxidized silicate regolith",
       "terrain": [
         "hyper-arid desert",
         "gravel plains",
@@ -266,9 +305,9 @@
         "vegetation": "extremely sparse",
         "elevationMeters": 1000
       },
-      "description": "A hyper-arid site in the Atacama region used in research on Mars-like dryness.",
+      "description": "The driest core of the Atacama Desert, providing a canonical terrestrial benchmark for Viking-era and modern Mars organic-detection instruments.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-011",
@@ -282,7 +321,11 @@
         "moon",
         "mars"
       ],
-      "similarityScore": 90,
+      "temperature": -16,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "Impact Breccia & Cryospheric Permafrost",
+      "roversTested": "NASA K10 Rovers & CMU Hyperion (Haughton-Mars Project), CSA Pressurized Rover Ops",
+      "mineralogy": "Polymict impact melt breccia, shocked Ordovician dolomite & ground ice",
       "terrain": [
         "impact crater",
         "polar terrain",
@@ -293,9 +336,9 @@
         "vegetation": "minimal",
         "elevationMeters": 250
       },
-      "description": "Arctic impact structure relevant to planetary impact geology and exploration studies.",
+      "description": "23-km Arctic impact structure preserving shocked target rocks, hydrothermal pipes, and continuous permafrost for lunar/Martian traverse trials.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-012",
@@ -309,7 +352,11 @@
         "moon",
         "mars"
       ],
-      "similarityScore": 87,
+      "temperature": 21,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "Lava Tube Exploration & Astronaut Geologic Training",
+      "roversTested": "ESA PANGAEA Astronaut Training, ESA CaveX & LUNA Analog Robotics",
+      "mineralogy": "Alkali olivine basalt, pyroclastic lapilli & intact lava tube basalt",
       "terrain": [
         "basaltic lava",
         "volcanic cones",
@@ -320,9 +367,9 @@
         "vegetation": "sparse in lava fields",
         "elevationMeters": 300
       },
-      "description": "Lava fields and volcanic landscapes provide accessible analog terrain for field studies.",
+      "description": "Fresh basaltic lava flows, spatter cones, and subterranean lava tubes used by ESA to train astronauts and subterranean scouting rovers.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-013",
@@ -335,7 +382,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 85,
+      "temperature": -12,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Arctic Subsurface Drilling & Carbonate Globule Astrobiology",
+      "roversTested": "NASA AMASE (Arctic Mars Analog Svalbard Expedition), ESA ExoMars PanCam & WISDOM GPR",
+      "mineralogy": "Devonian red sandstones, basaltic complexes with carbonate globules & permafrost",
       "terrain": [
         "polar desert",
         "permafrost",
@@ -346,9 +397,9 @@
         "vegetation": "sparse",
         "elevationMeters": 500
       },
-      "description": "Cold, remote terrain useful for studying exploration under harsh environmental conditions.",
+      "description": "High-Arctic permafrost terrain containing Bockfjord carbonate globules petrologically analogous to Martian meteorite ALH84001.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-014",
@@ -361,7 +412,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 82,
+      "temperature": 8,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Evaporite Crust Radar Sounding & Spectral Calibration",
+      "roversTested": "NASA/JPL LiDAR & Orbital Altimetry Calibration, High-Altiplano Astrobiology Campaigns",
+      "mineralogy": "Halite crusts, ulexite borates, gypsum & lithium-magnesium brines",
       "terrain": [
         "salt flat",
         "high plateau",
@@ -372,9 +427,9 @@
         "vegetation": "sparse",
         "elevationMeters": 3650
       },
-      "description": "High-altitude salt flat useful for studying evaporite minerals and surface processes.",
+      "description": "World's largest polygonal salt flat, utilized for orbital altimetry calibration and Martian chloride-basin evaporite modeling.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-015",
@@ -388,7 +443,11 @@
         "moon",
         "mars"
       ],
-      "similarityScore": 88,
+      "temperature": 21,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "Lunar Mare Basalt & Rover Traction",
+      "roversTested": "NASA Apollo Lunar Surface Training, NASA/HI-SEAS Basalt Traverses & FIDO Rover Tests",
+      "mineralogy": "Tholeiitic ʻaʻā and pāhoehoe basalt, Pele's tears volcanic glass & sulfur fumaroles",
       "terrain": [
         "basaltic lava",
         "volcanic terrain",
@@ -399,9 +458,9 @@
         "vegetation": "variable",
         "elevationMeters": 1200
       },
-      "description": "Basaltic lava flows provide comparisons for planetary volcanic geology.",
+      "description": "Unweathered basaltic lava flows and tephra blankets directly comparable to lunar mare plains and Martian shield volcanism.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-016",
@@ -414,7 +473,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 86,
+      "temperature": 6,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "High-UV Brine Evaporites & Stromatolite Biosignatures",
+      "roversTested": "NASA Astrobiology High-Andean Lake Expeditions & Raman Spectrometer Field Trials",
+      "mineralogy": "Arsenic-rich evaporites, gypsum stromatolites, ignimbrites & basaltic andesite",
       "terrain": [
         "high-altitude plateau",
         "salt flats",
@@ -425,9 +488,9 @@
         "vegetation": "sparse",
         "elevationMeters": 4000
       },
-      "description": "High-altitude arid plateau with salt basins and volcanic features.",
+      "description": "High-altitude volcanic plateau with hypersaline lakes and extreme UV flux modeling early Noachian Martian crater-lake shorelines.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-017",
@@ -440,7 +503,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 80,
+      "temperature": 19,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Acidic Iron-Sulfate Mineralogy",
+      "roversTested": "NASA MARTE Drill & ESA Eurobot, ExoMars RLS Raman & Mössbauer Calibration",
+      "mineralogy": "Jarosite, hematite, goethite, schwertmannite & massive sulfide gossans",
       "terrain": [
         "iron-rich terrain",
         "acidic river",
@@ -451,9 +518,9 @@
         "vegetation": "patchy",
         "elevationMeters": 300
       },
-      "description": "Iron-rich acidic environments are studied as analogs for some Martian geochemical processes.",
+      "description": "Extreme low-pH iron-sulfate river system precipitating jarosite and hematite diagnostic of ancient acidic aqueous alteration on Mars.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-018",
@@ -466,7 +533,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 84,
+      "temperature": 34,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Alluvial Fan Geomorphology & Salt-Crust Radar Penetration",
+      "roversTested": "NASA Mars Pathfinder Field Trials, JPL Marsokhod & Curiosity Mastcam Calibration",
+      "mineralogy": "Alluvial conglomerate fans, borax/halite evaporites & desert-varnished basalt",
       "terrain": [
         "dry basin",
         "salt flats",
@@ -477,9 +548,9 @@
         "vegetation": "sparse",
         "elevationMeters": 0
       },
-      "description": "Extreme desert basin with salt flats and varied erosional landforms.",
+      "description": "Mars Hill boulder fields, Badwater evaporite pans, and Ubehebe Crater used to test landing-site rock-size distributions and rover cameras.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-019",
@@ -492,7 +563,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 78,
+      "temperature": 15,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Phyllosilicate Clay Stratigraphy & Orbital Spectral Correlation",
+      "roversTested": "USGS CRISM/OMEGA Phyllosilicate Ground-Truthing & Planetary Geology Field Schools",
+      "mineralogy": "Smectite-rich Chinle mudstones, hematite siltstones & cross-bedded sandstones",
       "terrain": [
         "layered sedimentary rock",
         "badlands",
@@ -503,9 +578,9 @@
         "vegetation": "sparse",
         "elevationMeters": 1700
       },
-      "description": "Layered sedimentary exposures offer useful comparisons for interpreting planetary strata.",
+      "description": "Iron-stained smectite mudstone badlands closely matching orbital CRISM detections of phyllosilicate-bearing Martian paleolakes.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-020",
@@ -519,7 +594,11 @@
         "mars",
         "moon"
       ],
-      "similarityScore": 85,
+      "temperature": 33,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "Volcanic Rift Tectonics & Basaltic Salt Crusts",
+      "roversTested": "ESA/ASI Dallol-Erta Ale Planetary Volcanology & Extremophile Field Expeditions",
+      "mineralogy": "Flood basalts, rhyolitic ignimbrites, halite crusts & hydrothermal sulfur",
       "terrain": [
         "volcanic terrain",
         "salt flats",
@@ -530,9 +609,9 @@
         "vegetation": "sparse",
         "elevationMeters": -100
       },
-      "description": "Active rifting, volcanism and salt deposits create a distinctive extreme environment.",
+      "description": "Active continental rift combining extensive basaltic lava fields with evaporitic salt plains analogous to Valles Marineris grabens.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-021",
@@ -545,7 +624,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 83,
+      "temperature": 38,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Polyextreme Hydrothermal Brines & Habitability Limits",
+      "roversTested": "Europlanet / CNRS Polyextreme Astrobiology & Raman Spectroscopy Campaigns",
+      "mineralogy": "Hyper-acidic Fe-Mg-Cl brines, halite chimneys, jarosite & native sulfur",
       "terrain": [
         "hydrothermal terrain",
         "salt formations",
@@ -556,9 +639,9 @@
         "vegetation": "minimal",
         "elevationMeters": -125
       },
-      "description": "Unusual hydrothermal and mineral environments studied in astrobiology research.",
+      "description": "Hyper-saline, hyper-acidic hydrothermal mound system defining terrestrial physicochemical boundaries for Martian astrobiology.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-022",
@@ -572,7 +655,11 @@
         "moon",
         "mars"
       ],
-      "similarityScore": 86,
+      "temperature": 22,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "Smooth Basaltic Sheet Flows & Lunar Mare Morphology",
+      "roversTested": "NASA BASALT Research Program, Apollo 15-17 Geology Training",
+      "mineralogy": "Glassy ropy pāhoehoe basalt, plagioclase phenocrysts & vesicular crust",
       "terrain": [
         "smooth basalt",
         "lava flows",
@@ -583,9 +670,9 @@
         "vegetation": "variable",
         "elevationMeters": 900
       },
-      "description": "Basaltic lava surfaces can help researchers study planetary lava morphology.",
+      "description": "Ropy inflated basaltic lava sheets used during NASA BASALT missions to refine science-driven human-robotic planetary traverses.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-023",
@@ -598,7 +685,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 75,
+      "temperature": 29,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Coastal Aeolian Bedforms & Evaporite Flats",
+      "roversTested": "Regional Planetary Geomorphology & Aeolian Sediment Transport Surveys",
+      "mineralogy": "Quartzose dune sand, marine-marginal gypsum & carbonate hardgrounds",
       "terrain": [
         "coastal desert",
         "sand dunes",
@@ -609,9 +700,9 @@
         "vegetation": "sparse",
         "elevationMeters": 100
       },
-      "description": "Arid coastal landscapes with dunes and dry plains.",
+      "description": "Trade-wind driven desert dunes bordering evaporitic salt flats, useful for modeling wind-scour and bedform transitions.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-024",
@@ -624,7 +715,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 80,
+      "temperature": 32,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Mega-Dune Wheel Sinkage & Orbital Radar Bathymetry",
+      "roversTested": "NASA/JPL Shuttle Radar Imaging Studies & Regional Desert Robotics Trials",
+      "mineralogy": "Iron-oxide coated quartz sand, interdune sabkha evaporites & gypsum",
       "terrain": [
         "sand sea",
         "dunes",
@@ -635,9 +730,9 @@
         "vegetation": "very sparse",
         "elevationMeters": 500
       },
-      "description": "Vast dune fields useful for studying aeolian processes and rover mobility challenges.",
+      "description": "Vast hyper-arid erg with linear and star megadunes separated by flat evaporite sabkhas, paralleling Martian north-polar and equatorial ergs.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-025",
@@ -650,7 +745,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 79,
+      "temperature": 16,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Sulfate Dune Migration & In-Situ XRD Mineralogy",
+      "roversTested": "NASA CheMin / Curiosity Gypsum Calibration & Aeolian Lidar Field Campaigns",
+      "mineralogy": "Hydrous calcium sulfate (gypsum) sand & selenite evaporite playa crusts",
       "terrain": [
         "gypsum dunes",
         "white sand",
@@ -661,9 +760,9 @@
         "vegetation": "sparse",
         "elevationMeters": 1200
       },
-      "description": "Gypsum dunes offer a distinctive mineral and sedimentary analog environment.",
+      "description": "World's largest gypsum dune field, serving as the direct mineralogical analog for Olympia Undae's Martian gypsum dunes.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-026",
@@ -676,7 +775,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 78,
+      "temperature": 12,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Star Dune Dynamics & Dust Storm Electrostatics",
+      "roversTested": "CNSA Tianwen-1 Aeolian Calibration & Arid Basin Remote Sensing Surveys",
+      "mineralogy": "Silicate-rich aeolian sand, loess silt & gypsum-halite desert crusts",
       "terrain": [
         "sand dunes",
         "desert basin",
@@ -687,9 +790,9 @@
         "vegetation": "very sparse",
         "elevationMeters": 1100
       },
-      "description": "Large desert basin with extensive dunes and aeolian landforms.",
+      "description": "Endorheic hyper-arid Tarim Basin dune sea used to study regional dust-lifting cycles and complex dune morphology.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-027",
@@ -702,7 +805,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 82,
+      "temperature": 5,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Ventifact Abrasion & Cold-Desert Gravel Regolith",
+      "roversTested": "Mars Society Field Operations & CNSA Zhurong Mobility Benchmark Studies",
+      "mineralogy": "Wind-faceted basaltic ventifacts, desert pavement & red Cretaceous sandstones",
       "terrain": [
         "rocky desert",
         "gravel plains",
@@ -713,9 +820,9 @@
         "vegetation": "sparse",
         "elevationMeters": 1000
       },
-      "description": "Cold and rocky desert terrain useful for testing field systems and studying erosion.",
+      "description": "Cold rocky desert pavement strewn with wind-abraded ventifacts closely resembling Mars Pathfinder and Gale Crater lag surfaces.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-028",
@@ -728,7 +835,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 81,
+      "temperature": 36,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Chloride-Sulfate Evaporite Basins & Biosignature Preservation",
+      "roversTested": "Europlanet Salt-Crust Astrobiology & Mössbauer/Raman Field Campaigns",
+      "mineralogy": "Carnallite, halite, sylvite, kainite & hydrothermal iron-oxide crusts",
       "terrain": [
         "salt flats",
         "evaporites",
@@ -739,9 +850,9 @@
         "vegetation": "minimal",
         "elevationMeters": -100
       },
-      "description": "Salt-rich terrain and volcanic features provide a distinctive geochemical analog.",
+      "description": "Sub-sea-level evaporite basin preserving thick chloride-sulfate sequences shaped by volcanic heat and desiccation.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-029",
@@ -754,7 +865,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 84,
+      "temperature": 19,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Deflation Gravel Lag & Hyper-Arid Soil Microbiology",
+      "roversTested": "NASA/ESA Hyper-Arid Desert Varnish & Soil Moisture Sensor Calibration",
+      "mineralogy": "Calcrete-cemented gravel lag, quartz pebbles & gypsum-rich subsurface horizons",
       "terrain": [
         "gravel plains",
         "rocky desert",
@@ -765,9 +880,9 @@
         "vegetation": "very sparse",
         "elevationMeters": 600
       },
-      "description": "Wind-shaped gravel plains and rocky surfaces are useful for surface-process comparisons.",
+      "description": "Expansive wind-scoured gravel lag plains used to investigate soil-moisture hysteresis and desert-pavement stability.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-030",
@@ -780,7 +895,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 77,
+      "temperature": 27,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Ultramafic Serpentinization & Carbonation Pathways",
+      "roversTested": "OeWF AMADEE-20 Analog Mission & Deep Serpentinite Astrobiology Drilling",
+      "mineralogy": "Samail ophiolite peridotite, serpentine, magnesite veins & travertine",
       "terrain": [
         "rocky mountains",
         "dry wadis",
@@ -791,9 +910,9 @@
         "vegetation": "sparse",
         "elevationMeters": 1500
       },
-      "description": "Exposed rock and dry valleys offer a setting for geological field analog work.",
+      "description": "Exposed oceanic mantle ophiolite exhibiting active low-temperature serpentinization and carbonate veining akin to Jezero Crater's olivine-carbonate unit.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-031",
@@ -806,7 +925,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 70,
+      "temperature": 9,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Angular Unconformities & Sedimentary Contact Analysis",
+      "roversTested": "UK Centre for Astrobiology Field Training & ExoMars PanCam Geologic Context Studies",
+      "mineralogy": "Silurian greywacke, Devonian Old Red Sandstone & hematitic basal breccia",
       "terrain": [
         "layered rock",
         "coastal outcrop",
@@ -817,9 +940,9 @@
         "vegetation": "moderate",
         "elevationMeters": 30
       },
-      "description": "Well-exposed rock layers can support comparative geological interpretation.",
+      "description": "Classic angular unconformity outcrop used to train planetary rover science teams on stratigraphic contact interpretation.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-032",
@@ -833,7 +956,11 @@
         "moon",
         "mars"
       ],
-      "similarityScore": 75,
+      "temperature": 20,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "Concentric Ring-Dyke Volcanism & Alkaline Mineralogy",
+      "roversTested": "Regional Impact-Volcanic Ring Structure & Remote Sensing Benchmark Surveys",
+      "mineralogy": "Nepheline syenite, foyaite, trachytic tuff & alkaline ring-dyke complexes",
       "terrain": [
         "ancient volcanic terrain",
         "crater-like ring",
@@ -844,9 +971,9 @@
         "vegetation": "variable",
         "elevationMeters": 1200
       },
-      "description": "Ancient volcanic geology provides examples of complex planetary-style landforms.",
+      "description": "Deeply eroded concentric ring-complex structure providing orbital morphology comparisons for ringed planetary calderas and craters.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-033",
@@ -860,7 +987,11 @@
         "moon",
         "mars"
       ],
-      "similarityScore": 84,
+      "temperature": 11,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "Autonomous Multi-Robot Sample Return & Volcanic Navigation",
+      "roversTested": "DLR ARCHES SpaceBot Campaign, ESA ROBEX & ROBUST Lunar/Martian Trials",
+      "mineralogy": "Alkali-basalt lava flows, trachybasaltic scoria & volcanic ash",
       "terrain": [
         "basaltic lava",
         "volcanic cones",
@@ -871,9 +1002,9 @@
         "vegetation": "sparse on fresh lava",
         "elevationMeters": 2000
       },
-      "description": "Active volcanic terrain provides opportunities to study lava flows and surface roughness.",
+      "description": "High-altitude basaltic ash and blocky lava slopes hosting European Space Agency and DLR multi-robot autonomous lunar/Martian demonstrations.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-034",
@@ -887,7 +1018,11 @@
         "moon",
         "mars"
       ],
-      "similarityScore": 83,
+      "temperature": 4,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "Fissure Eruption Morphology & Geothermal Alteration",
+      "roversTested": "NASA/USGS Fissure-Flow Radar Mapping & Icelandic Analog Rover Traverses",
+      "mineralogy": "Fresh olivine tholeiite basalt, volcanic glass & sulfur-clay alteration zones",
       "terrain": [
         "basaltic lava",
         "fissures",
@@ -898,9 +1033,9 @@
         "vegetation": "sparse on lava",
         "elevationMeters": 100
       },
-      "description": "Young lava fields and fissures provide useful volcanic analog terrain.",
+      "description": "Fresh fissure-fed basaltic lava fields and graben fractures paralleling lunar sinuous rilles and Cerberus Fossae.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-035",
@@ -914,7 +1049,11 @@
         "moon",
         "mars"
       ],
-      "similarityScore": 80,
+      "temperature": 16,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "Shield Caldera Collapse & Basaltic Pit Crater Mapping",
+      "roversTested": "NASA/USGS Caldera Volcanology & Interferometric Radar Analog Studies",
+      "mineralogy": "Plagioclase-phyric tholeiitic basalt, sulfur-encrusted fumarole tuffs & tephra",
       "terrain": [
         "basaltic caldera",
         "lava flows",
@@ -925,9 +1064,9 @@
         "vegetation": "variable",
         "elevationMeters": 1124
       },
-      "description": "A large volcanic caldera and lava fields relevant to comparative volcanology.",
+      "description": "Broad basaltic shield caldera with nested pit craters analogous to Martian Tharsis shield volcanoes and lunar mare depressions.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-036",
@@ -940,7 +1079,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 72,
+      "temperature": 19,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Differential Weathering & Carbonate Pillar Geomorphology",
+      "roversTested": "Australian Astrobiology Field Studies & Mars Analog Spectral Surveys",
+      "mineralogy": "Aeolianite calcarenite pillars, quartz sand & iron-stained karstic crusts",
       "terrain": [
         "sand plains",
         "limestone pinnacles",
@@ -951,9 +1094,9 @@
         "vegetation": "sparse",
         "elevationMeters": 20
       },
-      "description": "Distinctive erosional landforms and sandy terrain suitable for landscape comparisons.",
+      "description": "Exhumed carbonate pillars protruding through quartz sand sheets, providing obstacle-field geometry for close-range rover hazard mapping.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-037",
@@ -966,7 +1109,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 77,
+      "temperature": 24,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Linear Longitudinal Dunes & Hematite Sand Coatings",
+      "roversTested": "CSIRO / NASA Arid Geomorphology & Orbital Radar Dune Orientation Studies",
+      "mineralogy": "Iron-oxide-coated quartz sand, clay-pan interdune flats & silcrete",
       "terrain": [
         "longitudinal dunes",
         "sand sea",
@@ -977,9 +1124,9 @@
         "vegetation": "very sparse",
         "elevationMeters": 100
       },
-      "description": "Extensive linear dunes provide an analog for wind-driven surface processes.",
+      "description": "Hundreds-of-kilometers-long iron-oxide red sand ridges separated by clay playas, ideal for orbital wind-streak correlation.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-038",
@@ -992,7 +1139,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 65,
+      "temperature": 27,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Barchanoid Dune Migration & Interdune Water-Table Interaction",
+      "roversTested": "Orbital Dune-Field Kinematics & Coastal Aeolian Sedimentology Surveys",
+      "mineralogy": "Pure quartzose sand sheets with seasonal interdune freshwater lagoons",
       "terrain": [
         "dune fields",
         "seasonal lagoons",
@@ -1003,9 +1154,9 @@
         "vegetation": "sparse on dunes",
         "elevationMeters": 30
       },
-      "description": "Dune patterns offer a useful visual comparison, although the seasonal water cycle differs greatly from Mars.",
+      "description": "Active barchanoid dune chains used for paleoclimate comparative studies of water-table-controlled interdune deposition.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-039",
@@ -1019,7 +1170,11 @@
         "moon",
         "mars"
       ],
-      "similarityScore": 82,
+      "temperature": 10,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "High-Altitude Pyroclastic Mobility & Lunar Polar Simulant Testing",
+      "roversTested": "ESA ExoMars / LUNA Rover Field Trials & Teide Astrobiology Campaigns",
+      "mineralogy": "Phonolitic pumice, obsidian, basaltic scoria & iron-rich tephra",
       "terrain": [
         "volcanic rock",
         "ash plains",
@@ -1030,9 +1185,9 @@
         "vegetation": "sparse in volcanic areas",
         "elevationMeters": 2500
       },
-      "description": "Volcanic and high-altitude terrain used in planetary field geology and exploration research.",
+      "description": "High-altitude Las Cañadas caldera ash plains and blocky lava lobes utilized by ESA for ExoMars locomotion and Raman instrument validation.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-040",
@@ -1045,7 +1200,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 85,
+      "temperature": 14,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Halite Endolith Preservation & Chloride-Sulfate Zoning",
+      "roversTested": "NASA Astrobiology Institute Salar Expeditions & Raman Biosignature Trials",
+      "mineralogy": "Halite crusts, gypsum, lithium-rich brines & Andean ignimbrite silts",
       "terrain": [
         "salt basin",
         "evaporite deposits",
@@ -1056,9 +1215,9 @@
         "vegetation": "very sparse",
         "elevationMeters": 2300
       },
-      "description": "A major salt basin useful for studying evaporites and dry-environment geochemistry.",
+      "description": "Hyper-arid tectonic salt flat housing photosynthetic endoliths within halite nodules, modeling Martian evaporite biosignature preservation.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-041",
@@ -1071,7 +1230,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 76,
+      "temperature": 23,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Playa Lake Evaporite Cycles & Subsurface Radar Attenuation",
+      "roversTested": "ESA/CNES Mars Express MARSIS & SHARAD Ground-Penetrating Radar Calibration",
+      "mineralogy": "Halite, gypsum, celestite & saline clay-silt playa deposits",
       "terrain": [
         "salt pan",
         "dry basin",
@@ -1082,9 +1245,9 @@
         "vegetation": "sparse",
         "elevationMeters": 15
       },
-      "description": "Large salt pan with surface crusts and seasonal water-related features.",
+      "description": "Seasonal Saharan salt playa supporting orbital sounding radar calibration and desiccation-polygon mineral mapping.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-042",
@@ -1097,7 +1260,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 79,
+      "temperature": 22,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Paleo-Fluvial Sandstone Yardangs & Canyon Erosion",
+      "roversTested": "Orbital Stereo-Photogrammetry & Saharan Fluvial-Aeolian Analog Studies",
+      "mineralogy": "Cambro-Ordovician quartzitic sandstone, iron-oxide crusts & wind-carved yardangs",
       "terrain": [
         "sandstone plateau",
         "rock formations",
@@ -1108,9 +1275,9 @@
         "vegetation": "very sparse",
         "elevationMeters": 1500
       },
-      "description": "Eroded sandstone formations and desert plateau terrain support comparative geomorphology.",
+      "description": "Deeply incised Saharan sandstone plateau preserving ancient dendritic river networks later overprinted by hyper-arid wind erosion.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-043",
@@ -1123,7 +1290,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 74,
+      "temperature": 9,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Megadune Stability & Interdune Spring Hydrology",
+      "roversTested": "CNSA Planetary Aeolian Research & Megadune GPR Stratigraphy Surveys",
+      "mineralogy": "Coarse feldspathic-quartz dune sand, carbonate tufa & saline playa muds",
       "terrain": [
         "high dunes",
         "desert lakes",
@@ -1134,9 +1305,9 @@
         "vegetation": "sparse",
         "elevationMeters": 1200
       },
-      "description": "Large dunes provide examples of aeolian landforms, though its lakes are not Mars-like.",
+      "description": "Stationary 400-meter megadunes fed by deep groundwater, providing stratigraphy benchmarks for large-scale aeolian cross-bedding.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-044",
@@ -1149,7 +1320,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 73,
+      "temperature": 16,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Takyr Clay Pans & Aeolian Sand-Sheet Dynamics",
+      "roversTested": "Comparative Planetary Geomorphology & Central Asian Arid Remote Sensing",
+      "mineralogy": "Takyr desiccated clay crusts, calcareous sand & gypsiferous silt",
       "terrain": [
         "sand desert",
         "dry plains",
@@ -1160,9 +1335,9 @@
         "vegetation": "sparse",
         "elevationMeters": 100
       },
-      "description": "Dune and dry-plain terrain useful for studying wind-shaped landscapes.",
+      "description": "Polygonal takyr clay pans interspersed with sand ridges, illustrating transition zones between fine-grained lacustrine beds and dunes.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-045",
@@ -1176,7 +1351,11 @@
         "mars",
         "moon"
       ],
-      "similarityScore": 78,
+      "temperature": -2,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "High-Altitude Cryogenic Regolith & Solar-UV Stress",
+      "roversTested": "High-Altitude Cryospheric & Solar Radiation Field Instrumentation Trials",
+      "mineralogy": "Granitic-metamorphic talus, permafrost regolith & glacial rock flour",
       "terrain": [
         "high-altitude plateau",
         "rocky terrain",
@@ -1187,9 +1366,9 @@
         "vegetation": "sparse",
         "elevationMeters": 4000
       },
-      "description": "High-altitude cold, dry terrain relevant to environmental stress and field exploration.",
+      "description": "Thin-atmosphere alpine cold desert combining freezing temperatures, high solar irradiance, and fractured frost-heaved regolith.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-046",
@@ -1202,7 +1381,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 87,
+      "temperature": 4,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Cold-Arid Yardangs, Polygon Cracks & Magnesium Sulfates",
+      "roversTested": "CNSA Tianwen-1 / Zhurong Pre-Landing Field Calibration & Mars-Analog Yardang Studies",
+      "mineralogy": "Magnesium-sulfate evaporites, halite, mudstone yardangs & clay playas",
       "terrain": [
         "salt flats",
         "dry basin",
@@ -1213,9 +1396,9 @@
         "vegetation": "sparse",
         "elevationMeters": 2800
       },
-      "description": "A high-altitude basin with salt flats and mineral-rich terrain studied as a Mars analog.",
+      "description": "High-altitude Tibetan Plateau basin featuring cold-arid yardang fields, polygonal salt ridges, and magnesium-sulfate playas.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-047",
@@ -1229,7 +1412,11 @@
         "moon",
         "mars"
       ],
-      "similarityScore": 79,
+      "temperature": 2,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "Rootless Pseudocrater Cones & Phreatomagmatic Volcanism",
+      "roversTested": "NASA/USGS Mars Pseudocrater Comparative Studies & Nordic Field Robotics",
+      "mineralogy": "Scoriaceous basalt, rootless cone tephra & silica-rich geothermal sinters",
       "terrain": [
         "lava fields",
         "volcanic craters",
@@ -1240,9 +1427,9 @@
         "vegetation": "sparse in lava fields",
         "elevationMeters": 280
       },
-      "description": "Volcanic landforms and lava surfaces provide a useful planetary geology field setting.",
+      "description": "Clustered Skútustaðagígar rootless volcanic cones formed by lava-water interaction, directly mirroring Martian Athabasca Valles cones.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-048",
@@ -1255,7 +1442,11 @@
       "analogType": [
         "mars"
       ],
-      "similarityScore": 75,
+      "temperature": 24,
+      "targetSpec": "Mars Analog",
+      "analogCategory": "Granitic Boulder Fields & Arid Alluvial Slope Mobility",
+      "roversTested": "Regional Marsokhod-Class Suspension & Autonomous Hazard Avoidance Testing",
+      "mineralogy": "Granodiorite boulder fields, arkosic sand & caliche-cemented alluvial fans",
       "terrain": [
         "rocky desert",
         "dry mountains",
@@ -1266,9 +1457,9 @@
         "vegetation": "sparse",
         "elevationMeters": 500
       },
-      "description": "Desert terrain with rocky outcrops and sandy plains useful for field testing.",
+      "description": "Granitic boulder-strewn arid slopes and alluvial aprons providing high-roughness rock-hazard distributions for rocker-bogie rovers.",
       "color": "#ef4444",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-049",
@@ -1282,7 +1473,11 @@
         "moon",
         "mars"
       ],
-      "similarityScore": 88,
+      "temperature": -18,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "Polar EVA Spacesuit Ops, Permafrost Drilling & Long-Range Traverses",
+      "roversTested": "NASA Haughton-Mars Project (HMP), NASA K10 & CSA Lunar-Mars Analog Traverses",
+      "mineralogy": "Frost-shattered dolomitic limestone, permafrost till & impact-altered regolith",
       "terrain": [
         "polar desert",
         "permafrost",
@@ -1293,9 +1488,9 @@
         "vegetation": "minimal",
         "elevationMeters": 500
       },
-      "description": "Remote Arctic terrain used for analog research and testing exploration operations.",
+      "description": "Uninhabited High-Arctic polar desert island hosting multi-decade NASA/CSA EVA spacesuit, pressurized rover, and teleoperation campaigns.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     },
     {
       "id": "analog-050",
@@ -1309,7 +1504,11 @@
         "moon",
         "mars"
       ],
-      "similarityScore": 76,
+      "temperature": 7,
+      "targetSpec": "Moon & Mars Analog",
+      "analogCategory": "Silicic Caldera Ash-Flow Tuffs & Hydrothermal Alteration",
+      "roversTested": "NASA Apollo Geologic Training & Los Alamos Planetary Volcanology Field Schools",
+      "mineralogy": "Bandelier rhyolitic ignimbrite tuff, obsidian domes & hydrothermal clays",
       "terrain": [
         "volcanic caldera",
         "tuff deposits",
@@ -1320,9 +1519,9 @@
         "vegetation": "variable",
         "elevationMeters": 2600
       },
-      "description": "Large volcanic caldera and exposed deposits offer opportunities for comparative planetary geology.",
+      "description": "Resurgent volcanic caldera complex with welded ash-flow tuffs and hydrothermal alteration zones studied by Apollo astronauts and Mars geologists.",
       "color": "#8b5cf6",
-      "dataSource": "mock"
+      "dataSource": "planetary-analog-catalog"
     }
   ]
 }

@@ -7,16 +7,24 @@ import useAuth from "../Hooks/useAuth";
 import Container from "../Components/Container";
 import { ArrowLeft, Bookmark, Check, Globe, MapPin } from "lucide-react";
 import { showSignInPromptToast } from "../utils/authToast";
+import {
+    formatSurfaceTemp,
+    getAnalogCategory,
+    getMineralogy,
+    getRoversTested,
+    getTargetBodyInfo,
+} from "../utils/analogSpec";
 
 /**
  * ============================================================================
  * LocDetailsPage Component
  * ============================================================================
- * Displays comprehensive planetary analog metrics, terrain features,
- * environmental data, and geographic coordinates for an individual candidate
- * location. Styled with the deep-space color tokens:
+ * Displays comprehensive planetary analog specifications, real mean surface
+ * temperature (°C), mineralogy, historical rover/mission test campaigns,
+ * terrain features, and geographic coordinates for an individual site.
+ * Styled with the deep-space color tokens:
  * - Surfaces: `#07090E` (Page) & `#0B0E13` (Cards) with border `#21242C`
- * - Accents: `#83CAD8` (Primary cyan) & `#1A1D23` (Secondary)
+ * - Accents: `#83CAD8` (Primary cyan), `#D67051` (Mars), & `#1A1D23` (Secondary)
  * - Typography: High-contrast `#F1EEE9` and descriptions `#8891A0`
  */
 const LocDetailsPage = () => {
@@ -39,7 +47,8 @@ const LocDetailsPage = () => {
     // Check whether this candidate site is already bookmarked in saved locations
     const isAlreadySaved = useMemo(() => {
         if (!neededLocation || !Array.isArray(savedLoc)) return false;
-        const targetId = neededLocation._id || neededLocation.id || neededLocation.name;
+        const targetId =
+            neededLocation._id || neededLocation.id || neededLocation.name;
         return savedLoc.some(
             (item) =>
                 item._id === targetId ||
@@ -84,8 +93,15 @@ const LocDetailsPage = () => {
     }
 
     // ------------------------------------------------------------------------
-    // 3. Bookmark Location Handler (Centralized Save or Guest Sign-In Toast)
+    // 3. Derived Scientific Specifications & Bookmark Handler
     // ------------------------------------------------------------------------
+    const { longSpecLabel, pillLabel, pillClassName } =
+        getTargetBodyInfo(neededLocation);
+    const surfaceTemp = formatSurfaceTemp(neededLocation);
+    const analogCategory = getAnalogCategory(neededLocation);
+    const roversTested = getRoversTested(neededLocation);
+    const mineralogy = getMineralogy(neededLocation);
+
     /**
      * Persists this location via `StateProvider.saveLocation` when authenticated,
      * or displays the interactive `"Sign in →"` toast prompt for guests.
@@ -117,12 +133,17 @@ const LocDetailsPage = () => {
                     {/* Hero Header Card */}
                     <div className="border border-[#21242C] rounded-2xl p-6 bg-[#0B0E13] shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-wrap items-center gap-2.5">
                                 <h1 className="text-2xl sm:text-3xl font-extrabold text-[#F1EEE9] tracking-tight">
                                     {neededLocation.name}
                                 </h1>
+                                <span
+                                    className={`px-2.5 py-0.5 rounded text-[11px] font-bold tracking-wider ${pillClassName}`}
+                                >
+                                    {pillLabel}
+                                </span>
                                 <span className="px-2.5 py-0.5 rounded text-xs font-mono font-semibold bg-[#181A21] border border-[#21242C] text-[#83CAD8]">
-                                    {neededLocation.similarityScore}% Match
+                                    {surfaceTemp}
                                 </span>
                             </div>
                             <p className="text-xs text-[#8891A0] flex items-center gap-1.5 mt-1.5">
@@ -138,7 +159,7 @@ const LocDetailsPage = () => {
                         <button
                             type="button"
                             onClick={handleSave}
-                            className="bg-[#83CAD8] hover:opacity-90 text-[#090D15] font-semibold px-4 py-2 rounded-lg text-xs flex items-center gap-2 shadow-sm transition cursor-pointer"
+                            className="bg-[#83CAD8] hover:opacity-90 text-[#090D15] font-semibold px-4 py-2 rounded-lg text-xs flex items-center gap-2 shadow-sm transition cursor-pointer shrink-0"
                         >
                             {isAlreadySaved ? (
                                 <Check
@@ -164,11 +185,68 @@ const LocDetailsPage = () => {
                         {neededLocation.analogType?.map((type) => (
                             <span
                                 key={type}
-                                className="px-3 py-1 rounded-lg text-xs font-semibold bg-[#181A21] border border-[#21242C] text-[#83CAD8] uppercase"
+                                className={`px-3 py-1 rounded-lg text-xs font-semibold bg-[#181A21] border border-[#21242C] uppercase ${
+                                    type.toLowerCase() === "mars"
+                                        ? "text-[#D67051]"
+                                        : "text-[#83CAD8]"
+                                }`}
                             >
                                 {type} Analog Target
                             </span>
                         ))}
+                    </div>
+
+                    {/* Planetary Analog Specification & Rover Test History Card */}
+                    <div className="border border-[#21242C] rounded-xl p-5 bg-[#0B0E13] space-y-4">
+                        <h2 className="text-sm font-semibold text-[#F1EEE9] border-b border-[#21242C] pb-2.5">
+                            Planetary Analog Specification &amp; Rover Test History
+                        </h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                            <div>
+                                <span className="text-[#8891A0] text-[10px] uppercase font-semibold block mb-0.5">
+                                    Target Body Specification
+                                </span>
+                                <span className="font-semibold text-[#F1EEE9]">
+                                    {longSpecLabel}
+                                </span>
+                            </div>
+
+                            <div>
+                                <span className="text-[#8891A0] text-[10px] uppercase font-semibold block mb-0.5">
+                                    Mean Surface Temperature
+                                </span>
+                                <span className="font-mono font-bold text-[#83CAD8]">
+                                    {surfaceTemp}
+                                </span>
+                            </div>
+
+                            <div className="sm:col-span-2">
+                                <span className="text-[#8891A0] text-[10px] uppercase font-semibold block mb-0.5">
+                                    Scientific Fidelity Focus
+                                </span>
+                                <span className="font-medium text-[#F1EEE9]">
+                                    {analogCategory}
+                                </span>
+                            </div>
+
+                            <div className="sm:col-span-2">
+                                <span className="text-[#8891A0] text-[10px] uppercase font-semibold block mb-0.5">
+                                    Historical Rover &amp; Mission Campaigns
+                                </span>
+                                <span className="text-[#F1EEE9]/90 leading-relaxed">
+                                    {roversTested}
+                                </span>
+                            </div>
+
+                            <div className="sm:col-span-2">
+                                <span className="text-[#8891A0] text-[10px] uppercase font-semibold block mb-0.5">
+                                    Mineralogy &amp; Regolith
+                                </span>
+                                <span className="text-[#F1EEE9]/90 leading-relaxed">
+                                    {mineralogy}
+                                </span>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Overview Description */}

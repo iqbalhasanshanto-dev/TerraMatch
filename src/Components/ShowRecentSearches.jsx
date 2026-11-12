@@ -6,6 +6,11 @@ import { toast } from "react-toastify";
 import useAuth from "../Hooks/useAuth";
 import StateContext from "../States/StateContext";
 import { showSignInPromptToast } from "../utils/authToast";
+import {
+    formatSurfaceTemp,
+    getAnalogCategory,
+    getTargetBodyInfo,
+} from "../utils/analogSpec";
 
 /**
  * ============================================================================
@@ -304,6 +309,9 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
                             savedLocationIds.has(item.locationId) ||
                             savedLocationIds.has(item.id) ||
                             savedLocationIds.has(item.name);
+                        const { pillLabel, pillClassName } = getTargetBodyInfo(item);
+                        const surfaceTemp = formatSurfaceTemp(item);
+                        const analogCategory = getAnalogCategory(item);
 
                         return (
                             /* Clickable Recent Location Card (Clicking anywhere focuses map) */
@@ -312,10 +320,10 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
                                 onClick={() => handleViewOnMap(item)}
                                 className="relative bg-[#181A21] border border-[#21242C] rounded-xl p-3.5 transition duration-150 hover:border-[#83CAD8]/50 has-[.card-primary-action:focus-visible]:outline-2 has-[.card-primary-action:focus-visible]:outline-[#83CAD8] shadow-md cursor-pointer"
                             >
-                                {/* Card Header Row: Icon, Location Name, Country & Score */}
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#8891A0] shrink-0">
+                                {/* Card Header Row: Icon, Location Name, Country, Target Body & Temp */}
+                                <div className="flex items-start justify-between gap-2.5">
+                                    <div className="flex items-start gap-3 min-w-0">
+                                        <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#8891A0] shrink-0 mt-0.5">
                                             <Globe size={16} aria-hidden="true" />
                                         </div>
                                         <div className="min-w-0">
@@ -325,12 +333,23 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
                                             <p className="text-[11px] text-[#8891A0] truncate mt-0.5">
                                                 {item.country}
                                             </p>
+                                            <p className="text-[10px] text-[#8891A0]/85 truncate mt-1">
+                                                {analogCategory}
+                                            </p>
                                         </div>
                                     </div>
 
-                                    <span className="font-mono text-xs text-[#83CAD8] shrink-0 font-medium">
-                                        {item.similarityScore}%
-                                    </span>
+                                    {/* Target Body Pill & Real Mean Surface Temperature */}
+                                    <div className="flex flex-col items-end gap-1 shrink-0">
+                                        <span
+                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${pillClassName}`}
+                                        >
+                                            {pillLabel}
+                                        </span>
+                                        <span className="font-mono text-xs text-[#83CAD8] font-medium">
+                                            {surfaceTemp}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {/* Card Actions Footer: View on Map (stretched), Remove, Save */}

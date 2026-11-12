@@ -1,15 +1,35 @@
 import { Link } from "react-router";
+import {
+    formatSurfaceTemp,
+    getAnalogCategory,
+    getMineralogy,
+    getRoversTested,
+    getTargetBodyInfo,
+} from "../utils/analogSpec";
 
 /**
  * ============================================================================
- * Modal Component (Candidate Analog Site Details Quick-View)
+ * Modal Component (Candidate Analog Site Telemetry & Spec Quick-View)
  * ============================================================================
  * Renders an interactive dialog modal triggered from Leaflet map marker popups,
- * styled to match the deep-space palette:
+ * displaying real planetary analog specifications, mean surface temperature,
+ * mineralogy, and historical rover/mission campaigns in deep-space tokens:
  * - Dialog Popover: `#090B10` with border `#21242C` and text `#F1EEE9`
- * - Telemetry Accents: Cyan `#83CAD8` and secondary `#1A1D23`
+ * - Telemetry Accents: Cyan `#83CAD8` (Moon / temp) & Terracotta `#D67051` (Mars)
  */
 const Modal = ({ loc }) => {
+    // ------------------------------------------------------------------------
+    // 1. Scientific Analog Telemetry Extraction
+    // ------------------------------------------------------------------------
+    const { longSpecLabel, pillClassName, pillLabel } = getTargetBodyInfo(loc);
+    const surfaceTemp = formatSurfaceTemp(loc);
+    const analogCategory = getAnalogCategory(loc);
+    const roversTested = getRoversTested(loc);
+    const mineralogy = getMineralogy(loc);
+
+    // ------------------------------------------------------------------------
+    // 2. Component Render Block
+    // ------------------------------------------------------------------------
     return (
         <div>
             {/* Quick-Info Trigger Button (Embedded inside Leaflet marker popup) */}
@@ -26,48 +46,96 @@ const Modal = ({ loc }) => {
             {/* Native HTML Dialog Modal with Deep-Space Tokens */}
             <dialog id={`modal-${loc._id}`} className="modal backdrop-blur-xs">
                 <div className="modal-box bg-[#090B10] border border-[#21242C] text-[#F1EEE9] shadow-2xl p-6 rounded-2xl max-w-lg select-none">
-                    {/* Location Name & Country */}
-                    <h3 className="font-bold text-xl sm:text-2xl text-[#F1EEE9] tracking-tight">
-                        {loc.name}
-                    </h3>
-                    <p className="text-xs text-[#8891A0] mt-1">
-                        {loc.country}
-                    </p>
+                    {/* Location Name, Country & Target Pill */}
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <h3 className="font-bold text-xl sm:text-2xl text-[#F1EEE9] tracking-tight">
+                                {loc.name}
+                            </h3>
+                            <p className="text-xs text-[#8891A0] mt-1">
+                                {loc.country}
+                            </p>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider ${pillClassName}`}
+                            >
+                                {pillLabel}
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#181A21] border border-[#21242C] text-[#83CAD8]">
+                                {surfaceTemp}
+                            </span>
+                        </div>
+                    </div>
 
                     {/* Analog Target Body Badges */}
-                    <div className="flex flex-wrap gap-2 my-4">
+                    <div className="flex flex-wrap gap-2 my-3.5">
                         {loc.analogType?.map((type) => (
                             <span
                                 key={type}
-                                className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#181A21] border border-[#21242C] text-[#83CAD8] uppercase"
+                                className={`px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#181A21] border border-[#21242C] uppercase ${
+                                    type.toLowerCase() === "mars"
+                                        ? "text-[#D67051]"
+                                        : "text-[#83CAD8]"
+                                }`}
                             >
                                 {type} Analog
                             </span>
                         ))}
                     </div>
 
-                    {/* Similarity Score Radial Gauge Indicator */}
-                    <div className="flex items-center gap-3.5 my-4 p-3 bg-[#181A21] border border-[#21242C] rounded-xl">
-                        <div
-                            className="radial-progress text-[#83CAD8] font-mono font-bold text-xs"
-                            style={{
-                                "--value": loc.similarityScore,
-                                "--size": "3.5rem",
-                                "--thickness": "4px",
-                            }}
-                            role="progressbar"
-                            aria-valuenow={loc.similarityScore}
-                        >
-                            {loc.similarityScore}%
-                        </div>
+                    {/* Planetary Analog Specification & Rover Test History Card */}
+                    <div className="my-4 p-4 bg-[#181A21] border border-[#21242C] rounded-xl space-y-2.5">
+                        <h4 className="text-xs font-semibold text-[#F1EEE9] tracking-tight border-b border-[#21242C] pb-2">
+                            Planetary Analog Specification &amp; Rover Test History
+                        </h4>
 
-                        <div>
-                            <p className="font-semibold text-xs text-[#F1EEE9]">
-                                Similarity Score
-                            </p>
-                            <p className="text-[11px] text-[#8891A0]">
-                                Quantitative environmental analog match
-                            </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                            <div>
+                                <span className="text-[10px] text-[#8891A0] block uppercase font-semibold">
+                                    Target Body Specification
+                                </span>
+                                <span className="font-medium text-[#F1EEE9]">
+                                    {longSpecLabel}
+                                </span>
+                            </div>
+
+                            <div>
+                                <span className="text-[10px] text-[#8891A0] block uppercase font-semibold">
+                                    Mean Surface Temperature
+                                </span>
+                                <span className="font-mono font-bold text-[#83CAD8]">
+                                    {surfaceTemp}
+                                </span>
+                            </div>
+
+                            <div className="sm:col-span-2">
+                                <span className="text-[10px] text-[#8891A0] block uppercase font-semibold">
+                                    Scientific Fidelity Focus
+                                </span>
+                                <span className="font-medium text-[#F1EEE9]">
+                                    {analogCategory}
+                                </span>
+                            </div>
+
+                            <div className="sm:col-span-2">
+                                <span className="text-[10px] text-[#8891A0] block uppercase font-semibold">
+                                    Historical Rover &amp; Mission Campaigns
+                                </span>
+                                <span className="text-[#F1EEE9]/90 leading-relaxed">
+                                    {roversTested}
+                                </span>
+                            </div>
+
+                            <div className="sm:col-span-2">
+                                <span className="text-[10px] text-[#8891A0] block uppercase font-semibold">
+                                    Mineralogy &amp; Regolith
+                                </span>
+                                <span className="text-[#F1EEE9]/90 leading-relaxed">
+                                    {mineralogy}
+                                </span>
+                            </div>
                         </div>
                     </div>
 

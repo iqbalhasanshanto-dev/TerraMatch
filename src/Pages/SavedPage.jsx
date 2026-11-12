@@ -5,6 +5,12 @@ import Loader from "../Components/Loader";
 import { API_BASE_URL } from "../utils/api";
 import { Link } from "react-router";
 import { toast } from "react-toastify";
+import {
+    formatSurfaceTemp,
+    getAnalogCategory,
+    getSurfaceTemperature,
+    getTargetBodyInfo,
+} from "../utils/analogSpec";
 
 /**
  * ============================================================================
@@ -102,8 +108,11 @@ const SavedPage = () => {
                 const timeB = new Date(b.created_at || b.updated_at || 0).getTime();
                 return timeA - timeB;
             }
-            if (sortOrder === "score") {
-                return (b.similarityScore || 0) - (a.similarityScore || 0);
+            if (sortOrder === "temp-cold") {
+                return getSurfaceTemperature(a) - getSurfaceTemperature(b);
+            }
+            if (sortOrder === "temp-warm") {
+                return getSurfaceTemperature(b) - getSurfaceTemperature(a);
             }
             if (sortOrder === "name") {
                 return (a.name || "").localeCompare(b.name || "");
@@ -289,8 +298,11 @@ const SavedPage = () => {
                                     <option value="oldest" className="bg-[#0B0E13] text-[#F1EEE9]">
                                         Date Added (Oldest)
                                     </option>
-                                    <option value="score" className="bg-[#0B0E13] text-[#F1EEE9]">
-                                        Similarity Score (Highest)
+                                    <option value="temp-cold" className="bg-[#0B0E13] text-[#F1EEE9]">
+                                        Surface Temp (Coldest)
+                                    </option>
+                                    <option value="temp-warm" className="bg-[#0B0E13] text-[#F1EEE9]">
+                                        Surface Temp (Warmest)
                                     </option>
                                     <option value="name" className="bg-[#0B0E13] text-[#F1EEE9]">
                                         Location Name (A-Z)
@@ -332,11 +344,10 @@ const SavedPage = () => {
                         {displayedItems.map((location) => {
                             const locId = location._id || location.id || location.locationId;
                             const isChecked = selectedForCompare.includes(locId);
-
-                            const primaryType =
-                                location.analogType && location.analogType.length > 0
-                                    ? location.analogType[0]
-                                    : "Moon";
+                            const { pillLabel, pillClassName } =
+                                getTargetBodyInfo(location);
+                            const surfaceTemp = formatSurfaceTemp(location);
+                            const analogCategory = getAnalogCategory(location);
 
                             return (
                                 <div
@@ -347,7 +358,7 @@ const SavedPage = () => {
                                             : "border border-[#21242C] hover:border-[#272C34]"
                                     }`}
                                 >
-                                    {/* Card Top Row: Icon, Information, Body Pill, Timestamp & Score */}
+                                    {/* Card Top Row: Icon, Information, Analog Category, Target Body & Temp */}
                                     <div>
                                         <div className="flex items-start justify-between gap-3">
                                             {/* Left Icon and Details */}
@@ -363,12 +374,12 @@ const SavedPage = () => {
                                                     <p className="text-xs text-[#8891A0] truncate mt-0.5">
                                                         {location.country}
                                                     </p>
+                                                    <p className="text-[11px] text-[#8891A0]/85 truncate mt-1">
+                                                        {analogCategory}
+                                                    </p>
 
-                                                    {/* Target Body Pill and Relative Timestamp */}
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#181A21] border border-[#21242C] text-[#8891A0] capitalize">
-                                                            {primaryType}
-                                                        </span>
+                                                    {/* Relative Timestamp */}
+                                                    <div className="flex items-center gap-2 mt-1.5">
                                                         <span className="text-[10px] text-[#8891A0]">
                                                             {formatRelativeTime(location.created_at)}
                                                         </span>
@@ -376,10 +387,17 @@ const SavedPage = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Monospace Similarity Score */}
-                                            <span className="font-mono text-xs text-[#83CAD8] shrink-0 font-medium">
-                                                {location.similarityScore}%
-                                            </span>
+                                            {/* Target Body Pill & Real Surface Temperature */}
+                                            <div className="flex flex-col items-end gap-1 shrink-0">
+                                                <span
+                                                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${pillClassName}`}
+                                                >
+                                                    {pillLabel}
+                                                </span>
+                                                <span className="font-mono text-xs text-[#83CAD8] font-medium">
+                                                    {surfaceTemp}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
 

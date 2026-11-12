@@ -208,35 +208,62 @@ export async function connectToMongoDB() {
     console.log(`Connected successfully to MongoDB Database: "${dbName}"`);
 
     // ------------------------------------------------------------------------
-    // Auto-Seeding Collection 1: Location Collection (50 candidate analog sites)
+    // Shared Helper & Auto-Seeding Collection 1: Location Collection (50 sites)
     // ------------------------------------------------------------------------
+    // Resolves candidate paths to public/analogLocations.json, clears any stale
+    // Location documents, and inserts the enriched scientific dataset.
+    async function reseedLocationCollection() {
+      // Candidate filesystem paths covering local dev, cwd, and built dist assets
+      const candidatePaths = [
+        path.resolve(__dirname, '../public/analogLocations.json'),
+        path.resolve(process.cwd(), 'public/analogLocations.json'),
+        path.resolve(__dirname, '../dist/analogLocations.json'),
+      ];
+      const jsonPath = candidatePaths.find((candidate) => fs.existsSync(candidate));
+
+      if (!jsonPath) {
+        console.warn("Seed file 'analogLocations.json' not found at resolved paths.");
+        return { seeded: false, insertedCount: 0, message: "Seed file 'analogLocations.json' not found." };
+      }
+
+      const rawJson = fs.readFileSync(jsonPath, 'utf8');
+      const parsed = JSON.parse(rawJson);
+      const locationsToSeed = Array.isArray(parsed.locations) ? parsed.locations : [];
+
+      if (locationsToSeed.length === 0) {
+        return { seeded: false, insertedCount: 0, message: "No locations found in analogLocations.json." };
+      }
+
+      // Remove legacy documents first so stale similarityScore records do not persist
+      await modelCollection.deleteMany({});
+      const insertResult = await modelCollection.insertMany(locationsToSeed);
+      console.log(`Seeded ${insertResult.insertedCount} enriched analog locations into 'Location' collection.`);
+      return {
+        seeded: true,
+        insertedCount: insertResult.insertedCount,
+        message: `Successfully reseeded ${insertResult.insertedCount} analog locations.`,
+      };
+    }
+
+    // Store reseed helper on app.locals so POST /location/reseed shares identical logic
+    app.locals.reseedLocationCollection = reseedLocationCollection;
+
     const locationCount = await modelCollection.countDocuments();
-    if (locationCount === 0) {
-      console.log("Location collection is empty. Initializing auto-seeding from analogLocations.json...");
-      
-      // Determine candidate path for analogLocations.json
-      let jsonPath = path.resolve(__dirname, '../public/analogLocations.json');
-      if (!fs.existsSync(jsonPath)) {
-        jsonPath = path.resolve(process.cwd(), 'public/analogLocations.json');
-      }
-      if (!fs.existsSync(jsonPath)) {
-        jsonPath = path.resolve(__dirname, '../dist/analogLocations.json');
-      }
+    const firstLocation = locationCount > 0 ? await modelCollection.findOne({}) : null;
+    // Detect legacy MongoDB documents missing enriched scientific fields
+    const needsEnrichmentReseed =
+      locationCount === 0 ||
+      !firstLocation?.roversTested ||
+      typeof firstLocation?.temperature !== 'number';
 
-      if (fs.existsSync(jsonPath)) {
-        const rawJson = fs.readFileSync(jsonPath, 'utf8');
-        const parsed = JSON.parse(rawJson);
-        const locationsToSeed = parsed.locations || [];
-
-        if (locationsToSeed.length > 0) {
-          const insertResult = await modelCollection.insertMany(locationsToSeed);
-          console.log(`Auto-seeded ${insertResult.insertedCount} analog locations into 'Location' collection.`);
-        }
-      } else {
-        console.warn(`Seed file 'analogLocations.json' not found at resolved paths.`);
-      }
+    if (needsEnrichmentReseed) {
+      const reason = locationCount === 0
+        ? "Location collection is empty."
+        : "Legacy Location schema detected (missing roversTested or numeric temperature).";
+      console.log(`${reason} Running enriched auto-seeding from analogLocations.json...`);
+      await reseedLocationCollection();
     } else {
-      console.log(`'Location' collection active with ${locationCount} documents.`);
+      console.log(`'Location' collection active with ${locationCount} enriched documents.`);
     }
 
     // ------------------------------------------------------------------------
@@ -300,6 +327,34 @@ app.get('/Location', async (req, res) => {
   } catch (error) {
     console.error("Error fetching locations:", error);
     res.status(500).send({ success: false, message: "Failed to fetch locations", error: error.message });
+  }
+});
+
+// POST /location/reseed - Manually refresh Location collection from analogLocations.json
+app.post('/location/reseed', async (req, res) => {
+  try {
+    if (typeof app.locals.reseedLocationCollection !== 'function') {
+      return res.status(503).send({
+        success: false,
+        message: "Database not initialized yet; reseed helper unavailable.",
+      });
+    }
+    const result = await app.locals.reseedLocationCollection();
+    if (!result.seeded) {
+      return res.status(404).send({
+        success: false,
+        message: result.message,
+        count: 0,
+      });
+    }
+    res.send({
+      success: true,
+      message: result.message,
+      count: result.insertedCount,
+    });
+  } catch (error) {
+    console.error("Error reseeding locations:", error);
+    res.status(500).send({ success: false, message: "Failed to reseed locations", error: error.message });
   }
 });
 

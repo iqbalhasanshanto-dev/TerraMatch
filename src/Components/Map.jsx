@@ -7,6 +7,12 @@ import useLocations from "../Hooks/useLocations";
 import Loader from "./Loader";
 import Modal from "./Modal";
 import StateContext from "../States/StateContext";
+import {
+    formatSurfaceTemp,
+    getAnalogCategory,
+    getRoversTested,
+    getTargetBodyInfo,
+} from "../utils/analogSpec";
 
 // ============================================================================
 // Leaflet Default Marker Icon Asset Resolution for Vite Bundling
@@ -279,6 +285,10 @@ const Map = ({ isSidebarOpen }) => {
                     }
 
                     const locId = loc._id || loc.id;
+                    const { popupBadges } = getTargetBodyInfo(loc);
+                    const surfaceTemp = formatSurfaceTemp(loc);
+                    const analogCategory = getAnalogCategory(loc);
+                    const roversTested = getRoversTested(loc);
 
                     return (
                         <Marker
@@ -304,29 +314,57 @@ const Map = ({ isSidebarOpen }) => {
                                 click: () => handleMarkerClick(loc),
                             }}
                         >
-                            {/* Deep-Space Styled Site Summary Popup */}
+                            {/* Deep-Space Styled Scientific Analog Site Summary Popup */}
                             <Popup className="terramatch-popup">
-                                <div className="p-1 text-[#F1EEE9] min-w-44">
+                                <div className="p-1 text-[#F1EEE9] min-w-52 max-w-64">
                                     <h4 className="font-bold text-sm text-[#F1EEE9] leading-tight">
                                         {loc.name}
                                     </h4>
                                     <p className="text-xs text-[#8891A0] mb-1.5">
                                         {loc.country}
                                     </p>
-                                    <div className="space-y-0.5 text-[11px] text-[#8891A0] mb-2 border-t border-[#21242C] pt-1.5">
+
+                                    {/* Color-Coded Target Match Badges (`MARS ANALOG` / `MOON ANALOG`) */}
+                                    <div className="flex flex-wrap items-center gap-1 mb-2">
+                                        {popupBadges.map((badge) => (
+                                            <span
+                                                key={badge.label}
+                                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${badge.className}`}
+                                            >
+                                                {badge.label}
+                                            </span>
+                                        ))}
+                                    </div>
+
+                                    {/* Real Scientific Telemetry & Mission History */}
+                                    <div className="space-y-1 text-[11px] text-[#8891A0] mb-2 border-t border-[#21242C] pt-1.5">
                                         <p>
                                             <span className="font-semibold text-[#F1EEE9]">
-                                                Climate:
+                                                Surface Temp:
                                             </span>{" "}
-                                            {loc.environment?.climate || "Extreme Arid"}
+                                            <span className="font-mono text-[#83CAD8] font-bold">
+                                                {surfaceTemp}
+                                            </span>
                                         </p>
                                         <p>
                                             <span className="font-semibold text-[#F1EEE9]">
-                                                Similarity:
+                                                Climate &amp; Humidity:
                                             </span>{" "}
-                                            <span className="font-mono text-[#83CAD8] font-bold">
-                                                {loc.similarityScore}%
+                                            <span className="capitalize">
+                                                {loc.environment?.climate || "Hyper-arid"}
                                             </span>
+                                        </p>
+                                        <p>
+                                            <span className="font-semibold text-[#F1EEE9]">
+                                                Primary Focus:
+                                            </span>{" "}
+                                            {analogCategory}
+                                        </p>
+                                        <p className="leading-snug">
+                                            <span className="font-semibold text-[#F1EEE9]">
+                                                Rovers/Missions Tested:
+                                            </span>{" "}
+                                            {roversTested}
                                         </p>
                                     </div>
                                     <Modal loc={loc} />
