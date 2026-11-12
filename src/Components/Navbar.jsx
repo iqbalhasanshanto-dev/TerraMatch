@@ -1,3 +1,6 @@
+// ----------------------------------------------------------------------------
+// External Dependencies & UI Icons
+// ----------------------------------------------------------------------------
 import { useState, useContext } from "react";
 import {
     LayoutDashboard,
@@ -10,6 +13,10 @@ import {
     X,
 } from "lucide-react";
 import { Link, NavLink, useLocation } from "react-router";
+
+// ----------------------------------------------------------------------------
+// Internal State, Hooks & Child Components
+// ----------------------------------------------------------------------------
 import StateContext from "../States/StateContext";
 import useAuth from "../Hooks/useAuth";
 import Profile from "./Profile";
@@ -22,12 +29,17 @@ import Logo from "./Logo";
  * Renders the primary top navigation header for the TerraMatch platform,
  * preserving the custom deep-space color palette:
  * - Surface & Border: `#0B0E13` background with `#21242C` bottom border.
- * - Active Navigation Pill: `#1A1D23` fill, `#21242C` border, `#F1EEE9` text, `#83CAD8` icon.
- * - Inactive Tabs: `#8891A0` text with `#1E2129` hover state.
+ * - Desktop Active Tab: Bright cyan (`#83CAD8`) semibold label, subtly elevated
+ *   and scaled icon, and a glowing bottom underline indicator bar flush with
+ *   the bottom border of the navbar.
+ * - Desktop Inactive Tabs: Muted slate (`#8891A0`) text and icon transitioning
+ *   to warm off-white (`#F1EEE9`) with a subtle upward icon lift on hover.
+ * - Mobile Drawer (< xl): Preserves the collapsible dropdown menu with boxed
+ *   active highlights for touch-friendly vertical tapping.
  * - Authentication Area:
  *   - Logged in (`user` truthy): Renders the authenticated `<Profile />` menu.
- *   - Logged out (`!user`): Renders only a crisp cyan `"Sign in"` CTA button linking to `/login`
- *     (the legacy guest `"TM"` circle has been removed).
+ *   - Logged out (`!user`): Renders only a crisp cyan `"Sign in"` CTA button
+ *     linking to `/login`.
  */
 const Navbar = () => {
     // ------------------------------------------------------------------------
@@ -39,19 +51,19 @@ const Navbar = () => {
     // Global search mode toggle shared between the navbar and RightDashboard
     const { isSearch, setIsSearch } = useContext(StateContext);
 
-    // Current router location used to synchronize active navigation styling
+    // Current router location used to synchronize active navigation styling and redirect state
     const location = useLocation();
 
-    // Controls visibility of the collapsible navigation menu on viewports < xl
+    // Controls open/closed visibility of the collapsible mobile navigation drawer (< xl viewports)
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     // ------------------------------------------------------------------------
     // 2. Derived Navigation State & Pre-Login Return Path
     // ------------------------------------------------------------------------
-    // Search mode is active either via StateContext flag or when visiting `/search`
+    // Search mode is active either via StateContext flag or when visiting `/search` directly
     const isSearchActive = isSearch || location.pathname === "/search";
 
-    // Full path + query string to return the user to after signing in
+    // Full path + query string to return the user to after completing sign-in
     const postLoginReturnPath =
         location.pathname !== "/login"
             ? `${location.pathname}${location.search}`
@@ -74,6 +86,7 @@ const Navbar = () => {
         }
         setMobileMenuOpen(false);
     };
+
     /**
      * Activates search/filter sidebar mode and closes the mobile navigation drawer.
      */
@@ -83,7 +96,7 @@ const Navbar = () => {
     };
 
     /**
-     * Restores default dashboard mode (Recent Searches) and closes mobile menu.
+     * Restores default dashboard mode (Recent Searches) and closes the mobile menu.
      */
     const handleDashboardClick = () => {
         setIsSearch(false);
@@ -91,7 +104,7 @@ const Navbar = () => {
     };
 
     /**
-     * Resets search mode flag for non-map routes and closes mobile menu.
+     * Resets search mode flag for non-map routes and closes the mobile menu.
      */
     const handleGenericNavClick = () => {
         setIsSearch(false);
@@ -101,7 +114,7 @@ const Navbar = () => {
     // ------------------------------------------------------------------------
     // 4. Primary Navigation Tab Configuration
     // ------------------------------------------------------------------------
-    // Centralized route definitions shared between desktop pill tabs and mobile drawer
+    // Centralized route definitions shared between desktop underline tabs and mobile drawer
     const navItems = [
         {
             label: "Dashboard",
@@ -148,6 +161,9 @@ const Navbar = () => {
     /**
      * Determines whether a navigation item matches the active route or search state.
      * Ensures `/search` and `/` highlight independently even when sharing `RightDashboard`.
+     *
+     * @param {Object} item - Navigation configuration entry from `navItems`
+     * @returns {boolean} True when the tab should display active styling
      */
     const isTabActive = (item) => {
         if (isSearchActive) {
@@ -170,7 +186,9 @@ const Navbar = () => {
     // ------------------------------------------------------------------------
     return (
         <header className="w-full bg-[#0B0E13] border-b border-[#21242C] px-4 sm:px-6 h-14 flex items-center justify-between relative z-2000 select-none">
-            {/* Left Branding & Mobile Hamburger Trigger Block */}
+            {/* ==============================================================
+                Left Branding & Mobile Hamburger Trigger Block
+               ============================================================== */}
             <div className="flex items-center gap-3">
                 {/* Mobile Navigation Menu Toggle Button (Visible below xl breakpoint) */}
                 <button
@@ -198,11 +216,18 @@ const Navbar = () => {
                 </Link>
             </div>
 
-            {/* Center Navigation Pills (Desktop Viewports >= xl) */}
-            <nav aria-label="Primary" className="hidden xl:flex items-center gap-1.5">
+            {/* ==============================================================
+                Center Navigation Tabs (Desktop Viewports >= xl)
+                Spans full header height (`h-full` inside `h-14`) so each
+                active underline indicator sits flush on the bottom border.
+               ============================================================== */}
+            <nav aria-label="Primary" className="hidden xl:flex items-center gap-7 h-full">
                 {navItems.map((item) => {
+                    // Determine whether this tab represents the current view or search mode
                     const active = isTabActive(item);
+                    // Resolve the Lucide icon component assigned to this route
                     const IconComponent = item.icon;
+
                     return (
                         <NavLink
                             key={item.path}
@@ -210,28 +235,44 @@ const Navbar = () => {
                             end={item.exact}
                             onClick={item.onClick}
                             aria-current={active ? "page" : undefined}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition duration-150 ${
+                            className={`group relative h-full flex items-center gap-2 px-1 text-sm font-medium transition-all duration-200 ${
                                 active
-                                    ? "bg-[#1A1D23] text-[#F1EEE9] border border-[#21242C] shadow-sm"
-                                    : "text-[#8891A0] hover:text-[#F1EEE9] hover:bg-[#1E2129] border border-transparent"
+                                    ? "text-[#83CAD8] font-semibold"
+                                    : "text-[#8891A0] hover:text-[#F1EEE9]"
                             }`}
                         >
+                            {/* Tab Icon: Pops upward & scales when active; lifts subtly on hover */}
                             <IconComponent
                                 size={15}
                                 aria-hidden="true"
                                 className={`shrink-0 ${
-                                    active ? "text-[#83CAD8]" : "text-[#8891A0]"
+                                    active
+                                        ? "text-[#83CAD8] -translate-y-0.5 scale-110 transition-transform duration-200"
+                                        : "text-[#8891A0]/70 group-hover:text-[#F1EEE9] group-hover:-translate-y-0.5 transition-all duration-200"
                                 }`}
                             />
+
+                            {/* Tab Label */}
                             <span>{item.label}</span>
+
+                            {/* Active Bottom Indicator Bar: Crisp glowing cyan bar flush at navbar bottom */}
+                            {active && (
+                                <span
+                                    aria-hidden="true"
+                                    className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#83CAD8] rounded-t-full shadow-[0_-2px_8px_rgba(131,202,216,0.5)]"
+                                />
+                            )}
                         </NavLink>
                     );
                 })}
             </nav>
 
-            {/* Right Action Section: Authenticated Profile Dropdown or Clean Sign-In CTA */}
+            {/* ==============================================================
+                Right Action Section: Authenticated Profile or Sign-In CTA
+               ============================================================== */}
             <div className="flex items-center gap-3 sm:gap-4">
                 {user ? (
+                    /* Authenticated user dropdown and account controls */
                     <Profile />
                 ) : (
                     /* Guest state: Clean Sign in button preserving the current route for post-login return */
@@ -246,7 +287,9 @@ const Navbar = () => {
                 )}
             </div>
 
-            {/* Mobile Collapsible Navigation Dropdown Panel (Viewports < xl) */}
+            {/* ==============================================================
+                Mobile Collapsible Navigation Dropdown Panel (Viewports < xl)
+               ============================================================== */}
             {mobileMenuOpen && (
                 <nav
                     id="mobile-navigation-menu"
@@ -254,8 +297,11 @@ const Navbar = () => {
                     className="absolute top-14 left-0 w-full bg-[#0B0E13] border-b border-[#21242C] shadow-2xl xl:hidden p-3 flex flex-col gap-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
                 >
                     {navItems.map((item) => {
+                        // Compute active state per mobile drawer item
                         const active = isTabActive(item);
+                        // Resolve the Lucide icon component for the drawer link
                         const IconComponent = item.icon;
+
                         return (
                             <NavLink
                                 key={item.path}
@@ -272,6 +318,7 @@ const Navbar = () => {
                                         : "text-[#8891A0] hover:text-[#F1EEE9] hover:bg-[#1E2129]"
                                 }`}
                             >
+                                {/* Mobile Drawer Tab Icon */}
                                 <IconComponent
                                     size={16}
                                     aria-hidden="true"
@@ -279,6 +326,7 @@ const Navbar = () => {
                                         active ? "text-[#83CAD8]" : "text-[#8891A0]"
                                     }
                                 />
+                                {/* Mobile Drawer Tab Label */}
                                 <span>{item.label}</span>
                             </NavLink>
                         );
