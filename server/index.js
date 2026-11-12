@@ -63,128 +63,190 @@ let savedLocs;
 let dataSourcesCollection;
 
 // ============================================================================
-// 3. Curated Planetary Mission Archives (Initial Seed Dataset)
+// 3. Curated Planetary Mission Archives (Official 10-Dataset Seed Catalog)
 // ============================================================================
-// The 8 canonical planetary archives used for initial database population
+// Legacy placeholder seed IDs superseded by the official NASA Earthdata & PDS catalog
+const LEGACY_DATA_SOURCE_IDS = [
+  "hirise-crism",
+  "srtm-elevation",
+  "mro-sharad",
+  "sentinel-2",
+  "kaguya-selene",
+  "usgs-astrogeology",
+];
+
+// The 10 official NASA Earthdata, Moon PDS, and Mars PDS planetary archives
+// used for initial MongoDB seeding and catalog synchronization
 const INITIAL_PLANETARY_ARCHIVES = [
+  // --------------------------------------------------------------------------
+  // Earth Datasets (Category: "earth") — NASA Earthdata
+  // --------------------------------------------------------------------------
   {
-    id: "mgs-mola",
-    name: "Mars Global Surveyor (MGS MOLA)",
-    provider: "NASA JPL",
+    id: "nasadem",
+    name: "NASADEM (NASA Digital Elevation Model)",
+    provider: "NASA Earthdata",
+    targetBody: "Earth",
+    category: "earth",
+    dataTypes: ["Elevation & Slope", "Topographic DEM"],
+    resolution: "30 m/px (1 arc-sec)",
+    volumeGigabytes: 1200,
+    volumeDisplay: "1.2 TB",
+    status: "Live & Synced",
+    feed: true,
+    portalUrl: "https://search.earthdata.nasa.gov/search?q=NASADEM",
+    description: "Reprocessed global SRTM radar elevation and slope dataset providing high-accuracy terrain relief for Earth analog site characterization.",
+    created_at: new Date()
+  },
+  {
+    id: "modis-mod11",
+    name: "MODIS Land Surface Temperature (MOD11)",
+    provider: "NASA Earthdata",
+    targetBody: "Earth",
+    category: "earth",
+    dataTypes: ["Thermal & Temperature", "Land Surface Temp"],
+    resolution: "1 km Daily / 8-Day",
+    volumeGigabytes: 1850,
+    volumeDisplay: "1.85 TB",
+    status: "Live & Synced",
+    feed: true,
+    portalUrl: "https://search.earthdata.nasa.gov/search?q=MODIS%20Land%20Surface%20Temperature",
+    description: "Terra and Aqua MODIS thermal infrared land surface temperature and emissivity observations benchmarking diurnal thermal extremes.",
+    created_at: new Date()
+  },
+  {
+    id: "smap-l3",
+    name: "SMAP L3 Soil Moisture",
+    provider: "NASA Earthdata",
+    targetBody: "Earth",
+    category: "earth",
+    dataTypes: ["Soil Moisture & Aridity", "L-Band Radiometry"],
+    resolution: "36 km / 9 km Daily",
+    volumeGigabytes: 640,
+    volumeDisplay: "640 GB",
+    status: "Live & Synced",
+    feed: true,
+    portalUrl: "https://search.earthdata.nasa.gov/search?q=SMAP%20L3%20Soil%20Moisture",
+    description: "Soil Moisture Active Passive L-band radiometer volumetric soil moisture retrievals quantifying hyper-arid desert desiccation.",
+    created_at: new Date()
+  },
+  {
+    id: "gpm-imerg",
+    name: "GPM IMERG Precipitation",
+    provider: "NASA Earthdata",
+    targetBody: "Earth",
+    category: "earth",
+    dataTypes: ["Rainfall & Moisture", "Multi-Satellite Precip"],
+    resolution: "0.1° (~10 km) Half-Hourly",
+    volumeGigabytes: 1450,
+    volumeDisplay: "1.45 TB",
+    status: "Live & Synced",
+    feed: true,
+    portalUrl: "https://search.earthdata.nasa.gov/search?q=GPM%20IMERG",
+    description: "Integrated Multi-satellitE Retrievals for GPM delivering global precipitation rates to evaluate hydrologic weathering analog limits.",
+    created_at: new Date()
+  },
+  {
+    id: "modis-mod09",
+    name: "MODIS Surface Reflectance (MOD09)",
+    provider: "NASA Earthdata",
+    targetBody: "Earth",
+    category: "earth",
+    dataTypes: ["Surface Albedo & Characteristics", "Multispectral"],
+    resolution: "250 m - 500 m",
+    volumeGigabytes: 2100,
+    volumeDisplay: "2.1 TB",
+    status: "Live & Synced",
+    feed: true,
+    portalUrl: "https://search.earthdata.nasa.gov/search?q=MODIS%20Surface%20Reflectance",
+    description: "Atmospherically corrected multispectral surface reflectance and albedo characteristics across barren regolith and basaltic testbeds.",
+    created_at: new Date()
+  },
+
+  // --------------------------------------------------------------------------
+  // Moon Datasets (Category: "moon") — NASA PDS Lunar Archives
+  // --------------------------------------------------------------------------
+  {
+    id: "lro-lola",
+    name: "LRO LOLA Lunar Elevation (LRO-L-LOLA-4-GDR-V1.0)",
+    provider: "NASA PDS / WUSTL",
+    targetBody: "Moon",
+    category: "moon",
+    dataTypes: ["Lunar Topography & DEM", "Laser Altimetry"],
+    resolution: "5 m/px Polar / 118 m Global",
+    volumeGigabytes: 820,
+    volumeDisplay: "820 GB",
+    status: "Live & Synced",
+    feed: true,
+    portalUrl: "https://pds.nasa.gov/ds-view/pds/viewDataset.jsp?dsid=LRO-L-LOLA-4-GDR-V1.0",
+    description: "Lunar Reconnaissance Orbiter Laser Altimeter gridded data records mapping crater slopes, permanently shadowed regions, and polar relief.",
+    created_at: new Date()
+  },
+  {
+    id: "lro-diviner",
+    name: "LRO Diviner Lunar Radiometer (LRO-L-DLRE-4-RDR-V1.0)",
+    provider: "NASA PDS / UCLA",
+    targetBody: "Moon",
+    category: "moon",
+    dataTypes: ["Lunar Surface Temperature", "Thermal Radiometry"],
+    resolution: "128 px/deg (~237 m)",
+    volumeGigabytes: 960,
+    volumeDisplay: "960 GB",
+    status: "Live & Synced",
+    feed: true,
+    portalUrl: "https://data.nasa.gov/dataset/?q=LRO-L-DLRE-4-RDR-V1.0",
+    description: "Nine-channel infrared radiometer measuring lunar diurnal bolometric brightness temperatures from equatorial noon to cryogenic polar traps.",
+    created_at: new Date()
+  },
+  {
+    id: "ch1-m3",
+    name: "Chandrayaan-1 Moon Mineralogy Mapper (urn:nasa:pds:ch1_m3)",
+    provider: "NASA PDS / ISRO",
+    targetBody: "Moon",
+    category: "moon",
+    dataTypes: ["Lunar Mineralogy & OH/Water", "Imaging Spectroscopy"],
+    resolution: "140 m/px (85-260 Spectral Bands)",
+    volumeGigabytes: 740,
+    volumeDisplay: "740 GB",
+    status: "Live & Synced",
+    feed: true,
+    portalUrl: "https://pds.nasa.gov/ds-view/pds/viewBundle.jsp?identifier=urn:nasa:pds:ch1_m3",
+    description: "Visible-to-near-infrared imaging spectrometer bundle identifying highland anorthosite, mare basalt, and polar OH/H2O absorption features.",
+    created_at: new Date()
+  },
+
+  // --------------------------------------------------------------------------
+  // Mars Datasets (Category: "mars") — NASA PDS Geosciences / GSFC
+  // --------------------------------------------------------------------------
+  {
+    id: "mars-ode",
+    name: "Mars Orbital Data Explorer (ODE)",
+    provider: "NASA PDS Geosciences / WUSTL",
     targetBody: "Mars",
     category: "mars",
-    dataTypes: ["Elevation DEM", "Topography"],
+    dataTypes: ["Mars Orbital Map & Mission Archive", "PDS Query Index"],
+    resolution: "Multi-Instrument Coverage",
+    volumeGigabytes: 2800,
+    volumeDisplay: "2.8 TB",
+    status: "Live & Synced",
+    feed: true,
+    portalUrl: "https://ode.rsl.wustl.edu/mars/mapsearch",
+    description: "Integrated PDS Geosciences Node spatial search portal indexing MRO HiRISE, CRISM, CTX, Mars Express, and Viking orbital observations.",
+    created_at: new Date()
+  },
+  {
+    id: "mgs-mola",
+    name: "Mars Global Surveyor MOLA (MGS MOLA)",
+    provider: "NASA PDS / GSFC",
+    targetBody: "Mars",
+    category: "mars",
+    dataTypes: ["Mars Elevation & Slope Profiles", "Laser Altimetry"],
     resolution: "128 px/deg (463 m)",
     volumeGigabytes: 1400,
     volumeDisplay: "1.4 TB",
     status: "Live & Synced",
     feed: true,
-    description: "Global laser altimetry topographic surface map used as the primary planetary elevation and roughness datum for martian analog correlation.",
-    created_at: new Date()
-  },
-  {
-    id: "lro-lola",
-    name: "Lunar Reconnaissance Orbiter (LRO LOLA)",
-    provider: "NASA GSFC",
-    targetBody: "Moon",
-    category: "moon",
-    dataTypes: ["Altimetry DEM", "Crater Slope"],
-    resolution: "5 m/px Polar",
-    volumeGigabytes: 820,
-    volumeDisplay: "820 GB",
-    status: "Live & Synced",
-    feed: true,
-    description: "High-precision laser altimeter datasets evaluating lunar south pole slope gradients and micro-cold-trap illumination environments.",
-    created_at: new Date()
-  },
-  {
-    id: "hirise-crism",
-    name: "HiRISE Mineralogical Imagery (CRISM)",
-    provider: "NASA / U. Arizona",
-    targetBody: "Mars",
-    category: "mars",
-    dataTypes: ["Basalt Spectroscopy", "Surface Mineralogy"],
-    resolution: "0.25 m/px",
-    volumeGigabytes: 2800,
-    volumeDisplay: "2.8 TB",
-    status: "Live & Synced",
-    feed: true,
-    description: "Hyperspectral infrared reflectance and visual orthomosaics identifying phyllosilicates, olivine, and sulfates across candidate martian landing zones.",
-    created_at: new Date()
-  },
-  {
-    id: "srtm-elevation",
-    name: "Shuttle Radar Topography Mission (SRTM)",
-    provider: "USGS / NASA",
-    targetBody: "Earth",
-    category: "earth",
-    dataTypes: ["Elevation DEM", "Geomorphology"],
-    resolution: "30 m/px Global",
-    volumeGigabytes: 340,
-    volumeDisplay: "340 GB",
-    status: "Live & Synced",
-    feed: false,
-    description: "Global digital elevation models for Earth field research sites, enabling multi-scale slope matching with extraterrestrial test polygons.",
-    created_at: new Date()
-  },
-  {
-    id: "mro-sharad",
-    name: "Mars Reconnaissance Orbiter (SHARAD)",
-    provider: "ASI / NASA JPL",
-    targetBody: "Mars",
-    category: "mars",
-    dataTypes: ["Radar Sounding", "Subsurface Ice"],
-    resolution: "15 m Depth",
-    volumeGigabytes: 460,
-    volumeDisplay: "460 GB",
-    status: "Live & Synced",
-    feed: true,
-    description: "Subsurface sounding radar data mapping shallow glaciers and permafrost sheets analogous to high-latitude terrestrial polar permafrost.",
-    created_at: new Date()
-  },
-  {
-    id: "sentinel-2",
-    name: "Copernicus Sentinel-2 Surface Reflectance",
-    provider: "ESA",
-    targetBody: "Earth",
-    category: "earth",
-    dataTypes: ["Multispectral", "Vegetation Index"],
-    resolution: "10 m Multispectral",
-    volumeGigabytes: 1100,
-    volumeDisplay: "1.1 TB",
-    status: "Live & Synced",
-    feed: true,
-    description: "High-cadence multispectral surface observation monitoring aridity extremes, soil moisture, and sparse vegetation at Earth analog proving grounds.",
-    created_at: new Date()
-  },
-  {
-    id: "kaguya-selene",
-    name: "Kaguya (SELENE) Terrain Camera Archive",
-    provider: "JAXA",
-    targetBody: "Moon",
-    category: "moon",
-    dataTypes: ["Stereo DEM", "Lava Tube Skylights"],
-    resolution: "10 m Global",
-    volumeGigabytes: 520,
-    volumeDisplay: "520 GB",
-    status: "Live & Synced",
-    feed: false,
-    description: "Lunar surface stereo photogrammetry documenting mare basalt collapse pits and lava tube entrances for subterranean planetary habitat modeling.",
-    created_at: new Date()
-  },
-  {
-    id: "usgs-astrogeology",
-    name: "USGS Planetary GIS & Geologic Mapping",
-    provider: "USGS Astrogeology",
-    targetBody: "Moon & Mars",
-    category: "moon",
-    dataTypes: ["Stratigraphy", "Impact Breccia"],
-    resolution: "1:5,000,000 Global",
-    volumeGigabytes: 180,
-    volumeDisplay: "180 GB",
-    status: "Live & Synced",
-    feed: false,
-    description: "Standardized geological callsets classifying impact melt sheets, regolith breccia, and volcanic basalt stratigraphy across lunar and martian bodies.",
+    portalUrl: "https://pds-geosciences.wustl.edu/missions/mgs/mola.html",
+    description: "Mars Orbiter Laser Altimeter precision global topographic datum and slope profiles used as the reference elevation baseline for Martian analogs.",
     created_at: new Date()
   }
 ];
@@ -267,13 +329,41 @@ export async function connectToMongoDB() {
     }
 
     // ------------------------------------------------------------------------
-    // Auto-Seeding Collection 2: DataSources Collection (8 planetary archives)
+    // Auto-Seeding Collection 2: DataSources Collection (10 official archives)
     // ------------------------------------------------------------------------
+    // Detect empty collection, legacy placeholder seed items, or missing portalUrl
+    // fields so existing MongoDB instances upgrade cleanly to the 10 official
+    // NASA Earthdata / Moon PDS / Mars PDS datasets without erasing custom sources.
     const dataSourcesCount = await dataSourcesCollection.countDocuments();
+    const hasLegacySeedDocs =
+      dataSourcesCount > 0 &&
+      (await dataSourcesCollection.countDocuments({
+        $or: [
+          { id: { $in: LEGACY_DATA_SOURCE_IDS } },
+          { portalUrl: { $exists: false }, id: { $in: INITIAL_PLANETARY_ARCHIVES.map((d) => d.id) } },
+        ],
+      })) > 0;
+    const officialCount = await dataSourcesCollection.countDocuments({
+      id: { $in: INITIAL_PLANETARY_ARCHIVES.map((d) => d.id) },
+    });
+
     if (dataSourcesCount === 0) {
-      console.log("DataSources collection is empty. Auto-seeding 8 planetary mission archives...");
+      console.log("DataSources collection is empty. Auto-seeding 10 official NASA/PDS planetary archives...");
       const insertArchivesResult = await dataSourcesCollection.insertMany(INITIAL_PLANETARY_ARCHIVES);
       console.log(`Auto-seeded ${insertArchivesResult.insertedCount} planetary datasets into 'DataSources'.`);
+    } else if (hasLegacySeedDocs || officialCount < INITIAL_PLANETARY_ARCHIVES.length) {
+      console.log("Synchronizing 'DataSources' collection with the 10 official NASA/PDS datasets...");
+      // Remove legacy placeholder seed documents while keeping custom user sources intact
+      await dataSourcesCollection.deleteMany({ id: { $in: LEGACY_DATA_SOURCE_IDS } });
+      // Upsert each of the 10 official datasets by canonical `id`
+      for (const archive of INITIAL_PLANETARY_ARCHIVES) {
+        await dataSourcesCollection.updateOne(
+          { id: archive.id },
+          { $set: archive },
+          { upsert: true }
+        );
+      }
+      console.log("Synchronized all 10 official planetary datasets into 'DataSources'.");
     } else {
       console.log(`'DataSources' collection active with ${dataSourcesCount} documents.`);
     }
@@ -573,6 +663,7 @@ app.post('/data-sources', async (req, res) => {
       feed: body.feed !== undefined ? Boolean(body.feed) : true,
       description: body.description || `User-connected planetary archive for ${targetBody} exploration via ${body.endpoint || "direct STAC feed"}.`,
       endpoint: body.endpoint || "",
+      portalUrl: body.portalUrl || body.endpoint || "",
       created_at: new Date()
     };
 

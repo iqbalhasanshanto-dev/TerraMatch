@@ -24,134 +24,207 @@ import { toast } from "react-toastify";
 const CUSTOM_DATA_SOURCES_STORAGE_KEY = "terramatch_custom_data_sources";
 
 /**
- * The 8 canonical planetary archives used as an automatic static fallback
- * whenever `GET /data-sources` is unreachable or returns empty on Netlify.
+ * Legacy placeholder archive IDs from earlier prototype versions that should
+ * be superseded by the 10 official NASA Earthdata / Moon PDS / Mars PDS datasets.
+ */
+const LEGACY_PLACEHOLDER_IDS = new Set([
+    "hirise-crism",
+    "srtm-elevation",
+    "mro-sharad",
+    "sentinel-2",
+    "kaguya-selene",
+    "usgs-astrogeology",
+]);
+
+/**
+ * The 10 official NASA Earthdata, Moon PDS, and Mars PDS planetary archives
+ * used both as the authoritative catalog definition and as the automatic static
+ * fallback whenever `GET /data-sources` is unreachable on Netlify.
  */
 const DEFAULT_PLANETARY_ARCHIVES = [
+    // ------------------------------------------------------------------------
+    // Earth Datasets (Category: "earth") — NASA Earthdata
+    // ------------------------------------------------------------------------
     {
-        id: "mgs-mola",
-        name: "Mars Global Surveyor (MGS MOLA)",
-        provider: "NASA JPL",
+        id: "nasadem",
+        name: "NASADEM (NASA Digital Elevation Model)",
+        provider: "NASA Earthdata",
+        targetBody: "Earth",
+        category: "earth",
+        dataTypes: ["Elevation & Slope", "Topographic DEM"],
+        resolution: "30 m/px (1 arc-sec)",
+        volumeGigabytes: 1200,
+        volumeDisplay: "1.2 TB",
+        status: "Live & Synced",
+        feed: true,
+        portalUrl: "https://search.earthdata.nasa.gov/search?q=NASADEM",
+        description:
+            "Reprocessed global SRTM radar elevation and slope dataset providing high-accuracy terrain relief for Earth analog site characterization.",
+    },
+    {
+        id: "modis-mod11",
+        name: "MODIS Land Surface Temperature (MOD11)",
+        provider: "NASA Earthdata",
+        targetBody: "Earth",
+        category: "earth",
+        dataTypes: ["Thermal & Temperature", "Land Surface Temp"],
+        resolution: "1 km Daily / 8-Day",
+        volumeGigabytes: 1850,
+        volumeDisplay: "1.85 TB",
+        status: "Live & Synced",
+        feed: true,
+        portalUrl:
+            "https://search.earthdata.nasa.gov/search?q=MODIS%20Land%20Surface%20Temperature",
+        description:
+            "Terra and Aqua MODIS thermal infrared land surface temperature and emissivity observations benchmarking diurnal thermal extremes.",
+    },
+    {
+        id: "smap-l3",
+        name: "SMAP L3 Soil Moisture",
+        provider: "NASA Earthdata",
+        targetBody: "Earth",
+        category: "earth",
+        dataTypes: ["Soil Moisture & Aridity", "L-Band Radiometry"],
+        resolution: "36 km / 9 km Daily",
+        volumeGigabytes: 640,
+        volumeDisplay: "640 GB",
+        status: "Live & Synced",
+        feed: true,
+        portalUrl:
+            "https://search.earthdata.nasa.gov/search?q=SMAP%20L3%20Soil%20Moisture",
+        description:
+            "Soil Moisture Active Passive L-band radiometer volumetric soil moisture retrievals quantifying hyper-arid desert desiccation.",
+    },
+    {
+        id: "gpm-imerg",
+        name: "GPM IMERG Precipitation",
+        provider: "NASA Earthdata",
+        targetBody: "Earth",
+        category: "earth",
+        dataTypes: ["Rainfall & Moisture", "Multi-Satellite Precip"],
+        resolution: "0.1° (~10 km) Half-Hourly",
+        volumeGigabytes: 1450,
+        volumeDisplay: "1.45 TB",
+        status: "Live & Synced",
+        feed: true,
+        portalUrl: "https://search.earthdata.nasa.gov/search?q=GPM%20IMERG",
+        description:
+            "Integrated Multi-satellitE Retrievals for GPM delivering global precipitation rates to evaluate hydrologic weathering analog limits.",
+    },
+    {
+        id: "modis-mod09",
+        name: "MODIS Surface Reflectance (MOD09)",
+        provider: "NASA Earthdata",
+        targetBody: "Earth",
+        category: "earth",
+        dataTypes: ["Surface Albedo & Characteristics", "Multispectral"],
+        resolution: "250 m - 500 m",
+        volumeGigabytes: 2100,
+        volumeDisplay: "2.1 TB",
+        status: "Live & Synced",
+        feed: true,
+        portalUrl:
+            "https://search.earthdata.nasa.gov/search?q=MODIS%20Surface%20Reflectance",
+        description:
+            "Atmospherically corrected multispectral surface reflectance and albedo characteristics across barren regolith and basaltic testbeds.",
+    },
+
+    // ------------------------------------------------------------------------
+    // Moon Datasets (Category: "moon") — NASA PDS Lunar Archives
+    // ------------------------------------------------------------------------
+    {
+        id: "lro-lola",
+        name: "LRO LOLA Lunar Elevation (LRO-L-LOLA-4-GDR-V1.0)",
+        provider: "NASA PDS / WUSTL",
+        targetBody: "Moon",
+        category: "moon",
+        dataTypes: ["Lunar Topography & DEM", "Laser Altimetry"],
+        resolution: "5 m/px Polar / 118 m Global",
+        volumeGigabytes: 820,
+        volumeDisplay: "820 GB",
+        status: "Live & Synced",
+        feed: true,
+        portalUrl:
+            "https://pds.nasa.gov/ds-view/pds/viewDataset.jsp?dsid=LRO-L-LOLA-4-GDR-V1.0",
+        description:
+            "Lunar Reconnaissance Orbiter Laser Altimeter gridded data records mapping crater slopes, permanently shadowed regions, and polar relief.",
+    },
+    {
+        id: "lro-diviner",
+        name: "LRO Diviner Lunar Radiometer (LRO-L-DLRE-4-RDR-V1.0)",
+        provider: "NASA PDS / UCLA",
+        targetBody: "Moon",
+        category: "moon",
+        dataTypes: ["Lunar Surface Temperature", "Thermal Radiometry"],
+        resolution: "128 px/deg (~237 m)",
+        volumeGigabytes: 960,
+        volumeDisplay: "960 GB",
+        status: "Live & Synced",
+        feed: true,
+        portalUrl:
+            "https://data.nasa.gov/dataset/?q=LRO-L-DLRE-4-RDR-V1.0",
+        description:
+            "Nine-channel infrared radiometer measuring lunar diurnal bolometric brightness temperatures from equatorial noon to cryogenic polar traps.",
+    },
+    {
+        id: "ch1-m3",
+        name: "Chandrayaan-1 Moon Mineralogy Mapper (urn:nasa:pds:ch1_m3)",
+        provider: "NASA PDS / ISRO",
+        targetBody: "Moon",
+        category: "moon",
+        dataTypes: ["Lunar Mineralogy & OH/Water", "Imaging Spectroscopy"],
+        resolution: "140 m/px (85-260 Spectral Bands)",
+        volumeGigabytes: 740,
+        volumeDisplay: "740 GB",
+        status: "Live & Synced",
+        feed: true,
+        portalUrl:
+            "https://pds.nasa.gov/ds-view/pds/viewBundle.jsp?identifier=urn:nasa:pds:ch1_m3",
+        description:
+            "Visible-to-near-infrared imaging spectrometer bundle identifying highland anorthosite, mare basalt, and polar OH/H2O absorption features.",
+    },
+
+    // ------------------------------------------------------------------------
+    // Mars Datasets (Category: "mars") — NASA PDS Geosciences / GSFC
+    // ------------------------------------------------------------------------
+    {
+        id: "mars-ode",
+        name: "Mars Orbital Data Explorer (ODE)",
+        provider: "NASA PDS Geosciences / WUSTL",
         targetBody: "Mars",
         category: "mars",
-        dataTypes: ["Elevation DEM", "Topography"],
+        dataTypes: ["Mars Orbital Map & Mission Archive", "PDS Query Index"],
+        resolution: "Multi-Instrument Coverage",
+        volumeGigabytes: 2800,
+        volumeDisplay: "2.8 TB",
+        status: "Live & Synced",
+        feed: true,
+        portalUrl: "https://ode.rsl.wustl.edu/mars/mapsearch",
+        description:
+            "Integrated PDS Geosciences Node spatial search portal indexing MRO HiRISE, CRISM, CTX, Mars Express, and Viking orbital observations.",
+    },
+    {
+        id: "mgs-mola",
+        name: "Mars Global Surveyor MOLA (MGS MOLA)",
+        provider: "NASA PDS / GSFC",
+        targetBody: "Mars",
+        category: "mars",
+        dataTypes: ["Mars Elevation & Slope Profiles", "Laser Altimetry"],
         resolution: "128 px/deg (463 m)",
         volumeGigabytes: 1400,
         volumeDisplay: "1.4 TB",
         status: "Live & Synced",
         feed: true,
+        portalUrl:
+            "https://pds-geosciences.wustl.edu/missions/mgs/mola.html",
         description:
-            "Global laser altimetry topographic surface map used as the primary planetary elevation and roughness datum for martian analog correlation.",
-    },
-    {
-        id: "lro-lola",
-        name: "Lunar Reconnaissance Orbiter (LRO LOLA)",
-        provider: "NASA GSFC",
-        targetBody: "Moon",
-        category: "moon",
-        dataTypes: ["Altimetry DEM", "Crater Slope"],
-        resolution: "5 m/px Polar",
-        volumeGigabytes: 820,
-        volumeDisplay: "820 GB",
-        status: "Live & Synced",
-        feed: true,
-        description:
-            "High-precision laser altimeter datasets evaluating lunar south pole slope gradients and micro-cold-trap illumination environments.",
-    },
-    {
-        id: "hirise-crism",
-        name: "HiRISE Mineralogical Imagery (CRISM)",
-        provider: "NASA / U. Arizona",
-        targetBody: "Mars",
-        category: "mars",
-        dataTypes: ["Basalt Spectroscopy", "Surface Mineralogy"],
-        resolution: "0.25 m/px",
-        volumeGigabytes: 2800,
-        volumeDisplay: "2.8 TB",
-        status: "Live & Synced",
-        feed: true,
-        description:
-            "Hyperspectral infrared reflectance and visual orthomosaics identifying phyllosilicates, olivine, and sulfates across candidate martian landing zones.",
-    },
-    {
-        id: "srtm-elevation",
-        name: "Shuttle Radar Topography Mission (SRTM)",
-        provider: "USGS / NASA",
-        targetBody: "Earth",
-        category: "earth",
-        dataTypes: ["Elevation DEM", "Geomorphology"],
-        resolution: "30 m/px Global",
-        volumeGigabytes: 340,
-        volumeDisplay: "340 GB",
-        status: "Live & Synced",
-        feed: false,
-        description:
-            "Global digital elevation models for Earth field research sites, enabling multi-scale slope matching with extraterrestrial test polygons.",
-    },
-    {
-        id: "mro-sharad",
-        name: "Mars Reconnaissance Orbiter (SHARAD)",
-        provider: "ASI / NASA JPL",
-        targetBody: "Mars",
-        category: "mars",
-        dataTypes: ["Radar Sounding", "Subsurface Ice"],
-        resolution: "15 m Depth",
-        volumeGigabytes: 460,
-        volumeDisplay: "460 GB",
-        status: "Live & Synced",
-        feed: true,
-        description:
-            "Subsurface sounding radar data mapping shallow glaciers and permafrost sheets analogous to high-latitude terrestrial polar permafrost.",
-    },
-    {
-        id: "sentinel-2",
-        name: "Copernicus Sentinel-2 Surface Reflectance",
-        provider: "ESA",
-        targetBody: "Earth",
-        category: "earth",
-        dataTypes: ["Multispectral", "Vegetation Index"],
-        resolution: "10 m Multispectral",
-        volumeGigabytes: 1100,
-        volumeDisplay: "1.1 TB",
-        status: "Live & Synced",
-        feed: true,
-        description:
-            "High-cadence multispectral surface observation monitoring aridity extremes, soil moisture, and sparse vegetation at Earth analog proving grounds.",
-    },
-    {
-        id: "kaguya-selene",
-        name: "Kaguya (SELENE) Terrain Camera Archive",
-        provider: "JAXA",
-        targetBody: "Moon",
-        category: "moon",
-        dataTypes: ["Stereo DEM", "Lava Tube Skylights"],
-        resolution: "10 m Global",
-        volumeGigabytes: 520,
-        volumeDisplay: "520 GB",
-        status: "Live & Synced",
-        feed: false,
-        description:
-            "Lunar surface stereo photogrammetry documenting mare basalt collapse pits and lava tube entrances for subterranean planetary habitat modeling.",
-    },
-    {
-        id: "usgs-astrogeology",
-        name: "USGS Planetary GIS & Geologic Mapping",
-        provider: "USGS Astrogeology",
-        targetBody: "Moon & Mars",
-        category: "moon",
-        dataTypes: ["Stratigraphy", "Impact Breccia"],
-        resolution: "1:5,000,000 Global",
-        volumeGigabytes: 180,
-        volumeDisplay: "180 GB",
-        status: "Live & Synced",
-        feed: false,
-        description:
-            "Standardized geological callsets classifying impact melt sheets, regolith breccia, and volcanic basalt stratigraphy across lunar and martian bodies.",
+            "Mars Orbiter Laser Altimeter precision global topographic datum and slope profiles used as the reference elevation baseline for Martian analogs.",
     },
 ];
 
 /**
- * Set of built-in default archive IDs used to identify custom user-added sources.
+ * Set of built-in official archive IDs used to distinguish canonical NASA/PDS
+ * datasets from custom researcher-added sources.
  */
 const DEFAULT_ARCHIVE_IDS = new Set(DEFAULT_PLANETARY_ARCHIVES.map((item) => item.id));
 
@@ -187,6 +260,44 @@ const writeCustomSourcesToStorage = (sources) => {
 };
 
 /**
+ * Reconciles backend MongoDB records with the authoritative 10 official datasets
+ * so any legacy placeholder items or missing `portalUrl` / category corrections
+ * (e.g. MGS MOLA & Mars ODE as Mars) are cleanly normalized while preserving
+ * user-added custom archives.
+ */
+const reconcileOfficialCatalog = (serverRecords) => {
+    const officialById = new Map(
+        DEFAULT_PLANETARY_ARCHIVES.map((item) => [item.id, item])
+    );
+
+    const customFromServer = (Array.isArray(serverRecords) ? serverRecords : []).filter(
+        (item) => {
+            if (!item || !item.id) return Boolean(item?.name);
+            return !officialById.has(item.id) && !LEGACY_PLACEHOLDER_IDS.has(item.id);
+        }
+    );
+
+    const officialFromServer = DEFAULT_PLANETARY_ARCHIVES.map((official) => {
+        const match = (Array.isArray(serverRecords) ? serverRecords : []).find(
+            (item) => item?.id === official.id
+        );
+        if (!match) return official;
+        // Enforce authoritative category, targetBody, and portalUrl while keeping MongoDB _id
+        return {
+            ...official,
+            ...match,
+            name: official.name,
+            provider: official.provider,
+            targetBody: official.targetBody,
+            category: official.category,
+            portalUrl: official.portalUrl,
+        };
+    });
+
+    return [...officialFromServer, ...customFromServer];
+};
+
+/**
  * Deduplicates and merges primary planetary archive sources with fallback or
  * custom localStorage sources by ID or name.
  */
@@ -216,7 +327,7 @@ const mergeDatasets = (primaryList, secondaryList) => {
  * ============================================================================
  * Elevated Data Sources & Planetary Archives directory powered by MongoDB with
  * automatic static fallback (`DEFAULT_PLANETARY_ARCHIVES` + `localStorage`) so
- * Netlify deployments always show all 8 default archives and support custom sources:
+ * Netlify deployments always show all 10 official archives and support custom sources:
  * - Fetches datasets from `GET /data-sources` and falls back gracefully when offline
  * - Modal form registers custom planetary archives to MongoDB & `localStorage`
  * - Dynamically recalculates total storage volume across filtered datasets
@@ -292,6 +403,7 @@ const DataServerPage = () => {
         let isMounted = true;
         const localCustomSources = readCustomSourcesFromStorage();
 
+        // Query live data sources catalog from Express/MongoDB backend
         fetch(`${API_BASE_URL}/data-sources`)
             .then((res) => {
                 if (!res.ok) {
@@ -302,17 +414,18 @@ const DataServerPage = () => {
             .then((data) => {
                 if (!isMounted) return;
                 if (Array.isArray(data) && data.length > 0) {
-                    // Merge server records with any locally cached custom sources
-                    setDatasets(mergeDatasets(data, localCustomSources));
+                    // Reconcile official 10 NASA/PDS datasets and merge local custom sources
+                    const reconciled = reconcileOfficialCatalog(data);
+                    setDatasets(mergeDatasets(reconciled, localCustomSources));
                 } else {
-                    // Empty server response: automatically serve 8 defaults + local custom sources
+                    // Empty server response: automatically serve 10 official defaults + local custom sources
                     setDatasets(
                         mergeDatasets(localCustomSources, DEFAULT_PLANETARY_ARCHIVES)
                     );
                 }
             })
             .catch((err) => {
-                // Backend unreachable (e.g., Netlify): serve 8 defaults + local custom sources
+                // Backend unreachable (e.g., Netlify): serve 10 official defaults + local custom sources
                 console.debug(
                     "Using static planetary archives fallback:",
                     err?.message || err
@@ -442,6 +555,7 @@ const DataServerPage = () => {
                 customEndpoint.trim() || "direct STAC catalog feed"
             }.`,
             endpoint: customEndpoint.trim(),
+            portalUrl: customEndpoint.trim(),
             created_at: new Date().toISOString(),
         };
 
@@ -700,21 +814,37 @@ const DataServerPage = () => {
                                         </div>
                                     </div>
 
-                                    {/* Bottom Telemetry Row: Resolution, Volume & Integration Status */}
-                                    <div className="flex items-center justify-between border-t border-[#21242C] pt-3 text-xs">
-                                        <div className="flex items-center gap-3 text-[#8891A0] font-mono text-[11px]">
-                                            <span>Res: {dataset.resolution}</span>
-                                            <span>•</span>
-                                            <span className="text-[#F1EEE9] font-semibold">
-                                                {dataset.volumeDisplay}
-                                            </span>
+                                    {/* Bottom Telemetry Row: Resolution, Volume, Archive Link & Integration Status */}
+                                    <div className="border-t border-[#21242C] pt-3 space-y-2.5 text-xs">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-3 text-[#8891A0] font-mono text-[11px]">
+                                                <span>Res: {dataset.resolution}</span>
+                                                <span>•</span>
+                                                <span className="text-[#F1EEE9] font-semibold">
+                                                    {dataset.volumeDisplay}
+                                                </span>
+                                            </div>
+
+                                            {/* Live Status Pill with emerald indicator */}
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/40 border border-emerald-800/40 text-emerald-400 text-[10px] font-medium shrink-0">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                                <span>{dataset.status || "Live & Synced"}</span>
+                                            </div>
                                         </div>
 
-                                        {/* Live Status Pill with emerald indicator */}
-                                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/40 border border-emerald-800/40 text-emerald-400 text-[10px] font-medium">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                            <span>{dataset.status || "Live & Synced"}</span>
-                                        </div>
+                                        {/* External Official Portal Link ("Open Official Archive ↗") */}
+                                        {(dataset.portalUrl || dataset.endpoint) && (
+                                            <div className="flex items-center justify-end">
+                                                <a
+                                                    href={dataset.portalUrl || dataset.endpoint}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 text-[11px] font-medium text-[#83CAD8] hover:text-[#a8dde8] hover:underline transition"
+                                                >
+                                                    <span>Open Official Archive ↗</span>
+                                                </a>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             );

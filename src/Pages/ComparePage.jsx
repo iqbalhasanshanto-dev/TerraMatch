@@ -10,6 +10,7 @@ import {
     ArrowRight,
     Sparkles,
     Bot,
+    Orbit,
 } from "lucide-react";
 import useSaved from "../Hooks/useSaved";
 import Loader from "../Components/Loader";
@@ -21,6 +22,80 @@ import {
     getSurfaceTemperature,
     getTargetBodyInfo,
 } from "../utils/analogSpec";
+
+/**
+ * ============================================================================
+ * Constant: Planetary Target Reference Baselines (Official NASA PDS Archives)
+ * ============================================================================
+ * Real orbital baseline measurements compiled from TerraMatch's integrated
+ * Moon PDS (`LRO LOLA`, `LRO Diviner`, `Chandrayaan-1 M3`) and Mars PDS
+ * (`MGS MOLA`, `Mars ODE`) datasets so scientists can benchmark Earth analog
+ * telemetry directly against actual Lunar and Martian surface conditions.
+ */
+const PLANETARY_TARGET_BASELINES = [
+    {
+        id: "moon-pds",
+        body: "Moon",
+        title: "Lunar Surface Baseline",
+        badgeClassName:
+            "bg-[#83CAD8]/15 text-[#83CAD8] border border-[#83CAD8]/30",
+        accentTextClass: "text-[#83CAD8]",
+        datasets: ["LRO LOLA", "LRO Diviner", "Chandrayaan-1 M3"],
+        metrics: [
+            {
+                label: "Surface Temp (LRO Diviner)",
+                value: "-173°C to +127°C",
+                detail: "PSRs down to -248°C (25 K)",
+            },
+            {
+                label: "Topography (LRO LOLA)",
+                value: "-9.1 to +10.8 km",
+                detail: "19.9 km relief • 0°–35° polar slopes",
+            },
+            {
+                label: "Mineralogy (Chandrayaan-1 M3)",
+                value: "Anorthosite & Basalt",
+                detail: "Polar OH / H₂O (2.8–3.0 µm)",
+            },
+            {
+                label: "Solar / Atmosphere",
+                value: "~1,361 W/m² • Vacuum",
+                detail: "0% RH • Unfiltered UV flux",
+            },
+        ],
+    },
+    {
+        id: "mars-pds",
+        body: "Mars",
+        title: "Martian Surface Baseline",
+        badgeClassName:
+            "bg-[#D67051]/15 text-[#D67051] border border-[#D67051]/30",
+        accentTextClass: "text-[#D67051]",
+        datasets: ["MGS MOLA", "Mars ODE"],
+        metrics: [
+            {
+                label: "Mean Surface Temp (Mars ODE)",
+                value: "-63°C Mean",
+                detail: "-143°C polar winter to +20°C noon",
+            },
+            {
+                label: "Elevation Datum (MGS MOLA)",
+                value: "-8.2 to +21.2 km",
+                detail: "Hellas Basin to Olympus Mons",
+            },
+            {
+                label: "Regolith (Mars ODE Archives)",
+                value: "Fe-Basalt & Sulfates",
+                detail: "Phyllosilicates & perchlorates",
+            },
+            {
+                label: "Solar / Atmosphere",
+                value: "~590 W/m² • ~6 mbar CO₂",
+                detail: "Hyper-arid trace water vapor",
+            },
+        ],
+    },
+];
 
 /**
  * ============================================================================
@@ -861,7 +936,100 @@ const ComparePage = () => {
                         </div>
 
                         {/* ================================================== */}
-                        {/* 4. Scientific Parameter Comparison Matrix Table    */}
+                        {/* 4. Planetary Target Reference Baselines (PDS)      */}
+                        {/* ================================================== */}
+                        {/* Compact Moon & Mars PDS baseline strip for benchmarking */}
+                        {/* Earth analog Location A and Location B surface metrics. */}
+                        <section
+                            aria-label="Planetary Target Reference Baselines from PDS Archives"
+                            className="bg-[#0B0E13] border border-[#21242C] rounded-xl p-4 shadow-md space-y-3"
+                        >
+                            {/* Strip Header: Title & Data Sources Link */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#21242C] pb-2.5">
+                                <div className="flex items-center gap-2">
+                                    <Orbit
+                                        size={15}
+                                        aria-hidden="true"
+                                        className="text-[#83CAD8] shrink-0"
+                                    />
+                                    <div>
+                                        <h2 className="text-xs sm:text-sm font-semibold text-[#F1EEE9] tracking-tight">
+                                            Planetary Target Reference Baselines (PDS Archives)
+                                        </h2>
+                                        <p className="text-[11px] text-[#8891A0]">
+                                            Orbital telemetry benchmarks from official Lunar &amp; Martian PDS datasets for cross-planetary analog calibration.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <Link
+                                    to="/data-sources"
+                                    className="text-[11px] font-medium text-[#83CAD8] hover:underline shrink-0"
+                                >
+                                    View PDS Archives →
+                                </Link>
+                            </div>
+
+                            {/* Two-Column Baseline Grid: Moon PDS vs. Mars PDS */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                {PLANETARY_TARGET_BASELINES.map((baseline) => (
+                                    <div
+                                        key={baseline.id}
+                                        className="bg-[#07090E] border border-[#21242C] rounded-lg p-3 space-y-2.5"
+                                    >
+                                        {/* Planetary Body Title & Official Dataset Pills */}
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${baseline.badgeClassName}`}
+                                                >
+                                                    {baseline.body}
+                                                </span>
+                                                <span className="text-xs font-semibold text-[#F1EEE9]">
+                                                    {baseline.title}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex flex-wrap items-center gap-1">
+                                                {baseline.datasets.map((ds) => (
+                                                    <span
+                                                        key={ds}
+                                                        className="px-1.5 py-0.5 rounded bg-[#181A21] border border-[#21242C] text-[10px] font-mono text-[#8891A0]"
+                                                    >
+                                                        {ds}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Compact 4-Metric Orbital Reference Strip */}
+                                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                            {baseline.metrics.map((metric) => (
+                                                <div
+                                                    key={metric.label}
+                                                    className="bg-[#0B0E13] border border-[#21242C] rounded px-2.5 py-1.5"
+                                                >
+                                                    <span className="block text-[9px] font-medium uppercase tracking-wider text-[#8891A0] truncate">
+                                                        {metric.label}
+                                                    </span>
+                                                    <span
+                                                        className={`block font-mono font-semibold text-[11px] mt-0.5 truncate ${baseline.accentTextClass}`}
+                                                    >
+                                                        {metric.value}
+                                                    </span>
+                                                    <span className="block text-[10px] text-[#8891A0] truncate">
+                                                        {metric.detail}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* ================================================== */}
+                        {/* 5. Scientific Parameter Comparison Matrix Table    */}
                         {/* ================================================== */}
                         <div className="bg-[#0B0E13] border border-[#21242C] rounded-xl overflow-hidden shadow-md">
                             <table className="w-full text-left text-xs">
@@ -960,7 +1128,7 @@ const ComparePage = () => {
                         </div>
 
                         {/* ================================================== */}
-                        {/* 5. Bottom Scientific Comparison Summary Banner     */}
+                        {/* 6. Bottom Scientific Comparison Summary Banner     */}
                         {/* ================================================== */}
                         <div className="bg-[#0B0E13] border border-[#21242C] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
                             {/* Left: Scientific Highlight Narrative */}
