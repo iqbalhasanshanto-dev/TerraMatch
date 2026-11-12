@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import useAuth from "../Hooks/useAuth";
 import { toast } from "react-toastify";
 import { useLocation, useNavigate } from "react-router";
@@ -28,6 +28,8 @@ const Login = () => {
     const navigate = useNavigate();
     /** Prevents duplicate post-login navigation if popup resolution and auth effect both fire. */
     const hasCompletedRedirectRef = useRef(false);
+    /** Prevents overlapping double-click popup requests while Google OAuth is active. */
+    const [isSigningIn, setIsSigningIn] = useState(false);
 
     // ------------------------------------------------------------------------
     // 2. Post-Login Destination Resolution & Redirect Completion Helpers
@@ -97,6 +99,9 @@ const Login = () => {
      * an error toast.
      */
     const handleGoogleSignIn = () => {
+        if (isSigningIn) return;
+        setIsSigningIn(true);
+
         if (typeof window !== "undefined") {
             window.sessionStorage.setItem(
                 "terramatch_post_login_redirect",
@@ -111,8 +116,17 @@ const Login = () => {
                 }
             })
             .catch((error) => {
+                if (
+                    error?.code === "auth/popup-closed-by-user" ||
+                    error?.code === "auth/cancelled-popup-request"
+                ) {
+                    return;
+                }
                 console.error("Sign-in error:", error);
                 toast.error(error.message || "Failed to sign in. Please try again.");
+            })
+            .finally(() => {
+                setIsSigningIn(false);
             });
     };
 
@@ -139,7 +153,8 @@ const Login = () => {
                     <button
                         type="button"
                         onClick={handleGoogleSignIn}
-                        className="w-full h-11 rounded-xl bg-[#1A1D23] border border-[#21242C] text-[#F1EEE9] text-sm font-semibold hover:border-[#83CAD8] hover:bg-[#1E2129] flex items-center justify-center gap-3 transition cursor-pointer shadow-md"
+                        disabled={isSigningIn}
+                        className="w-full h-11 rounded-xl bg-[#1A1D23] border border-[#21242C] text-[#F1EEE9] text-sm font-semibold hover:border-[#83CAD8] hover:bg-[#1E2129] flex items-center justify-center gap-3 transition cursor-pointer shadow-md disabled:opacity-60 disabled:cursor-wait"
                     >
                         <svg
                             aria-label="Google logo"

@@ -30,6 +30,7 @@ googleProvider.setCustomParameters({ prompt: "select_account" });
 const REDIRECT_FALLBACK_ERROR_CODES = new Set([
     "auth/internal-error",
     "auth/popup-blocked",
+    "auth/popup-closed-by-user",
     "auth/operation-not-supported-in-this-environment",
 ]);
 
@@ -93,6 +94,19 @@ const AuthProvider = ({ children }) => {
             setLoading(false);
             return result;
         } catch (error) {
+            // If Firebase actually completed auth before reporting popup closure, use that user
+            if (auth?.currentUser) {
+                setUser(auth.currentUser);
+                setLoading(false);
+                return { user: auth.currentUser };
+            }
+
+            // Ignore duplicate-click cancellations quietly while the active flow proceeds
+            if (error?.code === "auth/cancelled-popup-request") {
+                setLoading(false);
+                return null;
+            }
+
             if (shouldFallbackToRedirect(error)) {
                 console.warn(
                     `Google popup sign-in failed (${error.code}); falling back to redirect sign-in.`
