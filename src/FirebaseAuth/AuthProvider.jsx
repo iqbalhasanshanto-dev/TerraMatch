@@ -86,6 +86,10 @@ const AuthProvider = ({ children }) => {
 
         try {
             const result = await signInWithPopup(auth, googleProvider);
+            // Synchronously hydrate `user` immediately without waiting for the next auth observer tick
+            if (result?.user) {
+                setUser(result.user);
+            }
             setLoading(false);
             return result;
         } catch (error) {

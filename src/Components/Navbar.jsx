@@ -46,14 +46,34 @@ const Navbar = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     // ------------------------------------------------------------------------
-    // 2. Derived Navigation State
+    // 2. Derived Navigation State & Pre-Login Return Path
     // ------------------------------------------------------------------------
     // Search mode is active either via StateContext flag or when visiting `/search`
     const isSearchActive = isSearch || location.pathname === "/search";
 
+    // Full path + query string to return the user to after signing in
+    const postLoginReturnPath =
+        location.pathname !== "/login"
+            ? `${location.pathname}${location.search}`
+            : "/";
+
     // ------------------------------------------------------------------------
     // 3. Navigation Click Handler Functions
     // ------------------------------------------------------------------------
+    /**
+     * Persists the user's current route in `sessionStorage` right before
+     * navigating to `/login` so both popup and full-page redirect OAuth flows
+     * return them to the exact page they started from.
+     */
+    const handleSignInClick = () => {
+        if (location.pathname !== "/login" && typeof window !== "undefined") {
+            window.sessionStorage.setItem(
+                "terramatch_post_login_redirect",
+                `${location.pathname}${location.search}`
+            );
+        }
+        setMobileMenuOpen(false);
+    };
     /**
      * Activates search/filter sidebar mode and closes the mobile navigation drawer.
      */
@@ -214,9 +234,11 @@ const Navbar = () => {
                 {user ? (
                     <Profile />
                 ) : (
-                    /* Guest state: Clean Sign in button without any circular "TM" avatar badge */
+                    /* Guest state: Clean Sign in button preserving the current route for post-login return */
                     <Link
                         to="/login"
+                        state={{ from: postLoginReturnPath }}
+                        onClick={handleSignInClick}
                         className="px-3.5 py-1.5 rounded-lg bg-[#83CAD8] text-[#090D15] font-semibold text-xs hover:opacity-90 transition"
                     >
                         Sign in

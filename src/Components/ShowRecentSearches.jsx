@@ -1,5 +1,5 @@
 import { useState, useContext, useRef, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { Clock3, Globe, MapPin, X, Check, RotateCcw } from "lucide-react";
 import useSaved from "../Hooks/useSaved";
 import { toast } from "react-toastify";
@@ -48,6 +48,9 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     /** Router navigation helper used by the guest `"Sign in →"` button and toast CTA. */
     const navigate = useNavigate();
 
+    /** Current router location preserved in sessionStorage when navigating to `/login`. */
+    const location = useLocation();
+
     /** Centralized saved bookmarks hook for badge count, Saved indicators, and saving. */
     const { savedLoc, saveLocation } = useSaved();
 
@@ -56,6 +59,26 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
 
     /** Convenience boolean indicating whether an authenticated user session is active. */
     const isAuthenticated = Boolean(user?.email);
+
+    /**
+     * Saves the current path + query string and navigates to `/login` so
+     * signing in returns the user to the exact page they started from.
+     */
+    const handleGuestSignIn = () => {
+        const returnPath =
+            location.pathname !== "/login"
+                ? `${location.pathname}${location.search}`
+                : "/";
+
+        if (location.pathname !== "/login" && typeof window !== "undefined") {
+            window.sessionStorage.setItem(
+                "terramatch_post_login_redirect",
+                returnPath
+            );
+        }
+
+        navigate("/login", { state: { from: returnPath } });
+    };
 
     // ------------------------------------------------------------------------
     // 2. Optimistic Delete & 5-Second Undo Timer State Variables
@@ -444,7 +467,7 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
                         </p>
                         <button
                             type="button"
-                            onClick={() => navigate("/login")}
+                            onClick={handleGuestSignIn}
                             className="bg-[#1A1D23] border border-[#21242C] hover:border-[#83CAD8] text-[#83CAD8] text-xs font-semibold px-3 py-1.5 rounded-lg mt-3 inline-flex items-center gap-1 cursor-pointer transition"
                         >
                             <span>Sign in →</span>

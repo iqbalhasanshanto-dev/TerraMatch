@@ -20,14 +20,31 @@ export const showSignInPromptToast = (navigate) => {
                     Please sign in to save and compare analog locations.
                 </span>
 
-                {/* Interactive cyan CTA navigating directly to the Login portal */}
+                {/* Interactive cyan CTA saving the current path and navigating to the Login portal */}
                 <button
                     type="button"
                     onClick={(e) => {
                         e.stopPropagation();
                         closeToast?.();
+
+                        const currentPath =
+                            typeof window !== "undefined" &&
+                            window.location.pathname !== "/login"
+                                ? `${window.location.pathname}${window.location.search}`
+                                : "/";
+
+                        if (
+                            typeof window !== "undefined" &&
+                            window.location.pathname !== "/login"
+                        ) {
+                            window.sessionStorage.setItem(
+                                "terramatch_post_login_redirect",
+                                currentPath
+                            );
+                        }
+
                         if (typeof navigate === "function") {
-                            navigate("/login");
+                            navigate("/login", { state: { from: currentPath } });
                         } else {
                             window.location.assign("/login");
                         }

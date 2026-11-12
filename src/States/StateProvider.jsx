@@ -441,6 +441,10 @@ const StateProvider = ({ children }) => {
     // Synchronize saved locations from user-scoped localStorage + MongoDB on sign-in
     useEffect(() => {
         if (!userEmail) {
+            // Reset internal saved state on sign-out so no prior user records linger in memory
+            queueMicrotask(() => {
+                setSavedState({ owner: null, items: [] });
+            });
             return;
         }
 
@@ -593,6 +597,10 @@ const StateProvider = ({ children }) => {
     // Synchronize recent searches from user-scoped localStorage + MongoDB on sign-in
     useEffect(() => {
         if (!userEmail) {
+            // Reset internal recent-search state on sign-out so no prior user history lingers in memory
+            queueMicrotask(() => {
+                setRecentState({ owner: null, items: [] });
+            });
             return;
         }
 

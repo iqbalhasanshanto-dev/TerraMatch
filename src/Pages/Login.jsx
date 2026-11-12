@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import useAuth from "../Hooks/useAuth";
 import { toast } from "react-toastify";
 import { useLocation, useNavigate } from "react-router";
@@ -18,7 +18,7 @@ import Logo from "../Components/Logo";
  */
 const Login = () => {
     // ------------------------------------------------------------------------
-    // 1. Authentication Hooks & Router Navigation
+    // 1. Authentication Hooks, Router Navigation & Redirect Guard
     // ------------------------------------------------------------------------
     /** `signInGoogle` triggers popup/redirect OAuth; `user` tracks active session. */
     const { signInGoogle, user } = useAuth();
@@ -26,44 +26,98 @@ const Login = () => {
     const location = useLocation();
     /** Router navigation helper used to redirect authenticated users. */
     const navigate = useNavigate();
-    /** Destination path after authentication (originating route or `/` Dashboard). */
-    const redirectPath = location?.state || "/";
+    /** Prevents duplicate post-login navigation if popup resolution and auth effect both fire. */
+    const hasCompletedRedirectRef = useRef(false);
 
     // ------------------------------------------------------------------------
-    // 2. Authenticated Session Auto-Redirect Effect
+    // 2. Post-Login Destination Resolution & Redirect Completion Helpers
+    // ------------------------------------------------------------------------
+    /**
+     * Resolves the exact route the user should return to after signing in,
+     * checking React Router `location.state` first, then `sessionStorage`,
+     * and falling back to `"/"` (never looping back to `"/login"`).
+     *
+     * @returns {string} Safe post-authentication destination path.
+     */
+    const getRedirectDestination = useCallback(() => {
+        const fromState =
+            typeof location?.state === "string"
+                ? location.state
+                : location?.state?.from;
+        const fromSession =
+            typeof window !== "undefined"
+                ? window.sessionStorage.getItem("terramatch_post_login_redirect")
+                : null;
+        const target = fromState || fromSession || "/";
+        return target === "/login" ? "/" : target;
+    }, [location]);
+
+    /**
+     * Completes post-login navigation exactly once: clears the saved redirect
+     * key from `sessionStorage`, displays the deduplicated success toast, and
+     * replaces `/login` in browser history with the resolved destination.
+     */
+    const completeLoginRedirect = useCallback(() => {
+        if (hasCompletedRedirectRef.current) return;
+        hasCompletedRedirectRef.current = true;
+
+        const destination = getRedirectDestination();
+        if (typeof window !== "undefined") {
+            window.sessionStorage.removeItem("terramatch_post_login_redirect");
+        }
+
+        toast.success("Successfully signed in with Google!", {
+            toastId: "google-signin-success",
+        });
+        navigate(destination, { replace: true });
+    }, [getRedirectDestination, navigate]);
+
+    // ------------------------------------------------------------------------
+    // 3. Authenticated Session Auto-Redirect Effect
     // ------------------------------------------------------------------------
     /**
      * Watches `user` from AuthContext. As soon as `user` becomes truthy—whether
      * from a popup sign-in, a returning Google redirect sign-in, or an already
-     * active session—displays a success toast and navigates to `redirectPath`.
+     * active session—completes the post-login redirect.
      */
     useEffect(() => {
         if (user) {
-            toast.success("Successfully signed in with Google!", {
-                toastId: "google-signin-success",
-            });
-            navigate(redirectPath, { replace: true });
+            completeLoginRedirect();
         }
-    }, [user, navigate, redirectPath]);
+    }, [user, completeLoginRedirect]);
 
     // ------------------------------------------------------------------------
-    // 3. Google OAuth Sign-In Handler
+    // 4. Google OAuth Sign-In Handler
     // ------------------------------------------------------------------------
     /**
-     * Triggers Firebase Google OAuth sign-in (popup with automatic redirect
-     * fallback). Successful completion updates `user` in AuthContext, which is
-     * handled by the auto-redirect effect above; non-fallback errors surface
-     * an error toast here.
+     * Persists the target return URL in `sessionStorage` before starting Google
+     * OAuth (so full-page `signInWithRedirect` fallbacks preserve the exact
+     * origin route), then triggers `signInGoogle()`. On popup completion with
+     * `result?.user`, immediately completes redirect; non-fallback errors surface
+     * an error toast.
      */
     const handleGoogleSignIn = () => {
-        signInGoogle().catch((error) => {
-            console.error("Sign-in error:", error);
-            toast.error(error.message || "Failed to sign in. Please try again.");
-        });
+        if (typeof window !== "undefined") {
+            window.sessionStorage.setItem(
+                "terramatch_post_login_redirect",
+                getRedirectDestination()
+            );
+        }
+
+        signInGoogle()
+            .then((result) => {
+                if (result?.user) {
+                    completeLoginRedirect();
+                }
+            })
+            .catch((error) => {
+                console.error("Sign-in error:", error);
+                toast.error(error.message || "Failed to sign in. Please try again.");
+            });
     };
 
     // ------------------------------------------------------------------------
-    // 4. Component Render Block
+    // 5. Component Render Block
     // ------------------------------------------------------------------------
     return (
         <div className="min-h-screen bg-[#07090E] flex flex-col items-center justify-center px-4 relative select-none">

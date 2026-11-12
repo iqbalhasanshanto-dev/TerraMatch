@@ -10,11 +10,13 @@
 # Global HTTP Response Headers
 # ==============================================================================
 # Applied to every route (`/*`) served by Netlify.
+# Note: Do NOT add a restrictive `Content-Security-Policy = "script-src 'self'"`
+# header here, as Firebase Authentication requires external scripts and endpoints
+# (`https://apis.google.com`, `https://*.firebaseapp.com`,
+# `https://securetoken.googleapis.com`, `https://identitytoolkit.googleapis.com`).
 [[headers]]
   for = "/*"
   [headers.values]
-    # Restrict script execution to same-origin bundles.
-    Content-Security-Policy = "script-src 'self'"
     # Allow Firebase Google OAuth popups to communicate back to the opener tab
     # cleanly instead of failing with `auth/internal-error`.
     Cross-Origin-Opener-Policy = "same-origin-allow-popups"
