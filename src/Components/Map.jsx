@@ -59,6 +59,9 @@ const Map = ({ isSidebarOpen }) => {
     // Dictionary mapping location IDs (and fallback name keys) to Leaflet Marker refs
     const markerRefs = useRef({});
 
+    // Tracks previous sidebar state so subtle desktop pan only runs on real toggles
+    const prevSidebarOpenRef = useRef(isSidebarOpen);
+
     // Global default map center coordinates (equatorial overview)
     const defaultPosition = [20.0, 10.0];
 
@@ -101,20 +104,20 @@ const Map = ({ isSidebarOpen }) => {
         };
     }, []);
 
-    // Revalidates Leaflet canvas dimensions after the desktop/mobile drawer transition settles
+    // Subtly shifts the visible viewport center on desktop when the overlay drawer toggles
     useEffect(() => {
-        if (!mapRef.current) return;
+        const previousState = prevSidebarOpenRef.current;
+        prevSidebarOpenRef.current = isSidebarOpen;
 
-        // Pass `animate: false` so layout resize revalidation never cancels an active flyTo flight
-        mapRef.current.invalidateSize({ animate: false });
+        if (!mapRef.current || previousState === isSidebarOpen) return;
 
-        const transitionTimer = setTimeout(() => {
-            if (mapRef.current) {
-                mapRef.current.invalidateSize({ animate: false });
-            }
-        }, 320);
-
-        return () => clearTimeout(transitionTimer);
+        // Only pan subtly on desktop (>= 1024px) where the right drawer overlays the canvas
+        if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+            mapRef.current.panBy([isSidebarOpen ? 160 : -160, 0], {
+                animate: true,
+                duration: 0.3,
+            });
+        }
     }, [isSidebarOpen]);
 
     // ------------------------------------------------------------------------
@@ -334,8 +337,12 @@ const Map = ({ isSidebarOpen }) => {
                 })}
             </MapContainer>
 
-            {/* Custom Bottom-Right Dark Zoom Controls (bg-[#0B0E13], border-[#21242C]) */}
-            <div className="absolute bottom-8 right-4 z-20 flex flex-col gap-1.5 select-none">
+            {/* Custom Bottom-Right Dark Zoom Controls (Shifts smoothly around overlay drawer) */}
+            <div
+                className={`absolute bottom-8 z-20 flex flex-col gap-1.5 select-none transition-all duration-300 ${
+                    isSidebarOpen ? "lg:right-[24.5rem] right-4" : "right-4"
+                }`}
+            >
                 {/* Zoom In Button */}
                 <button
                     type="button"

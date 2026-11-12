@@ -226,7 +226,13 @@ body {
  * widgets do not obscure map controls, attribution, or interactive panels.
  * ============================================================================ */
 div[data-netlify-deploy-drawer],
+[data-netlify-deploy-drawer],
+iframe[src*="netlify"],
 iframe[id*="netlify"],
-.netlify-identity-button {
+#netlify-identity-widget,
+.netlify-identity-button,
+body > a[href*="netlify.com"] {
   display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }

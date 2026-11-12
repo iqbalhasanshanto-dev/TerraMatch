@@ -1,65 +1,37 @@
-import axios from "axios";
-import { useEffect, useState, useCallback } from "react";
-import useAuth from "./useAuth";
-import { API_BASE_URL } from "../utils/api";
+import { useContext } from "react";
+import StateContext from "../States/StateContext";
 
 /**
+ * ============================================================================
  * Custom Hook: useSaved
- * Fetches and manages the saved candidate analog locations for the authenticated user.
+ * ============================================================================
+ * Consumes the centralized saved-locations state and actions provided by
+ * `StateProvider` so all components share a single synchronized bookmark store
+ * backed by `localStorage` and MongoDB background sync:
+ * - `savedLoc`: Current user's saved analog sites array
+ * - `setSavedLoc`: State setter that automatically mirrors to `localStorage`
+ * - `saveLocation`: Local-first bookmark saver with quiet MongoDB background sync
+ * - `removeSavedLocation`: Local-first removal helper with quiet MongoDB delete
+ * - `refetchSaved`: Manual merge/refresh trigger from MongoDB + `localStorage`
+ * - `loading` / `error`: Background fetch telemetry status
  */
 const useSaved = () => {
-    const { user } = useAuth();
-    const [savedLoc, setSavedLoc] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+    // ------------------------------------------------------------------------
+    // 1. Global StateContext Subscription
+    // ------------------------------------------------------------------------
+    const context = useContext(StateContext);
 
-    // Fetch user's saved locations
-    const fetchSavedLocations = useCallback(() => {
-        if (!user?.email) {
-            setSavedLoc([]);
-            return;
-        }
-
-        setLoading(true);
-        axios(`${API_BASE_URL}/savedLocs/${encodeURIComponent(user.email)}`)
-            .then(response => {
-                setSavedLoc(response.data || []);
-            })
-            .catch(err => {
-                console.error("Failed to fetch saved locations:", err);
-                setError(err);
-            })
-            .finally(() => setLoading(false));
-    }, [user]);
-
-    useEffect(() => {
-        let isMounted = true;
-        if (!user?.email) {
-            return;
-        }
-
-        axios(`${API_BASE_URL}/savedLocs/${encodeURIComponent(user.email)}`)
-            .then(response => {
-                if (isMounted) setSavedLoc(response.data || []);
-            })
-            .catch(err => {
-                if (isMounted) {
-                    console.error("Failed to fetch saved locations:", err);
-                    setError(err);
-                }
-            });
-
-        return () => {
-            isMounted = false;
-        };
-    }, [user?.email]);
-
+    // ------------------------------------------------------------------------
+    // 2. Defensive Fallback & Return Block
+    // ------------------------------------------------------------------------
     return {
-        savedLoc,
-        setSavedLoc,
-        refetchSaved: fetchSavedLocations,
-        loading,
-        error
+        savedLoc: context?.savedLoc || [],
+        setSavedLoc: context?.setSavedLoc,
+        saveLocation: context?.saveLocation,
+        removeSavedLocation: context?.removeSavedLocation,
+        refetchSaved: context?.refetchSaved,
+        loading: Boolean(context?.savedLoading),
+        error: context?.savedError || null,
     };
 };
 

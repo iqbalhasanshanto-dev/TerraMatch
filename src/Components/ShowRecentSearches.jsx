@@ -1,10 +1,11 @@
 import { useState, useContext, useRef, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router";
 import { Clock3, Globe, MapPin, X, Check, RotateCcw } from "lucide-react";
 import useSaved from "../Hooks/useSaved";
 import { toast } from "react-toastify";
 import useAuth from "../Hooks/useAuth";
-import { API_BASE_URL } from "../utils/api";
 import StateContext from "../States/StateContext";
+import { showSignInPromptToast } from "../utils/authToast";
 
 /**
  * ============================================================================
@@ -35,8 +36,11 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
         setMapTarget,
     } = useContext(StateContext);
 
-    // User's saved bookmarks hook for badge count and Saved indicators
-    const { savedLoc, setSavedLoc, refetchSaved } = useSaved();
+    // Router navigation helper used by the guest "Sign in →" toast CTA
+    const navigate = useNavigate();
+
+    // Centralized saved bookmarks hook for badge count, Saved indicators, and saving
+    const { savedLoc, saveLocation } = useSaved();
 
     // Current Firebase user session for database writes
     const { user } = useAuth();
@@ -46,9 +50,6 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     // ------------------------------------------------------------------------
     // Holds pending single-item or clear-all deletion state while undo banner is active
     const [pendingDeletion, setPendingDeletion] = useState(null);
-
-    // Optimistic set of bookmarked keys for instant "Saved" UI feedback
-    const [optimisticSavedIds, setOptimisticSavedIds] = useState(() => new Set());
 
     // Reference to active timeout committing the deletion to MongoDB after 5 seconds
     const deletionTimerRef = useRef(null);
@@ -73,7 +74,7 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
 
     // Fast lookup set of saved IDs / names so saved recent items display "Saved"
     const savedLocationIds = useMemo(() => {
-        const set = new Set(optimisticSavedIds);
+        const set = new Set();
         if (savedLoc && savedLoc.length > 0) {
             savedLoc.forEach((item) => {
                 const keys = [item._id, item.locationId, item.id, item.name].filter(Boolean);
@@ -81,7 +82,7 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
             });
         }
         return set;
-    }, [savedLoc, optimisticSavedIds]);
+    }, [savedLoc]);
 
     /**
      * Resolves a stable unique key for matching items in local/MongoDB history.
@@ -130,72 +131,20 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     // 5. Bookmark / Save Location Handler
     // ------------------------------------------------------------------------
     /**
-     * Saves a recent search location to the user's MongoDB Saved collection.
+     * Saves a recent search location via centralized `saveLocation` when signed in,
+     * or prompts guests with an interactive `"Sign in →"` toast without saving.
      */
     const handleSave = (locationToSave) => {
         if (!locationToSave) return;
 
-        const locationId =
-            locationToSave.locationId ||
-            locationToSave.id ||
-            locationToSave._id ||
-            locationToSave.name;
-
-        setOptimisticSavedIds((prev) => {
-            const next = new Set(prev);
-            next.add(locationId);
-            return next;
-        });
-
+        // Do not save for guests; display interactive "Sign in →" prompt toast
         if (!user?.email) {
-            toast.info("Please sign in to save locations to your account.");
+            showSignInPromptToast(navigate);
             return;
         }
 
-        if (setSavedLoc) {
-            setSavedLoc((prev) => {
-                if (
-                    prev.some(
-                        (s) => (s._id || s.locationId || s.id || s.name) === locationId
-                    )
-                ) {
-                    return prev;
-                }
-                return [
-                    {
-                        ...locationToSave,
-                        locationId,
-                        created_at: new Date(),
-                        created_by: user.email,
-                    },
-                    ...prev,
-                ];
-            });
-        }
-
-        fetch(`${API_BASE_URL}/savedLocs`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                ...locationToSave,
-                locationId,
-                created_at: new Date(),
-                created_by: user.email,
-            }),
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.success) {
-                    toast.success("Location saved to your profile!");
-                    refetchSaved?.();
-                }
-            })
-            .catch((err) => {
-                console.error("Save error:", err);
-                toast.error("Failed to save location");
-            });
+        // Persist immediately to centralized state + localStorage and sync quietly
+        saveLocation?.(locationToSave);
     };
 
     // ------------------------------------------------------------------------

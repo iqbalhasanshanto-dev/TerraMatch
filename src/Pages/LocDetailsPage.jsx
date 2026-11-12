@@ -1,44 +1,72 @@
-import { useParams, Link } from "react-router";
+import { useMemo } from "react";
+import { useParams, useNavigate, Link } from "react-router";
 import useLocations from "../Hooks/useLocations";
+import useSaved from "../Hooks/useSaved";
 import Loader from "../Components/Loader";
 import useAuth from "../Hooks/useAuth";
-import { toast } from "react-toastify";
-import { API_BASE_URL } from "../utils/api";
 import Container from "../Components/Container";
-import { ArrowLeft, Bookmark, Globe, MapPin } from "lucide-react";
+import { ArrowLeft, Bookmark, Check, Globe, MapPin } from "lucide-react";
+import { showSignInPromptToast } from "../utils/authToast";
 
 /**
  * ============================================================================
  * LocDetailsPage Component
  * ============================================================================
- * Displays comprehensive planetary analog metrics, terrain features, environmental data,
- * and geographic coordinates for an individual candidate location.
- * Styled with the deep-space color tokens:
+ * Displays comprehensive planetary analog metrics, terrain features,
+ * environmental data, and geographic coordinates for an individual candidate
+ * location. Styled with the deep-space color tokens:
  * - Surfaces: `#07090E` (Page) & `#0B0E13` (Cards) with border `#21242C`
  * - Accents: `#83CAD8` (Primary cyan) & `#1A1D23` (Secondary)
  * - Typography: High-contrast `#F1EEE9` and descriptions `#8891A0`
  */
 const LocDetailsPage = () => {
     // ------------------------------------------------------------------------
-    // 1. Route Parameters & Data Hooks
+    // 1. Route Parameters, Navigation & Data Hooks
     // ------------------------------------------------------------------------
     const { _id } = useParams();
+    const navigate = useNavigate();
     const { locData, loading } = useLocations();
+    const { savedLoc, saveLocation } = useSaved();
     const { user } = useAuth();
+
+    // Locate the matching analog candidate by MongoDB `_id` or JSON `id`
+    const neededLocation = useMemo(() => {
+        return (locData || []).find(
+            (loc) => loc._id === _id || loc.id === _id
+        );
+    }, [locData, _id]);
+
+    // Check whether this candidate site is already bookmarked in saved locations
+    const isAlreadySaved = useMemo(() => {
+        if (!neededLocation || !Array.isArray(savedLoc)) return false;
+        const targetId = neededLocation._id || neededLocation.id || neededLocation.name;
+        return savedLoc.some(
+            (item) =>
+                item._id === targetId ||
+                item.id === targetId ||
+                item.locationId === targetId ||
+                item.name === neededLocation.name
+        );
+    }, [neededLocation, savedLoc]);
 
     if (loading) return <Loader />;
 
-    // Find the requested location by ID
-    const neededLocation = (locData || []).find((loc) => loc._id === _id);
-
-    // Guard if the location doesn't exist
+    // ------------------------------------------------------------------------
+    // 2. Not-Found Guard Fallback
+    // ------------------------------------------------------------------------
     if (!neededLocation) {
         return (
             <div className="min-h-screen bg-[#07090E] text-[#F1EEE9]">
                 <Container>
                     <div className="py-20 text-center">
-                        <Globe size={44} className="mx-auto text-[#8891A0] opacity-40 mb-3" />
-                        <h2 className="text-2xl font-bold text-[#F1EEE9]">Location Not Found</h2>
+                        <Globe
+                            size={44}
+                            aria-hidden="true"
+                            className="mx-auto text-[#8891A0] opacity-40 mb-3"
+                        />
+                        <h2 className="text-2xl font-bold text-[#F1EEE9]">
+                            Location Not Found
+                        </h2>
                         <p className="text-sm text-[#8891A0] mt-1 max-w-sm mx-auto">
                             We could not find candidate analog details for ID &quot;{_id}&quot;.
                         </p>
@@ -46,7 +74,7 @@ const LocDetailsPage = () => {
                             to="/"
                             className="inline-flex items-center gap-2 mt-6 px-4 py-2 rounded-lg bg-[#83CAD8] text-[#090D15] text-xs font-semibold hover:opacity-90 transition"
                         >
-                            <ArrowLeft size={16} />
+                            <ArrowLeft size={16} aria-hidden="true" />
                             <span>Back to Map</span>
                         </Link>
                     </div>
@@ -56,39 +84,22 @@ const LocDetailsPage = () => {
     }
 
     // ------------------------------------------------------------------------
-    // 2. Bookmark Location Handler
+    // 3. Bookmark Location Handler (Centralized Save or Guest Sign-In Toast)
     // ------------------------------------------------------------------------
+    /**
+     * Persists this location via `StateProvider.saveLocation` when authenticated,
+     * or displays the interactive `"Sign in →"` toast prompt for guests.
+     */
     const handleSave = () => {
         if (!user?.email) {
-            toast.warn("Please log in to save this candidate site.");
+            showSignInPromptToast(navigate);
             return;
         }
-
-        fetch(`${API_BASE_URL}/savedLocs`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                ...neededLocation,
-                created_at: new Date(),
-                created_by: user.email,
-            }),
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.success) {
-                    toast.success("Location saved to your profile!");
-                }
-            })
-            .catch((err) => {
-                console.error("Save error:", err);
-                toast.error(err.message || "Failed to save location");
-            });
+        saveLocation?.(neededLocation);
     };
 
     // ------------------------------------------------------------------------
-    // 3. Render
+    // 4. Component Render Block
     // ------------------------------------------------------------------------
     return (
         <div className="min-h-screen bg-[#07090E] text-[#F1EEE9] select-none">
@@ -99,7 +110,7 @@ const LocDetailsPage = () => {
                         to="/"
                         className="inline-flex items-center gap-2 text-xs text-[#8891A0] hover:text-[#83CAD8] transition"
                     >
-                        <ArrowLeft size={15} />
+                        <ArrowLeft size={15} aria-hidden="true" />
                         <span>Back to Map</span>
                     </Link>
 
@@ -115,7 +126,11 @@ const LocDetailsPage = () => {
                                 </span>
                             </div>
                             <p className="text-xs text-[#8891A0] flex items-center gap-1.5 mt-1.5">
-                                <MapPin size={14} className="text-[#8891A0]" />
+                                <MapPin
+                                    size={14}
+                                    aria-hidden="true"
+                                    className="text-[#8891A0]"
+                                />
                                 <span>{neededLocation.country}</span>
                             </p>
                         </div>
@@ -125,8 +140,22 @@ const LocDetailsPage = () => {
                             onClick={handleSave}
                             className="bg-[#83CAD8] hover:opacity-90 text-[#090D15] font-semibold px-4 py-2 rounded-lg text-xs flex items-center gap-2 shadow-sm transition cursor-pointer"
                         >
-                            <Bookmark size={15} className="text-[#090D15]" />
-                            <span>Save this Location</span>
+                            {isAlreadySaved ? (
+                                <Check
+                                    size={15}
+                                    aria-hidden="true"
+                                    className="text-[#090D15]"
+                                />
+                            ) : (
+                                <Bookmark
+                                    size={15}
+                                    aria-hidden="true"
+                                    className="text-[#090D15]"
+                                />
+                            )}
+                            <span>
+                                {isAlreadySaved ? "Saved to Profile" : "Save this Location"}
+                            </span>
                         </button>
                     </div>
 
@@ -161,27 +190,36 @@ const LocDetailsPage = () => {
                             </h2>
                             <div className="grid grid-cols-2 gap-3 text-xs">
                                 <div>
-                                    <span className="text-[#8891A0] text-[10px] block">Climate</span>
+                                    <span className="text-[#8891A0] text-[10px] block">
+                                        Climate
+                                    </span>
                                     <span className="font-medium text-[#F1EEE9] capitalize">
                                         {neededLocation.environment?.climate || "N/A"}
                                     </span>
                                 </div>
                                 <div>
-                                    <span className="text-[#8891A0] text-[10px] block">Humidity</span>
+                                    <span className="text-[#8891A0] text-[10px] block">
+                                        Humidity
+                                    </span>
                                     <span className="font-medium text-[#F1EEE9] capitalize">
                                         {neededLocation.environment?.humidity || "N/A"}
                                     </span>
                                 </div>
                                 <div>
-                                    <span className="text-[#8891A0] text-[10px] block">Vegetation</span>
+                                    <span className="text-[#8891A0] text-[10px] block">
+                                        Vegetation
+                                    </span>
                                     <span className="font-medium text-[#F1EEE9] capitalize">
                                         {neededLocation.environment?.vegetation || "N/A"}
                                     </span>
                                 </div>
                                 <div>
-                                    <span className="text-[#8891A0] text-[10px] block">Elevation</span>
+                                    <span className="text-[#8891A0] text-[10px] block">
+                                        Elevation
+                                    </span>
                                     <span className="font-medium text-[#F1EEE9]">
-                                        {neededLocation.environment?.elevationMeters?.toLocaleString()} meters
+                                        {neededLocation.environment?.elevationMeters?.toLocaleString()}{" "}
+                                        meters
                                     </span>
                                 </div>
                             </div>
@@ -204,7 +242,8 @@ const LocDetailsPage = () => {
                             </div>
                             <div className="pt-3 border-t border-[#21242C] text-[11px] text-[#8891A0]">
                                 <strong className="text-[#F1EEE9]">Coordinates:</strong>{" "}
-                                {neededLocation.coordinates?.latitude}° N, {neededLocation.coordinates?.longitude}° E
+                                {neededLocation.coordinates?.latitude}° N,{" "}
+                                {neededLocation.coordinates?.longitude}° E
                             </div>
                         </div>
                     </div>

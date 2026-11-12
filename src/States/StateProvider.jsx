@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { toast } from "react-toastify";
 import StateContext from "./StateContext";
 import useAuth from "../Hooks/useAuth";
 import { API_BASE_URL } from "../utils/api";
 
 // ============================================================================
-// Constants & LocalStorage Persistence Helpers
+// Constants & LocalStorage Persistence Helpers (Recent Searches & Saved Sites)
 // ============================================================================
 
 /**
@@ -17,6 +18,13 @@ const RECENT_SEARCHES_STORAGE_KEY = "terramatch_recent_searches";
  * Maximum number of recent analog search records retained in local history.
  */
 const MAX_RECENT_SEARCHES = 25;
+
+/**
+ * Builds the user-scoped localStorage key for saved analog locations.
+ * Uses `"guest"` when no authenticated user email is present.
+ */
+const getSavedStorageKey = (email) =>
+    `terramatch_saved_locations_${email || "guest"}`;
 
 /**
  * Safely reads and parses cached recent search entries from `localStorage`.
@@ -52,10 +60,73 @@ const writeRecentToStorage = (items) => {
 };
 
 /**
- * Normalizes a candidate analog location object into a consistent recent-search
- * record with canonical `locationId` and timestamps.
+ * Safely reads and parses user-scoped saved locations from `localStorage`.
+ * Returns an empty array if storage is unavailable, empty, or malformed.
  */
-const normalizeRecentEntry = (loc, userEmail) => {
+const readSavedFromStorage = (email) => {
+    if (typeof window === "undefined") return [];
+    try {
+        const raw = window.localStorage.getItem(getSavedStorageKey(email));
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter((item) => item && typeof item.name === "string");
+    } catch (error) {
+        console.warn("Unable to read saved locations from localStorage:", error);
+        return [];
+    }
+};
+
+/**
+ * Safely serializes and persists user-scoped saved locations to `localStorage`.
+ */
+const writeSavedToStorage = (email, items) => {
+    if (typeof window === "undefined") return;
+    try {
+        window.localStorage.setItem(
+            getSavedStorageKey(email),
+            JSON.stringify(Array.isArray(items) ? items : [])
+        );
+    } catch (error) {
+        console.warn("Unable to write saved locations to localStorage:", error);
+    }
+};
+
+/**
+ * Resolves a stable canonical identifier for deduplicating location records.
+ */
+const resolveLocationKey = (loc) =>
+    loc?.locationId || loc?._id || loc?.id || loc?.name || "";
+
+/**
+ * Merges server-fetched saved locations with locally cached items without
+ * creating duplicates, preserving server records first and offline items second.
+ */
+const mergeSavedLocations = (serverItems, localItems) => {
+    const merged = [];
+    const seenKeys = new Set();
+
+    const addUnique = (item) => {
+        if (!item || typeof item.name !== "string") return;
+        const primaryKey = String(resolveLocationKey(item)).toLowerCase();
+        const nameKey = item.name.toLowerCase();
+        if (seenKeys.has(primaryKey) || seenKeys.has(nameKey)) return;
+        if (primaryKey) seenKeys.add(primaryKey);
+        seenKeys.add(nameKey);
+        merged.push(item);
+    };
+
+    (Array.isArray(serverItems) ? serverItems : []).forEach(addUnique);
+    (Array.isArray(localItems) ? localItems : []).forEach(addUnique);
+
+    return merged;
+};
+
+/**
+ * Normalizes a candidate analog location object into a consistent recent-search
+ * or saved-location record with canonical `locationId` and timestamps.
+ */
+const normalizeLocationEntry = (loc, userEmail) => {
     const canonicalLocationId = loc.locationId || loc._id || loc.id || loc.name;
     const nowIso = new Date().toISOString();
 
@@ -74,7 +145,7 @@ const normalizeRecentEntry = (loc, userEmail) => {
         description: loc.description,
         created_at: loc.created_at || nowIso,
         updated_at: nowIso,
-        ...(userEmail ? { created_by: userEmail } : {}),
+        created_by: userEmail || loc.created_by || "guest",
     };
 };
 
@@ -82,14 +153,18 @@ const normalizeRecentEntry = (loc, userEmail) => {
  * ============================================================================
  * StateProvider Component
  * ============================================================================
- * Centralizes global application UI & search history state via `StateContext`:
+ * Centralizes global application UI, search history, and saved location state:
  * - `isSearch` / `setIsSearch`: Controls active mode (Recent Searches vs. Search Filters).
  * - `filteredLoc` / `setFilteredLoc`: Active filtered planetary analog candidates.
  * - `mapTarget` / `setMapTarget`: Active coordinate target triggering smooth Leaflet flyTo + popup.
  * - `recentSearched` / `setRecentSearched` / `recordRecentSearch`:
- *   Centralized Recent Searches state synced with MongoDB (`GET / POST / DELETE
- *   ${API_BASE_URL}/recent-searches`) when authenticated AND mirrored to `localStorage`
- *   under `"terramatch_recent_searches"` for instant UI updates and static deployments.
+ *   Centralized Recent Searches state synced with MongoDB when authenticated
+ *   and mirrored to `localStorage` under `"terramatch_recent_searches"`.
+ * - `savedLoc` / `setSavedLoc` / `saveLocation` / `removeSavedLocation` / `refetchSaved`:
+ *   Centralized Saved Locations state seeded from `localStorage`
+ *   (`terramatch_saved_locations_${user?.email || 'guest'}`), merged with MongoDB
+ *   when the backend is online, and updated optimistically so static Netlify
+ *   deployments never fail with `"Failed to save location"`.
  */
 const StateProvider = ({ children }) => {
     // ------------------------------------------------------------------------
@@ -97,6 +172,7 @@ const StateProvider = ({ children }) => {
     // ------------------------------------------------------------------------
     const { user } = useAuth();
     const userEmail = user?.email || null;
+    const activeOwnerKey = userEmail || "guest";
 
     // ------------------------------------------------------------------------
     // 2. Global Navigation, Filter & Map Camera State Variables
@@ -120,16 +196,226 @@ const StateProvider = ({ children }) => {
     const [recentLoading, setRecentLoading] = useState(false);
 
     // ------------------------------------------------------------------------
-    // 4. Mirror State Changes to localStorage
+    // 4. Centralized Saved Locations State (Owner-Scoped + LocalStorage Sync)
+    // ------------------------------------------------------------------------
+    // Tracks saved items tagged with the owner key so account switches read cleanly
+    const [savedState, setSavedState] = useState(() => ({
+        owner: activeOwnerKey,
+        items: readSavedFromStorage(userEmail),
+    }));
+
+    // Indicates whether a MongoDB saved-locations sync request is in progress
+    const [savedLoading, setSavedLoading] = useState(false);
+
+    // Holds the most recent saved-locations fetch error if any
+    const [savedError, setSavedError] = useState(null);
+
+    // Derived saved locations list guaranteed to match the currently signed-in account
+    const savedLoc = useMemo(() => {
+        if (savedState.owner === activeOwnerKey) {
+            return savedState.items;
+        }
+        return readSavedFromStorage(userEmail);
+    }, [savedState, activeOwnerKey, userEmail]);
+
+    /**
+     * React-style state setter for `savedLoc` that automatically persists the
+     * updated collection to user-scoped `localStorage`.
+     */
+    const setSavedLoc = useCallback(
+        (updaterOrArray) => {
+            setSavedState((prev) => {
+                const currentItems =
+                    prev.owner === activeOwnerKey
+                        ? prev.items
+                        : readSavedFromStorage(userEmail);
+                const nextItems =
+                    typeof updaterOrArray === "function"
+                        ? updaterOrArray(currentItems)
+                        : updaterOrArray;
+                const safeItems = Array.isArray(nextItems) ? nextItems : [];
+                writeSavedToStorage(userEmail, safeItems);
+                return {
+                    owner: activeOwnerKey,
+                    items: safeItems,
+                };
+            });
+        },
+        [activeOwnerKey, userEmail]
+    );
+
+    // ------------------------------------------------------------------------
+    // 5. Saved Locations MongoDB Merge & Background Refetch
+    // ------------------------------------------------------------------------
+    /**
+     * Fetches the authenticated user's saved locations from MongoDB and merges
+     * them with the user's `localStorage` cache. Quietly preserves localStorage
+     * data when the backend is offline (such as static Netlify deployments).
+     */
+    const refetchSaved = useCallback(async () => {
+        const localCached = readSavedFromStorage(userEmail);
+
+        if (!userEmail) {
+            setSavedState({ owner: "guest", items: localCached });
+            return localCached;
+        }
+
+        setSavedLoading(true);
+        setSavedError(null);
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/savedLocs/${encodeURIComponent(userEmail)}`
+            );
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const serverData = await response.json();
+            const merged = mergeSavedLocations(serverData, localCached);
+            writeSavedToStorage(userEmail, merged);
+            setSavedState({ owner: userEmail, items: merged });
+            return merged;
+        } catch (error) {
+            // Preserve localStorage-backed saved locations when backend is offline
+            console.debug("Backend savedLocs fetch skipped/unavailable:", error.message);
+            setSavedError(error);
+            setSavedState({ owner: userEmail, items: localCached });
+            return localCached;
+        } finally {
+            setSavedLoading(false);
+        }
+    }, [userEmail]);
+
+    // Synchronize saved locations from localStorage + MongoDB whenever user changes
+    useEffect(() => {
+        const localCached = readSavedFromStorage(userEmail);
+
+        if (!userEmail) {
+            return;
+        }
+
+        const controller = new AbortController();
+
+        fetch(`${API_BASE_URL}/savedLocs/${encodeURIComponent(userEmail)}`, {
+            signal: controller.signal,
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
+            .then((serverData) => {
+                const merged = mergeSavedLocations(serverData, localCached);
+                writeSavedToStorage(userEmail, merged);
+                setSavedState({ owner: userEmail, items: merged });
+                setSavedError(null);
+            })
+            .catch((error) => {
+                if (error.name !== "AbortError") {
+                    console.debug("Using localStorage saved locations:", error.message);
+                    setSavedState({ owner: userEmail, items: localCached });
+                }
+            });
+
+        return () => {
+            controller.abort();
+        };
+    }, [userEmail]);
+
+    // ------------------------------------------------------------------------
+    // 6. Shared Actions: Save & Remove Saved Locations (Local-First + Quiet Sync)
+    // ------------------------------------------------------------------------
+    /**
+     * Immediately persists a location to global `savedLoc` state and `localStorage`,
+     * displays a confirmation toast, and quietly syncs with `POST /savedLocs` in
+     * the background so Netlify deployments never show `"Failed to save location"`.
+     */
+    const saveLocation = useCallback(
+        (loc) => {
+            if (!loc || !loc.name) return;
+
+            const entry = normalizeLocationEntry(loc, userEmail);
+            const targetId = entry.locationId;
+
+            // 1. Save immediately to state and localStorage first
+            setSavedLoc((prev) => {
+                const alreadyExists = prev.some(
+                    (item) =>
+                        resolveLocationKey(item) === targetId ||
+                        item.name === entry.name
+                );
+                if (alreadyExists) {
+                    return prev;
+                }
+                return [entry, ...prev];
+            });
+
+            // 2. Immediately notify user with success feedback
+            toast.success("Location saved to your profile!");
+
+            // 3. Quietly sync to MongoDB in the background when signed in
+            if (userEmail) {
+                const { _id, ...cleanPayload } = entry;
+                void _id;
+
+                fetch(`${API_BASE_URL}/savedLocs`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        ...cleanPayload,
+                        locationId: targetId,
+                        created_at: entry.created_at,
+                        created_by: userEmail,
+                    }),
+                }).catch(() => {});
+            }
+        },
+        [userEmail, setSavedLoc]
+    );
+
+    /**
+     * Immediately removes a saved location by ID or name from state and
+     * `localStorage`, and quietly dispatches `DELETE /savedLocs/:id` in background.
+     */
+    const removeSavedLocation = useCallback(
+        (idToRemove) => {
+            if (!idToRemove) return;
+
+            // 1. Remove immediately from React state and localStorage
+            setSavedLoc((prev) =>
+                prev.filter(
+                    (item) =>
+                        item._id !== idToRemove &&
+                        item.id !== idToRemove &&
+                        item.locationId !== idToRemove &&
+                        item.name !== idToRemove
+                )
+            );
+
+            // 2. Quietly sync deletion to MongoDB when signed in
+            if (userEmail) {
+                fetch(`${API_BASE_URL}/savedLocs/${encodeURIComponent(idToRemove)}`, {
+                    method: "DELETE",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }).catch(() => {});
+            }
+        },
+        [userEmail, setSavedLoc]
+    );
+
+    // ------------------------------------------------------------------------
+    // 7. Recent Searches LocalStorage Mirror & MongoDB Sync
     // ------------------------------------------------------------------------
     // Keeps `"terramatch_recent_searches"` synchronized across all additions, deletions, and undos
     useEffect(() => {
         writeRecentToStorage(recentSearched);
     }, [recentSearched]);
 
-    // ------------------------------------------------------------------------
-    // 5. MongoDB GET Sync on Login / Account Switch
-    // ------------------------------------------------------------------------
     /**
      * Fetches the authenticated user's persisted recent searches from MongoDB.
      * On static deployments where the backend is offline, preserves localStorage state.
@@ -157,7 +443,7 @@ const StateProvider = ({ children }) => {
         }
     }, [userEmail]);
 
-    // Automatically synchronize from MongoDB whenever the authenticated user changes
+    // Automatically synchronize recent searches from MongoDB whenever user changes
     useEffect(() => {
         if (!userEmail) return;
 
@@ -188,9 +474,6 @@ const StateProvider = ({ children }) => {
         };
     }, [userEmail]);
 
-    // ------------------------------------------------------------------------
-    // 6. Shared Action: Record a Recent Search (POST + Optimistic + LocalStorage)
-    // ------------------------------------------------------------------------
     /**
      * Records a clicked or searched planetary analog site at the top of Recent Searches:
      * 1. Deduplicates by `locationId` or `name` and prepends immediately in React state.
@@ -201,7 +484,7 @@ const StateProvider = ({ children }) => {
         async (loc) => {
             if (!loc || !loc.name) return;
 
-            const entry = normalizeRecentEntry(loc, userEmail);
+            const entry = normalizeLocationEntry(loc, userEmail);
 
             // Optimistically update centralized state so the item appears at the top immediately
             setRecentSearched((prev) => {
@@ -240,9 +523,6 @@ const StateProvider = ({ children }) => {
         [userEmail]
     );
 
-    // ------------------------------------------------------------------------
-    // 7. Shared Actions: Delete Single & Clear All Recent Searches (DELETE)
-    // ------------------------------------------------------------------------
     /**
      * Deletes a single recent search record from MongoDB by ID or `locationId`
      * when authenticated. Local state & localStorage remain synchronized automatically.
@@ -308,6 +588,13 @@ const StateProvider = ({ children }) => {
             clearRecentSearches,
             refetchRecent,
             recentLoading,
+            savedLoc,
+            setSavedLoc,
+            saveLocation,
+            removeSavedLocation,
+            refetchSaved,
+            savedLoading,
+            savedError,
         }),
         [
             isSearch,
@@ -319,6 +606,13 @@ const StateProvider = ({ children }) => {
             clearRecentSearches,
             refetchRecent,
             recentLoading,
+            savedLoc,
+            setSavedLoc,
+            saveLocation,
+            removeSavedLocation,
+            refetchSaved,
+            savedLoading,
+            savedError,
         ]
     );
 

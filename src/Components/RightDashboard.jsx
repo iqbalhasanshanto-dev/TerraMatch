@@ -10,20 +10,22 @@ import ShowRecentSearches from "./ShowRecentSearches";
  * ============================================================================
  * RightDashboard Component
  * ============================================================================
- * Orchestrates the full-bleed Leaflet satellite map and the responsive right-hand
- * drawer sidebar (`Tweaks` for `/search` or `ShowRecentSearches` for `/`),
- * preserving the custom deep-space color palette:
+ * Orchestrates the full-bleed Leaflet satellite map and the GPU-accelerated
+ * right-hand overlay drawer sidebar (`Tweaks` for `/search` or
+ * `ShowRecentSearches` for `/`), preserving our deep-space color palette:
  * - Viewport Background: `#07090E`
  * - Drawer Surface: `#0B0E13` with `#21242C` border
+ * - Zero Map Resize Lag / Black Gap Elimination:
+ *   - The map container stays locked at `absolute inset-0 w-full h-full` at
+ *     all times so toggling the sidebar never resizes the Leaflet canvas or
+ *     creates an unrendered black gap along the left edge.
+ *   - The `<aside>` drawer overlays the right edge and slides smoothly via
+ *     GPU `transform` (`translate-x-0` when open, `translate-x-full` when closed).
  * - Mobile Optimization (< 1024px):
- *   - Sidebar starts collapsed by default so only the full-screen map is visible,
- *     paired with a prominent floating top-right button (`top-3.5 right-4`) to
- *     open the Search or Recent Searches drawer.
- *   - Passing `onSelectLocation` into `<Tweaks />` and `<ShowRecentSearches />`
- *     automatically closes the mobile drawer when a user picks a location card
- *     so they immediately see the map fly/zoom into the site and open its popup.
- *   - On mobile, tapping the dimmed map backdrop or pressing Escape also closes
- *     the drawer cleanly.
+ *   - Sidebar starts collapsed by default so the full-screen map is visible,
+ *     with a floating top-right trigger (`top-3.5 right-4`) to open it.
+ *   - Selecting a site via `onSelectLocation` auto-collapses the mobile drawer,
+ *     and tapping the dimmed backdrop or pressing Escape dismisses it cleanly.
  */
 const RightDashboard = () => {
     // ------------------------------------------------------------------------
@@ -78,11 +80,11 @@ const RightDashboard = () => {
     // 4. Component Render Block
     // ------------------------------------------------------------------------
     return (
-        <div className="relative w-full h-full flex overflow-hidden bg-[#07090E] select-none">
+        <div className="relative w-full h-full overflow-hidden bg-[#07090E] select-none">
             {/* ============================================================== */}
-            {/* Main Satellite Map Viewport (Full-Width Flex Container)        */}
+            {/* Full-Bleed Satellite Map Viewport (Locked 100% Underneath)     */}
             {/* ============================================================== */}
-            <div className="flex-1 h-full relative min-w-0">
+            <div className="absolute inset-0 w-full h-full">
                 <Map isSidebarOpen={isSidebarOpen} />
 
                 {/* Prominent Floating Top-Right Trigger when Drawer is Collapsed */}
@@ -148,7 +150,7 @@ const RightDashboard = () => {
             )}
 
             {/* ============================================================== */}
-            {/* Collapsible Dark Drawer Sidebar (Overlay on Mobile, Split >= lg) */}
+            {/* GPU-Animated Right Overlay Drawer Sidebar (`translate-x`)      */}
             {/* ============================================================== */}
             <aside
                 id="dashboard-side-drawer"
@@ -156,26 +158,24 @@ const RightDashboard = () => {
                     isSearchActive ? "Search and filter analog sites" : "Recent searches"
                 }
                 inert={!isSidebarOpen}
-                className={`absolute lg:relative right-0 top-0 h-full z-30 transition-all duration-300 ease-in-out bg-[#0B0E13] ${
+                className={`absolute right-0 top-0 h-full w-80 sm:w-92 xl:w-96 z-30 transition-transform duration-300 ease-out bg-[#0B0E13] border-l border-[#21242C] p-4 shadow-2xl ${
                     isSidebarOpen
-                        ? "w-[min(21rem,88dvw)] sm:w-88 md:w-92 xl:w-96 translate-x-0 opacity-100 p-4 border-l border-[#21242C] shadow-2xl lg:shadow-none"
-                        : "w-0 translate-x-full lg:translate-x-0 lg:w-0 p-0 m-0 border-none overflow-hidden opacity-0 pointer-events-none"
+                        ? "translate-x-0 pointer-events-auto"
+                        : "translate-x-full pointer-events-none"
                 }`}
             >
                 {/* Standardized Top-Right Collapse Button inside Drawer */}
-                {isSidebarOpen && (
-                    <button
-                        type="button"
-                        onClick={() => setIsSidebarOpen(false)}
-                        className="absolute top-3.5 right-4 z-40 w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#8891A0] hover:text-[#F1EEE9] hover:border-[#83CAD8]/60 hover:bg-[#1E2129] transition cursor-pointer"
-                        title="Collapse sidebar"
-                        aria-label="Collapse sidebar"
-                        aria-expanded={true}
-                        aria-controls="dashboard-side-drawer"
-                    >
-                        <ChevronRight size={15} aria-hidden="true" />
-                    </button>
-                )}
+                <button
+                    type="button"
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="absolute top-3.5 right-4 z-40 w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#8891A0] hover:text-[#F1EEE9] hover:border-[#83CAD8]/60 hover:bg-[#1E2129] transition cursor-pointer"
+                    title="Collapse sidebar"
+                    aria-label="Collapse sidebar"
+                    aria-expanded={isSidebarOpen}
+                    aria-controls="dashboard-side-drawer"
+                >
+                    <ChevronRight size={15} aria-hidden="true" />
+                </button>
 
                 {/* Sidebar Content Container: Search Filters ("Tweaks") or Recent History */}
                 <div className="w-full h-full flex flex-col pt-1">

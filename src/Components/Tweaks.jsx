@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router";
 import {
     Search,
     Globe,
@@ -12,7 +13,7 @@ import useSaved from "../Hooks/useSaved";
 import StateContext from "../States/StateContext";
 import useAuth from "../Hooks/useAuth";
 import { toast } from "react-toastify";
-import { API_BASE_URL } from "../utils/api";
+import { showSignInPromptToast } from "../utils/authToast";
 
 /**
  * ============================================================================
@@ -40,11 +41,14 @@ const Tweaks = ({ onSelectLocation }) => {
     const { filteredLoc, setFilteredLoc, setMapTarget, recordRecentSearch } =
         useContext(StateContext);
 
+    // Router navigation helper used by the guest "Sign in →" toast CTA
+    const navigate = useNavigate();
+
     // Current Firebase user session for database bookmarking
     const { user } = useAuth();
 
-    // User's saved bookmarks hook for live Saved state indicators
-    const { savedLoc, setSavedLoc, refetchSaved } = useSaved();
+    // Centralized saved bookmarks hook for live Saved state indicators and save action
+    const { savedLoc, saveLocation } = useSaved();
 
     // ------------------------------------------------------------------------
     // 2. Filter Control State Variables
@@ -76,15 +80,12 @@ const Tweaks = ({ onSelectLocation }) => {
     // Tracks whether the user has explicitly submitted a search/filter query yet
     const [hasSearched, setHasSearched] = useState(false);
 
-    // Optimistic set of bookmarked location keys for instantaneous "Saved" feedback
-    const [optimisticSavedIds, setOptimisticSavedIds] = useState(() => new Set());
-
     // ------------------------------------------------------------------------
     // 3. Derived Saved Location Keys Lookup Set
     // ------------------------------------------------------------------------
-    // Combines persisted MongoDB bookmarks and optimistic local saves into one fast lookup Set
+    // Indexes all persisted/local saved bookmark keys into one fast lookup Set
     const savedLocationIds = useMemo(() => {
-        const set = new Set(optimisticSavedIds);
+        const set = new Set();
         if (savedLoc && savedLoc.length > 0) {
             savedLoc.forEach((item) => {
                 const keys = [item._id, item.locationId, item.id, item.name].filter(Boolean);
@@ -92,7 +93,7 @@ const Tweaks = ({ onSelectLocation }) => {
             });
         }
         return set;
-    }, [savedLoc, optimisticSavedIds]);
+    }, [savedLoc]);
 
     // ------------------------------------------------------------------------
     // 4. Helper Function: Estimated Surface Temperature Derivation
@@ -334,72 +335,21 @@ const Tweaks = ({ onSelectLocation }) => {
     );
 
     /**
-     * Bookmarks a location optimistically and persists it to MongoDB `/savedLocs`
-     * when the user is signed in.
+     * Bookmarks a location via centralized `saveLocation` (localStorage-first +
+     * quiet MongoDB sync) when signed in, or displays an interactive `"Sign in →"`
+     * toast prompt when the user is browsing as a guest.
      */
     const handleSave = (location) => {
-        const locationId = location._id || location.id || location.name;
+        if (!location) return;
 
-        // Optimistically add key so the card immediately renders "Saved"
-        setOptimisticSavedIds((prev) => {
-            const updated = new Set(prev);
-            updated.add(locationId);
-            return updated;
-        });
-
+        // Do not save for guests; prompt them with a clickable "Sign in →" toast
         if (!user?.email) {
-            toast.success(
-                `"${location.name}" bookmarked! (Sign in to sync across devices)`
-            );
+            showSignInPromptToast(navigate);
             return;
         }
 
-        // Optimistically prepend to useSaved hook state
-        if (setSavedLoc) {
-            setSavedLoc((prev) => {
-                if (
-                    prev.some(
-                        (s) => (s._id || s.locationId || s.id || s.name) === locationId
-                    )
-                ) {
-                    return prev;
-                }
-                return [
-                    {
-                        ...location,
-                        locationId,
-                        created_at: new Date(),
-                        created_by: user.email,
-                    },
-                    ...prev,
-                ];
-            });
-        }
-
-        // Persist bookmark to MongoDB Saved collection
-        fetch(`${API_BASE_URL}/savedLocs`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                ...location,
-                locationId,
-                created_at: new Date(),
-                created_by: user.email,
-            }),
-        })
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.success) {
-                    toast.success("Location saved to your profile!");
-                    refetchSaved?.();
-                }
-            })
-            .catch((err) => {
-                console.error("Save error:", err);
-                toast.error("Failed to save location");
-            });
+        // Immediately persist to centralized state + localStorage and sync quietly
+        saveLocation?.(location);
     };
 
     // ------------------------------------------------------------------------

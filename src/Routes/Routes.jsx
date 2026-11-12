@@ -8,18 +8,27 @@ import ErrorPage from "../Components/ErrorPage";
 import AuthLayout from "../LayOuts/AuthLayout";
 import Login from "../Pages/Login";
 import SavedPage from "../Pages/SavedPage";
-import PrivateRoute from "./PrivateRoute";
 import ComparePage from "../Pages/ComparePage";
 import AboutPage from "../Pages/AboutPage";
 import DataServerPage from "../Pages/DataServerPage";
 
 /**
+ * ============================================================================
  * React Router Configuration
- * Maps application paths to components with nested layouts and private route protections.
+ * ============================================================================
+ * Maps application paths to page components within nested layout shells:
+ * - All primary exploration tabs (`Dashboard`, `Search`, `Saved`, `Compare`,
+ *   `Data Sources`, `About`) are openly browsable by guests as well as
+ *   authenticated users without forced redirects.
+ * - Guests attempting to save or compare locations are guided to `/login`
+ *   via an interactive in-app toast prompt.
  */
 const router = createBrowserRouter([
     {
-        path: '/',
+        // --------------------------------------------------------------------
+        // Primary Application Layout Shell (Navbar + Active Route Viewport)
+        // --------------------------------------------------------------------
+        path: "/",
         element: <MainLayout />,
         hydrateFallbackElement: <Loader />,
         errorElement: <ErrorPage />,
@@ -29,53 +38,48 @@ const router = createBrowserRouter([
                 element: <Home />,
             },
             {
-                path: '/search',
+                path: "/search",
                 element: <SearchPage />,
             },
             {
-                path: '/details/:_id',
-                element: <LocDetailsPage />
+                path: "/details/:_id",
+                element: <LocDetailsPage />,
             },
             {
-                path: '/saved',
-                element: (
-                    <PrivateRoute>
-                        <SavedPage />
-                    </PrivateRoute>
-                ),
+                path: "/saved",
+                element: <SavedPage />,
             },
             {
-                path: '/compare',
-                element: (
-                    <PrivateRoute>
-                        <ComparePage />
-                    </PrivateRoute>
-                ),
+                path: "/compare",
+                element: <ComparePage />,
             },
             {
-                path: '/data-server',
+                path: "/data-server",
                 element: <DataServerPage />,
             },
             {
-                path: '/data-sources',
+                path: "/data-sources",
                 element: <DataServerPage />,
             },
             {
-                path: '/about',
+                path: "/about",
                 element: <AboutPage />,
             },
-        ]
+        ],
     },
     {
-        path: '/',
+        // --------------------------------------------------------------------
+        // Standalone Authentication Layout Shell
+        // --------------------------------------------------------------------
+        path: "/",
         Component: AuthLayout,
         children: [
             {
-                path: '/login',
+                path: "/login",
                 Component: Login,
             },
-        ]
-    }
+        ],
+    },
 ]);
 
 export default router;
