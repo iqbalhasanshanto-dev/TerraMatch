@@ -9,7 +9,6 @@ import {
     useCallback,
     useRef,
 } from "react";
-import { useNavigate } from "react-router";
 import {
     Search,
     Globe,
@@ -33,8 +32,6 @@ import { toast } from "react-toastify";
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
 import StateContext from "../States/StateContext";
-import useAuth from "../Hooks/useAuth";
-import { showSignInPromptToast } from "../utils/authToast";
 import {
     formatSurfaceTemp,
     getAnalogCategory,
@@ -377,12 +374,6 @@ const Tweaks = ({ onSelectLocation }) => {
     /** Global filtered locations, map fly-to target, and centralized recent-search logger. */
     const { filteredLoc, setFilteredLoc, setMapTarget, recordRecentSearch } =
         useContext(StateContext);
-
-    /** Router navigation helper used by the guest `"Sign in →"` toast CTA. */
-    const navigate = useNavigate();
-
-    /** Current Firebase user session for database bookmarking. */
-    const { user } = useAuth();
 
     /** Centralized saved bookmarks hook for live Saved state indicators and save action. */
     const { savedLoc, saveLocation } = useSaved();
@@ -1004,17 +995,11 @@ const Tweaks = ({ onSelectLocation }) => {
     );
 
     /**
-     * Saves a catalog or newly discovered Earth site to the user's profile
-     * (or triggers the `"Sign in →"` toast prompt for unauthenticated guests).
+     * Saves a catalog or newly discovered Earth site to saved locations
+     * immediately for both signed-in users and guests.
      */
     const handleSave = (location) => {
         if (!location) return;
-
-        if (!user?.email) {
-            showSignInPromptToast(navigate);
-            return;
-        }
-
         saveLocation?.(location);
     };
 

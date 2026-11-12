@@ -1,11 +1,8 @@
 import { useState, useContext, useRef, useEffect, useMemo, useCallback } from "react";
-import { useLocation, useNavigate } from "react-router";
 import { Clock3, Globe, MapPin, X, Check, RotateCcw } from "lucide-react";
 import useSaved from "../Hooks/useSaved";
 import { toast } from "react-toastify";
-import useAuth from "../Hooks/useAuth";
 import StateContext from "../States/StateContext";
-import { showSignInPromptToast } from "../utils/authToast";
 import {
     formatSurfaceTemp,
     getAnalogCategory,
@@ -16,14 +13,11 @@ import {
  * ============================================================================
  * ShowRecentSearches Component
  * ============================================================================
- * Displays the authenticated user's dynamic Recent Searches history inside the
- * right drawer:
- * - Reads strictly user-scoped `recentSearched`, `setRecentSearched`,
+ * Displays the dynamic Recent Searches history inside the right drawer:
+ * - Reads user-scoped or guest `recentSearched`, `setRecentSearched`,
  *   `recordRecentSearch`, `deleteRecentSearch`, and `clearRecentSearches` from
- *   `StateContext` (`terramatch_recent_searches_${user.email}` + MongoDB sync).
- * - Guarantees `displayedSearches` is `[]` and `savedCount` is `0` whenever the
- *   user is signed out (`!user?.email`), presenting a clean guest sign-in prompt
- *   with a direct `"Sign in →"` button navigating to `/login`.
+ *   `StateContext` (`terramatch_recent_searches_${userEmail || "guest"}`).
+ * - Allows immediate testing for competition judges without logging in first.
  * - Displays an accurate live `"X Saved"` badge count from `useSaved()`.
  * - Makes the entire recent location card clickable to promote it to the top of
  *   Recent Searches, fly/zoom the map to its coordinates, open its marker popup,
@@ -45,40 +39,8 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
         setMapTarget,
     } = useContext(StateContext);
 
-    /** Router navigation helper used by the guest `"Sign in →"` button and toast CTA. */
-    const navigate = useNavigate();
-
-    /** Current router location preserved in sessionStorage when navigating to `/login`. */
-    const location = useLocation();
-
     /** Centralized saved bookmarks hook for badge count, Saved indicators, and saving. */
     const { savedLoc, saveLocation } = useSaved();
-
-    /** Current Firebase user session (`null` when signed out). */
-    const { user } = useAuth();
-
-    /** Convenience boolean indicating whether an authenticated user session is active. */
-    const isAuthenticated = Boolean(user?.email);
-
-    /**
-     * Saves the current path + query string and navigates to `/login` so
-     * signing in returns the user to the exact page they started from.
-     */
-    const handleGuestSignIn = () => {
-        const returnPath =
-            location.pathname !== "/login"
-                ? `${location.pathname}${location.search}`
-                : "/";
-
-        if (location.pathname !== "/login" && typeof window !== "undefined") {
-            window.sessionStorage.setItem(
-                "terramatch_post_login_redirect",
-                returnPath
-            );
-        }
-
-        navigate("/login", { state: { from: returnPath } });
-    };
 
     // ------------------------------------------------------------------------
     // 2. Optimistic Delete & 5-Second Undo Timer State Variables
@@ -86,7 +48,7 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     /** Holds pending single-item or clear-all deletion state while undo banner is active. */
     const [pendingDeletion, setPendingDeletion] = useState(null);
 
-    /** Reference to active timeout committing the deletion to MongoDB after 5 seconds. */
+    /** Reference to active timeout committing the deletion after 5 seconds. */
     const deletionTimerRef = useRef(null);
 
     // Clear active timeout cleanly on unmount to prevent stale timer callbacks
@@ -99,18 +61,18 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     }, []);
 
     // ------------------------------------------------------------------------
-    // 3. Derived Lists, Identifiers & Saved Lookup Set (Auth-Guarded)
+    // 3. Derived Lists, Identifiers & Saved Lookup Set
     // ------------------------------------------------------------------------
-    /** Strictly empty `[]` when signed out; otherwise reflects user-scoped searches. */
-    const displayedSearches = isAuthenticated ? recentSearched || [] : [];
+    /** List of recent searches available for all users (including guests). */
+    const displayedSearches = recentSearched || [];
 
-    /** Strictly `0` when signed out; otherwise reflects user's live saved count. */
-    const savedCount = isAuthenticated ? savedLoc?.length || 0 : 0;
+    /** Reflects the user's or guest's live saved count. */
+    const savedCount = savedLoc?.length || 0;
 
     /** Fast lookup set of saved IDs / names so saved recent items display `"Saved"`. */
     const savedLocationIds = useMemo(() => {
         const set = new Set();
-        if (isAuthenticated && savedLoc && savedLoc.length > 0) {
+        if (savedLoc && savedLoc.length > 0) {
             savedLoc.forEach((item) => {
                 const keys = [item._id, item.locationId, item.id, item.name].filter(
                     Boolean
@@ -119,10 +81,13 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
             });
         }
         return set;
-    }, [isAuthenticated, savedLoc]);
+    }, [savedLoc]);
 
     /**
      * Resolves a stable unique key for matching items in local/MongoDB history.
+     *
+     * @param {Object} item - Location item object.
+     * @returns {string} Unique identifier string.
      */
     const getRecentItemKey = (item) =>
         item?._id || item?.locationId || item?.id || item?.name;
@@ -135,6 +100,8 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
      * 1. Promotes the clicked site to the top of Recent Searches.
      * 2. Pans/zooms Leaflet map smoothly to the site's coordinates and opens its popup.
      * 3. Auto-collapses the sidebar drawer on mobile viewports (< 1024px).
+     *
+     * @param {Object} loc - Selected planetary analog location.
      */
     const handleViewOnMap = useCallback(
         (loc) => {
@@ -165,22 +132,16 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     );
 
     // ------------------------------------------------------------------------
-    // 5. Bookmark / Save Location Handler
+    // 5. Bookmark / Save Location Handler (Immediate for Everyone)
     // ------------------------------------------------------------------------
     /**
-     * Saves a recent search location via centralized `saveLocation` when signed in,
-     * or prompts guests with an interactive `"Sign in →"` toast without saving.
+     * Saves a recent search location via centralized `saveLocation` immediately
+     * for both signed-in users and guests without requiring login friction.
+     *
+     * @param {Object} locationToSave - Candidate analog location to bookmark.
      */
     const handleSave = (locationToSave) => {
         if (!locationToSave) return;
-
-        // Do not save for guests; display interactive "Sign in →" prompt toast
-        if (!user?.email) {
-            showSignInPromptToast(navigate);
-            return;
-        }
-
-        // Persist immediately to centralized state + localStorage and sync quietly
         saveLocation?.(locationToSave);
     };
 
@@ -188,7 +149,9 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     // 6. Backend Deletion Commit Helpers (Delegated to StateProvider)
     // ------------------------------------------------------------------------
     /**
-     * Commits permanent deletion of a single item to MongoDB via StateProvider.
+     * Commits permanent deletion of a single item via StateProvider.
+     *
+     * @param {Object} itemToDelete - Item being permanently deleted.
      */
     const commitBackendDelete = (itemToDelete) => {
         const idToDelete =
@@ -199,7 +162,7 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     };
 
     /**
-     * Commits permanent clear-all wipe for the signed-in user via StateProvider.
+     * Commits permanent clear-all wipe via StateProvider.
      */
     const commitBackendClearAll = () => {
         clearRecentSearches?.();
@@ -210,6 +173,8 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     // ------------------------------------------------------------------------
     /**
      * Optimistically removes a single recent search item and starts a 5s undo timer.
+     *
+     * @param {string} itemKey - Key of the item being removed.
      */
     const handleDelete = (itemKey) => {
         // Flush any earlier pending deletion before starting a new undo countdown
@@ -232,7 +197,7 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
             prev.filter((item) => getRecentItemKey(item) !== itemKey)
         );
 
-        // Schedule MongoDB DELETE call after the 5-second undo window expires
+        // Schedule permanent deletion after the 5-second undo window expires
         deletionTimerRef.current = setTimeout(() => {
             commitBackendDelete(itemToDelete);
             setPendingDeletion(null);
@@ -265,7 +230,7 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
         // Clear centralized state (automatically mirrored to localStorage)
         setRecentSearched([]);
 
-        // Schedule MongoDB bulk wipe after 5 seconds
+        // Schedule bulk wipe after 5 seconds
         deletionTimerRef.current = setTimeout(() => {
             commitBackendClearAll();
             setPendingDeletion(null);
@@ -278,7 +243,7 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     };
 
     /**
-     * Cancels the pending backend delete and restores removed item(s) immediately.
+     * Cancels the pending delete and restores removed item(s) immediately.
      */
     const handleUndo = () => {
         if (!pendingDeletion) return;
@@ -450,31 +415,8 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
                             </article>
                         );
                     })
-                ) : !isAuthenticated ? (
-                    /* Clean Guest Empty State prompting sign-in before tracking history */
-                    <div className="text-center py-12 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs">
-                        <Clock3
-                            size={24}
-                            aria-hidden="true"
-                            className="mx-auto opacity-40 mb-2 text-[#8891A0]"
-                        />
-                        <p className="font-medium text-[#F1EEE9]">
-                            Sign in to track recent searches
-                        </p>
-                        <p className="text-[11px] text-[#8891A0] mt-1">
-                            Sign in to save your search history and bookmark candidate
-                            analog sites across sessions.
-                        </p>
-                        <button
-                            type="button"
-                            onClick={handleGuestSignIn}
-                            className="bg-[#1A1D23] border border-[#21242C] hover:border-[#83CAD8] text-[#83CAD8] text-xs font-semibold px-3 py-1.5 rounded-lg mt-3 inline-flex items-center gap-1 cursor-pointer transition"
-                        >
-                            <span>Sign in →</span>
-                        </button>
-                    </div>
                 ) : (
-                    /* Clean Empty State for signed-in users with no search history yet */
+                    /* Clean Empty State when no search history yet */
                     <div className="text-center py-12 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs">
                         <Clock3
                             size={24}
@@ -492,8 +434,8 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
                 )}
             </div>
 
-            {/* 5-Second Dark Undo Snackbar Banner (Only shown while authenticated) */}
-            {isAuthenticated && pendingDeletion && (
+            {/* 5-Second Dark Undo Snackbar Banner */}
+            {pendingDeletion && (
                 <div
                     role="status"
                     aria-live="polite"

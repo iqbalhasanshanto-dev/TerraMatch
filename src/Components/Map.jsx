@@ -1,5 +1,4 @@
 import { useState, useContext, useEffect, useRef, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router";
 import {
     MapContainer,
     Marker,
@@ -23,11 +22,9 @@ import {
 } from "lucide-react";
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
-import useAuth from "../Hooks/useAuth";
 import Loader from "./Loader";
 import Modal from "./Modal";
 import StateContext from "../States/StateContext";
-import { showSignInPromptToast } from "../utils/authToast";
 import { analyzeCoordinateTelemetry } from "../utils/earthTelemetryApi";
 import {
     formatSurfaceTemp,
@@ -134,8 +131,6 @@ const Map = ({ isSidebarOpen }) => {
         useContext(StateContext);
     const { locData, loading } = useLocations();
     const { savedLoc, saveLocation } = useSaved();
-    const { user } = useAuth();
-    const navigate = useNavigate();
 
     // ------------------------------------------------------------------------
     // 2. Live Coordinate Telemetry Probe State Variables
@@ -436,19 +431,15 @@ const Map = ({ isSidebarOpen }) => {
     );
 
     /**
-     * Saves a probed custom Earth analog coordinate to the scientist's profile
-     * (or prompts guests with the `"Sign in →"` toast).
+     * Saves a probed custom Earth analog coordinate immediately
+     * for both authenticated users and guests.
      */
     const handleSaveTelemetrySite = useCallback(
         (site) => {
             if (!site) return;
-            if (!user?.email) {
-                showSignInPromptToast(navigate);
-                return;
-            }
             saveLocation?.(site);
         },
-        [user, navigate, saveLocation]
+        [saveLocation]
     );
 
     /**

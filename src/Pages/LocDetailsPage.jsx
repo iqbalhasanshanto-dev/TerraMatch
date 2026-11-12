@@ -1,12 +1,10 @@
 import { useMemo } from "react";
-import { useParams, useNavigate, Link } from "react-router";
+import { useParams, Link } from "react-router";
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
 import Loader from "../Components/Loader";
-import useAuth from "../Hooks/useAuth";
 import Container from "../Components/Container";
 import { ArrowLeft, Bookmark, Check, Globe, MapPin } from "lucide-react";
-import { showSignInPromptToast } from "../utils/authToast";
 import {
     formatSurfaceTemp,
     getAnalogCategory,
@@ -32,10 +30,8 @@ const LocDetailsPage = () => {
     // 1. Route Parameters, Navigation & Data Hooks
     // ------------------------------------------------------------------------
     const { _id } = useParams();
-    const navigate = useNavigate();
     const { locData, loading } = useLocations();
     const { savedLoc, saveLocation } = useSaved();
-    const { user } = useAuth();
 
     // Locate the matching analog candidate by MongoDB `_id` or JSON `id`
     const neededLocation = useMemo(() => {
@@ -103,14 +99,10 @@ const LocDetailsPage = () => {
     const mineralogy = getMineralogy(neededLocation);
 
     /**
-     * Persists this location via `StateProvider.saveLocation` when authenticated,
-     * or displays the interactive `"Sign in →"` toast prompt for guests.
+     * Persists this location via `StateProvider.saveLocation` immediately
+     * for both authenticated users and guests.
      */
     const handleSave = () => {
-        if (!user?.email) {
-            showSignInPromptToast(navigate);
-            return;
-        }
         saveLocation?.(neededLocation);
     };
 
