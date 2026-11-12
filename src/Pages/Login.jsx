@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import useAuth from "../Hooks/useAuth";
 import { toast } from "react-toastify";
 import { useLocation, useNavigate } from "react-router";
@@ -19,31 +20,50 @@ const Login = () => {
     // ------------------------------------------------------------------------
     // 1. Authentication Hooks & Router Navigation
     // ------------------------------------------------------------------------
-    const { signInGoogle } = useAuth();
+    /** `signInGoogle` triggers popup/redirect OAuth; `user` tracks active session. */
+    const { signInGoogle, user } = useAuth();
+    /** Router location used to preserve the protected route the user came from. */
     const location = useLocation();
+    /** Router navigation helper used to redirect authenticated users. */
     const navigate = useNavigate();
+    /** Destination path after authentication (originating route or `/` Dashboard). */
+    const redirectPath = location?.state || "/";
 
     // ------------------------------------------------------------------------
-    // 2. Google OAuth Sign-In Handler
+    // 2. Authenticated Session Auto-Redirect Effect
     // ------------------------------------------------------------------------
     /**
-     * Triggers Firebase Google OAuth popup sign-in and redirects back to the
-     * user's originating route (or `/` Dashboard) upon success.
+     * Watches `user` from AuthContext. As soon as `user` becomes truthy—whether
+     * from a popup sign-in, a returning Google redirect sign-in, or an already
+     * active session—displays a success toast and navigates to `redirectPath`.
+     */
+    useEffect(() => {
+        if (user) {
+            toast.success("Successfully signed in with Google!", {
+                toastId: "google-signin-success",
+            });
+            navigate(redirectPath, { replace: true });
+        }
+    }, [user, navigate, redirectPath]);
+
+    // ------------------------------------------------------------------------
+    // 3. Google OAuth Sign-In Handler
+    // ------------------------------------------------------------------------
+    /**
+     * Triggers Firebase Google OAuth sign-in (popup with automatic redirect
+     * fallback). Successful completion updates `user` in AuthContext, which is
+     * handled by the auto-redirect effect above; non-fallback errors surface
+     * an error toast here.
      */
     const handleGoogleSignIn = () => {
-        signInGoogle()
-            .then(() => {
-                toast.success("Successfully signed in with Google!");
-                navigate(location?.state || "/");
-            })
-            .catch((error) => {
-                console.error("Sign-in error:", error);
-                toast.error(error.message || "Failed to sign in. Please try again.");
-            });
+        signInGoogle().catch((error) => {
+            console.error("Sign-in error:", error);
+            toast.error(error.message || "Failed to sign in. Please try again.");
+        });
     };
 
     // ------------------------------------------------------------------------
-    // 3. Component Render Block
+    // 4. Component Render Block
     // ------------------------------------------------------------------------
     return (
         <div className="min-h-screen bg-[#07090E] flex flex-col items-center justify-center px-4 relative select-none">

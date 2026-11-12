@@ -1,12 +1,29 @@
+# ==============================================================================
+# Build Configuration
+# ==============================================================================
+# Compiles the Vite React application into the `dist` directory for Netlify.
 [build]
   command = "npm run build"
   publish = "dist"
 
+# ==============================================================================
+# Global HTTP Response Headers
+# ==============================================================================
+# Applied to every route (`/*`) served by Netlify.
 [[headers]]
   for = "/*"
   [headers.values]
+    # Restrict script execution to same-origin bundles.
     Content-Security-Policy = "script-src 'self'"
+    # Allow Firebase Google OAuth popups to communicate back to the opener tab
+    # cleanly instead of failing with `auth/internal-error`.
+    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
 
+# ==============================================================================
+# Single-Page Application (SPA) Routing Fallback
+# ==============================================================================
+# Rewrites all routes to `/index.html` with HTTP 200 so React Router handles
+# client-side navigation and Firebase OAuth redirect callbacks cleanly.
 [[redirects]]
   from = "/*"
   to = "/index.html"
