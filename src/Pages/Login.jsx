@@ -144,7 +144,7 @@ const Login = () => {
                     {/* Centered Custom TerraMatch Orbital Mars/Earth Logo */}
                     <div className="flex justify-center mb-6 scale-125">
                         <Logo />
-                    </div>
+                    </div>ghyyty.
 
                     {/* Clear Lead Copy (Replaces Legacy "Welcome" Heading) */}
                     <p className="text-sm sm:text-base leading-relaxed text-[#8891A0] mb-7 max-w-xs mx-auto">

@@ -71,6 +71,23 @@ const telemetryProbeIcon = L.divIcon({
     popupAnchor: [0, -14],
 });
 
+/**
+ * Custom cyan-and-gold orbital discovery beacon icon rendered for non-NASA
+ * Earth locations discovered via Whole-Earth Batch Satellite Scan.
+ */
+const globalDiscoveryIcon = L.divIcon({
+    className: "terramatch-global-discovery-icon",
+    html: `
+        <div style="position:relative;width:26px;height:26px;display:flex;align-items:center;justify-content:center;">
+            <span style="position:absolute;inset:0;border-radius:9999px;background:rgba(245,158,11,0.18);border:1.5px solid #83CAD8;box-shadow:0 0 12px rgba(131,202,216,0.7),0 0 6px rgba(245,158,11,0.65);"></span>
+            <span style="width:10px;height:10px;border-radius:9999px;background:linear-gradient(135deg,#83CAD8,#F59E0B);border:2px solid #07090E;"></span>
+        </div>
+    `,
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+    popupAnchor: [0, -13],
+});
+
 // ============================================================================
 // 3. Helper Sub-Component: Leaflet Click-to-Probe Listener
 // ============================================================================
@@ -639,8 +656,13 @@ const Map = ({ isSidebarOpen }) => {
                                                     {/* Header: Region Name & Dismiss Pin Action */}
                                                     <div className="flex items-start justify-between gap-2">
                                                         <div className="min-w-0">
-                                                            <span className="text-[9px] font-mono uppercase tracking-wider text-[#83CAD8] block mb-0.5">
-                                                                Live Satellite Telemetry
+                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-[#83CAD8]/20 to-[#F59E0B]/20 border border-[#83CAD8]/45 text-[9px] font-mono uppercase tracking-wider text-[#83CAD8] mb-1">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
+                                                                <span>
+                                                                    {site.isGlobalDiscovery
+                                                                        ? "Whole-Earth Satellite Discovery • Non-Catalog Site"
+                                                                        : "Live Satellite Telemetry • Non-Catalog Site"}
+                                                                </span>
                                                             </span>
                                                             <h4 className="font-bold text-sm text-[#F1EEE9] leading-tight">
                                                                 {site.name}
@@ -816,6 +838,9 @@ const Map = ({ isSidebarOpen }) => {
                     }
 
                     const locId = loc._id || loc.id;
+                    const isDiscoverySite = Boolean(
+                        loc.isGlobalDiscovery || loc.isLiveTelemetry
+                    );
                     const { popupBadges } = getTargetBodyInfo(loc);
                     const surfaceTemp = formatSurfaceTemp(loc);
                     const analogCategory = getAnalogCategory(loc);
@@ -828,6 +853,7 @@ const Map = ({ isSidebarOpen }) => {
                                 loc.coordinates.latitude,
                                 loc.coordinates.longitude,
                             ]}
+                            {...(isDiscoverySite ? { icon: globalDiscoveryIcon } : {})}
                             ref={(instance) => {
                                 // Store ref under all canonical keys for reliable popup lookup
                                 if (instance) {
@@ -852,6 +878,16 @@ const Map = ({ isSidebarOpen }) => {
                             {/* Deep-Space Styled Scientific Analog Site Summary Popup */}
                             <Popup className="terramatch-popup">
                                 <div className="p-1 text-[#F1EEE9] min-w-52 max-w-64">
+                                    {/* Distinct Cyan/Gold Discovery Badge for Non-Catalog Earth Sites */}
+                                    {isDiscoverySite && (
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-[#83CAD8]/20 to-[#F59E0B]/20 border border-[#83CAD8]/50 text-[#83CAD8] text-[9px] font-bold tracking-wider uppercase mb-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
+                                            <span>
+                                                Whole-Earth Satellite Discovery • Non-Catalog Site
+                                            </span>
+                                        </span>
+                                    )}
+
                                     <h4 className="font-bold text-sm text-[#F1EEE9] leading-tight">
                                         {loc.name}
                                     </h4>
@@ -881,6 +917,20 @@ const Map = ({ isSidebarOpen }) => {
                                                 {surfaceTemp}
                                             </span>
                                         </p>
+                                        {isDiscoverySite && (
+                                            <p>
+                                                <span className="font-semibold text-[#F1EEE9]">
+                                                    Elevation / RH:
+                                                </span>{" "}
+                                                <span className="font-mono text-[#F59E0B]">
+                                                    {(
+                                                        loc.environment?.elevationMeters ?? 0
+                                                    ).toLocaleString()}{" "}
+                                                    m •{" "}
+                                                    {loc.environment?.humidityPercent ?? 0}%
+                                                </span>
+                                            </p>
+                                        )}
                                         <p>
                                             <span className="font-semibold text-[#F1EEE9]">
                                                 Climate &amp; Humidity:
@@ -898,9 +948,13 @@ const Map = ({ isSidebarOpen }) => {
                                         </p>
                                         <p className="leading-snug">
                                             <span className="font-semibold text-[#F1EEE9]">
-                                                Rovers/Missions Tested:
+                                                {isDiscoverySite
+                                                    ? "Telemetry Source:"
+                                                    : "Rovers/Missions Tested:"}
                                             </span>{" "}
-                                            {roversTested}
+                                            {isDiscoverySite
+                                                ? loc.dataSource || roversTested
+                                                : roversTested}
                                         </p>
                                     </div>
                                     <Modal loc={loc} />

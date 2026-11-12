@@ -48,8 +48,435 @@ const NASA_POWER_TIMEOUT_MS = 7000;
 /** Canonical missing/fill sentinel used by NASA POWER API payloads. */
 const NASA_POWER_FILL_SENTINEL = -900;
 
-/** Canonical dataset attribution tag attached to every probed Earth telemetry site. */
+/** Canonical dataset attribution tag attached to every single-point Earth telemetry probe. */
 const TELEMETRY_DATA_SOURCE_TAG = "NASA POWER + NASADEM/SRTM";
+
+/** Canonical dataset attribution tag attached to Whole-Earth Batch Scan discoveries. */
+const WHOLE_EARTH_SCAN_DATA_SOURCE = "Whole-Earth Satellite Scan (NASADEM + Open-Meteo)";
+
+/**
+ * Curated 45-point Global Remote Earth Exploration Grid spanning all 7 continents.
+ * Every site is intentionally distinct from the 50 pre-listed NASA catalog sites
+ * in `analogLocations.json`, enabling scientists to discover unexplored Earth
+ * analogs matching custom Moon ("Grey Zone") or Mars Highland criteria.
+ */
+export const GLOBAL_EXPLORATION_GRID = [
+    // --- Arctic & North America ---
+    {
+        name: "Ellesmere Island",
+        country: "Canada",
+        lat: 81.8,
+        lon: -71.3,
+        geologyHint: "Arctic polar bedrock, glacial till & cryogenic permafrost",
+    },
+    {
+        name: "Baffin Island",
+        country: "Canada",
+        lat: 69.0,
+        lon: -72.5,
+        geologyHint: "Precambrian granite-gneiss highlands & polar regolith",
+    },
+    {
+        name: "Axel Heiberg Island",
+        country: "Canada",
+        lat: 79.4,
+        lon: -90.8,
+        geologyHint: "Cold saline springs, evaporite diapirs & permafrost",
+    },
+    {
+        name: "Brooks Range",
+        country: "United States",
+        lat: 68.1,
+        lon: -152.2,
+        geologyHint: "Subarctic alpine limestone, slate scree & permafrost",
+    },
+    {
+        name: "Chihuahuan Gypsum Plains",
+        country: "United States / Mexico",
+        lat: 31.8,
+        lon: -105.1,
+        geologyHint: "Gypsum-carbonate evaporites & arid alluvial desert fans",
+    },
+    {
+        name: "Craters of the Moon",
+        country: "United States",
+        lat: 43.416,
+        lon: -113.516,
+        geologyHint: "Holocene flood basaltic lava flows, spatter cones & tephra",
+    },
+    {
+        name: "Owyhee Badlands",
+        country: "United States",
+        lat: 42.6,
+        lon: -117.2,
+        geologyHint: "Rhyolitic ash-flow tuffs, ferric claystone & arid canyons",
+    },
+    {
+        name: "Desierto de Altar",
+        country: "Mexico",
+        lat: 31.95,
+        lon: -114.2,
+        geologyHint: "Hyper-arid granodiorite sand seas & basaltic cinder cones",
+    },
+    {
+        name: "Torngat Mountains",
+        country: "Canada",
+        lat: 58.9,
+        lon: -63.8,
+        geologyHint: "Frost-shattered anorthosite & subarctic coastal fjords",
+    },
+    {
+        name: "Lake Hazen Polar Plateau",
+        country: "Canada",
+        lat: 81.82,
+        lon: -71.0,
+        geologyHint: "High-arctic thermal oasis & glacio-lacustrine permafrost silt",
+    },
+
+    // --- South America ---
+    {
+        name: "Ojos del Salado",
+        country: "Chile / Argentina",
+        lat: -27.109,
+        lon: -68.541,
+        geologyHint: "Hyper-arid volcanic andesite, sulfur fumaroles & cryogenic scree",
+    },
+    {
+        name: "Altiplano Volcanic Arc",
+        country: "Bolivia / Chile",
+        lat: -21.45,
+        lon: -67.85,
+        geologyHint: "High-altitude ignimbrite sheets, basaltic-dacite domes & salt lakes",
+    },
+    {
+        name: "Patagonian Ice Field Edge",
+        country: "Chile / Argentina",
+        lat: -49.3,
+        lon: -73.1,
+        geologyHint: "Glacio-fluvial basalt moraines & subpolar wind-scoured rock",
+    },
+    {
+        name: "Sechura Desert",
+        country: "Peru",
+        lat: -5.85,
+        lon: -80.65,
+        geologyHint: "Hyper-arid coastal phosphate-evaporite dunes & gravel plains",
+    },
+    {
+        name: "Payunia Volcanic Field",
+        country: "Argentina",
+        lat: -36.4,
+        lon: -69.2,
+        geologyHint: "Quaternary basaltic scoria cones, tephra & pahoehoe lava plains",
+    },
+    {
+        name: "Cordillera Real Highlands",
+        country: "Bolivia",
+        lat: -16.15,
+        lon: -68.15,
+        geologyHint: "High-elevation cryogenic metamorphic slate & glacial moraine",
+    },
+
+    // --- Europe & North Atlantic ---
+    {
+        name: "Jan Mayen Volcanic Ridge",
+        country: "Norway",
+        lat: 71.03,
+        lon: -8.29,
+        geologyHint: "Subarctic alkali-basalt stratovolcano & frozen glacial tephra",
+    },
+    {
+        name: "Askja Caldera Flanks",
+        country: "Iceland",
+        lat: 65.03,
+        lon: -16.75,
+        geologyHint: "Rhyolitic pumice, basaltic lava & glaciovolcanic hyaloclastite",
+    },
+    {
+        name: "Tabernas Badlands",
+        country: "Spain",
+        lat: 37.01,
+        lon: -2.45,
+        geologyHint: "Semi-arid gypsum marls, mudstone gullies & iron-rich crust",
+    },
+    {
+        name: "Sarek Alpine Plateau",
+        country: "Sweden",
+        lat: 67.28,
+        lon: 17.7,
+        geologyHint: "Subarctic gabbro-anorthosite massif & periglacial blockfields",
+    },
+    {
+        name: "Stromboli Basalt Flanks",
+        country: "Italy",
+        lat: 38.79,
+        lon: 15.21,
+        geologyHint: "Basaltic-andesite scoria, volcanic tephra & pyroclastic slopes",
+    },
+
+    // --- Africa ---
+    {
+        name: "Tibesti Mountains",
+        country: "Chad",
+        lat: 20.78,
+        lon: 17.95,
+        geologyHint: "Hyper-arid Saharan shield volcano, ignimbrite & basalt calderas",
+    },
+    {
+        name: "Hoggar Mountains",
+        country: "Algeria",
+        lat: 23.29,
+        lon: 5.53,
+        geologyHint: "Precambrian basement granite, volcanic plugs & arid regolith",
+    },
+    {
+        name: "Aïr Mountains",
+        country: "Niger",
+        lat: 18.6,
+        lon: 8.8,
+        geologyHint: "Hyper-arid granitic ring complexes & Saharan desert plains",
+    },
+    {
+        name: "Ennedi Sandstone Plateau",
+        country: "Chad",
+        lat: 17.05,
+        lon: 21.8,
+        geologyHint: "Wind-carved Paleozoic ferric quartz sandstone pillars & dry wadis",
+    },
+    {
+        name: "Erta Ale Basalt Shield",
+        country: "Ethiopia",
+        lat: 13.6,
+        lon: 40.67,
+        geologyHint: "Hyper-arid rift basaltic lava shield & sulfur-halite crust",
+    },
+    {
+        name: "Richat Structure",
+        country: "Mauritania",
+        lat: 21.124,
+        lon: -11.402,
+        geologyHint: "Concentric impact-like dome of quartzite, gabbro & breccia",
+    },
+
+    // --- Asia ---
+    {
+        name: "Wrangel Island",
+        country: "Russia",
+        lat: 71.23,
+        lon: -179.4,
+        geologyHint: "High-Arctic unglaciated permafrost tundra & frost-sorted stone",
+    },
+    {
+        name: "Putorana Plateau",
+        country: "Russia",
+        lat: 69.0,
+        lon: 94.0,
+        geologyHint: "Siberian flood basalt trap terraces & subarctic cryosphere",
+    },
+    {
+        name: "Kamchatka Volcanic Plateau",
+        country: "Russia",
+        lat: 55.8,
+        lon: 160.3,
+        geologyHint: "Subarctic basaltic cinder cones, volcanic ash & ice-clad tephra",
+    },
+    {
+        name: "Yakutia Permafrost Basin",
+        country: "Russia",
+        lat: 67.5,
+        lon: 134.0,
+        geologyHint: "Continuous deep ice-rich permafrost & cryogenic yedoma silt",
+    },
+    {
+        name: "Kunlun Mountains",
+        country: "China",
+        lat: 36.2,
+        lon: 82.0,
+        geologyHint: "High-altitude Tibetan cryogenic gravel & arid alpine bedrock",
+    },
+    {
+        name: "Karakoram High Passes",
+        country: "Pakistan / China",
+        lat: 35.88,
+        lon: 76.51,
+        geologyHint: "Extreme-elevation granite-gneiss peaks, glacial scree & thin air",
+    },
+    {
+        name: "Dasht-e Lut",
+        country: "Iran",
+        lat: 30.5,
+        lon: 58.8,
+        geologyHint: "Hyper-arid salt-encrusted yardangs, ferric sand & desert pavement",
+    },
+    {
+        name: "Changtang Plateau",
+        country: "China",
+        lat: 33.5,
+        lon: 86.5,
+        geologyHint: "Cold high-altitude endorheic salt lakes & windswept permafrost",
+    },
+    {
+        name: "Ustyurt Plateau",
+        country: "Uzbekistan / Kazakhstan",
+        lat: 43.2,
+        lon: 56.5,
+        geologyHint: "Arid gypsum-limestone desert escarpments & saline takyr flats",
+    },
+    {
+        name: "Aso Caldera Pyroclastic Plain",
+        country: "Japan",
+        lat: 32.88,
+        lon: 131.1,
+        geologyHint: "Basaltic-andesitic volcanic caldera & pyroclastic ash slopes",
+    },
+    {
+        name: "Wahiba Sands",
+        country: "Oman",
+        lat: 21.8,
+        lon: 58.7,
+        geologyHint: "Hyper-arid aeolian ferric dune ridges & desert gravel plains",
+    },
+
+    // --- Oceania & Sub-Antarctic ---
+    {
+        name: "Kerguelen Basalt Plateau",
+        country: "French Southern Territories",
+        lat: -49.35,
+        lon: 69.35,
+        geologyHint: "Sub-Antarctic flood basalt plateaus & cold wind-swept scoria",
+    },
+    {
+        name: "Nullarbor Karst Plain",
+        country: "Australia",
+        lat: -31.1,
+        lon: 129.0,
+        geologyHint: "Arid treeless limestone karst, ferric soils & meteorite plains",
+    },
+    {
+        name: "Gibson Desert",
+        country: "Australia",
+        lat: -24.5,
+        lon: 125.0,
+        geologyHint: "Hyper-arid iron-oxide laterite gravel plains & sand dunes",
+    },
+
+    // --- Antarctica ---
+    {
+        name: "Dronning Maud Land",
+        country: "Antarctica",
+        lat: -71.8,
+        lon: 9.5,
+        geologyHint: "Antarctic nunatak granite-charnockite peaks & blue-ice sublimation",
+    },
+    {
+        name: "Ellsworth Mountains",
+        country: "Antarctica",
+        lat: -78.75,
+        lon: -85.0,
+        geologyHint: "Cryogenic folded quartzite, marble ridges & polar ice fields",
+    },
+    {
+        name: "Mount Erebus Flank",
+        country: "Antarctica",
+        lat: -77.53,
+        lon: 167.15,
+        geologyHint: "Polar phonolitic volcano, fumarolic ice towers & frozen tephra",
+    },
+    {
+        name: "Vinson Massif Foothills",
+        country: "Antarctica",
+        lat: -78.52,
+        lon: -85.61,
+        geologyHint: "Extreme cryogenic high-altitude polar bedrock & dry katabatic snow",
+    },
+];
+
+/**
+ * Shared terrain keyword mapping used when filtering Whole-Earth Scan discoveries
+ * against the user's selected Terrain & Geology filter pill.
+ */
+const SCAN_TERRAIN_KEYWORDS = {
+    "Volcanic Basalt": [
+        "volcanic",
+        "volcano",
+        "basalt",
+        "basaltic",
+        "lava",
+        "caldera",
+        "tephra",
+        "scoria",
+        "ash",
+        "tuff",
+        "ignimbrite",
+        "hyaloclastite",
+    ],
+    "Impact Crater": ["impact", "crater", "breccia", "shock", "dome"],
+    "Hyper-Arid Desert": [
+        "arid",
+        "desert",
+        "dune",
+        "sand",
+        "wadi",
+        "yardang",
+        "badlands",
+        "gravel",
+        "alluvial",
+    ],
+    "Polar & Ice": [
+        "polar",
+        "ice",
+        "glacial",
+        "glacier",
+        "permafrost",
+        "cryo",
+        "frozen",
+        "subarctic",
+        "arctic",
+        "antarctic",
+        "nunatak",
+    ],
+    "Salt / Evaporites": [
+        "salt",
+        "evaporite",
+        "halite",
+        "gypsum",
+        "sulfate",
+        "saline",
+        "takyr",
+        "carbonate",
+    ],
+    "Acidic / Iron": [
+        "acidic",
+        "iron",
+        "hematite",
+        "ferric",
+        "sulfur",
+        "fumarol",
+        "laterite",
+        "oxidized",
+    ],
+};
+
+/**
+ * Shared aridity & moisture keyword mapping used when filtering Whole-Earth Scan
+ * discoveries against the user's selected Aridity & Moisture Regime pill.
+ */
+const SCAN_HUMIDITY_KEYWORDS = {
+    "Hyper-Arid": ["hyper-arid", "extremely dry", "very dry"],
+    "Very dry": ["hyper-arid", "extremely dry", "very dry"],
+    "Arid / Dry": ["arid", "dry", "semi-arid", "desert"],
+    "Cryogenic / Frozen": [
+        "polar",
+        "extremely cold",
+        "cold",
+        "subarctic",
+        "cryo",
+        "frozen",
+        "permafrost",
+        "glacial",
+    ],
+    Hydrothermal: ["hydrothermal", "geothermal", "fumarol", "spring", "humid"],
+};
 
 // ============================================================================
 // 2. Coordinate, Numeric & Timeout Normalization Helpers
@@ -466,25 +893,36 @@ const classifyTelemetryAnalog = ({
     humidityPercent,
     precipitationMmDay,
     solarIrradianceKwh,
+    geologyHint = "",
 }) => {
     const absLat = Math.abs(latitude);
     const isHyperArid = humidityPercent < 35 || precipitationMmDay < 0.35;
     const isArid = humidityPercent < 55 || precipitationMmDay < 1.2;
     const isHighAltitude = elevationMeters > 1500;
+    const isModerateHighland = elevationMeters >= 500;
     const isPolar = absLat > 60;
     const isCryogenic = temperatureC <= 0 || isPolar;
     const isHighSolar = solarIrradianceKwh >= 5.5;
+    const hintLower = geologyHint.toLowerCase();
 
     // Determine Moon / Mars target body suitability from physical regime
     let analogType;
     let targetSpec;
 
-    if ((isHighAltitude && (isHyperArid || isCryogenic)) || (isPolar && isHyperArid)) {
-        // High-altitude + dry/cryogenic or polar-hyperarid mirrors both Lunar highlands & Mars
+    if (
+        (isHighAltitude && (isArid || isCryogenic)) ||
+        (isModerateHighland && isCryogenic && (isArid || isPolar)) ||
+        (isPolar && isHyperArid)
+    ) {
+        // High-altitude or cold highland + dry/cryogenic mirrors both Lunar highlands & Mars
         analogType = ["moon", "mars"];
         targetSpec = "Moon & Mars Analog";
-    } else if (isHighAltitude || (isPolar && temperatureC <= 0)) {
-        // Thin-atmosphere UV highlands and polar cryogenic zones serve Lunar surface/polar ops
+    } else if (
+        isHighAltitude ||
+        (isModerateHighland && temperatureC <= 0) ||
+        (isPolar && temperatureC <= 0)
+    ) {
+        // Thin-atmosphere UV highlands, cold Grey Zone plateaus, and polar traps serve Lunar ops
         analogType = ["moon"];
         targetSpec = "Moon Analog";
     } else if (isHyperArid || temperatureC <= 5) {
@@ -531,24 +969,40 @@ const classifyTelemetryAnalog = ({
         climate = "temperate";
     }
 
-    // Derive descriptive geological terrain tags
+    // Derive descriptive geological terrain tags (enriched with regional geologyHint)
     const terrain = [];
-    if (isHighAltitude) terrain.push("high-altitude terrain");
+    if (isHighAltitude || isModerateHighland) terrain.push("high-altitude terrain");
     if (isPolar || isCryogenic) terrain.push("polar terrain", "permafrost");
     if (isHyperArid) terrain.push("hyper-arid desert", "exposed rock");
     else if (isArid) terrain.push("arid terrain", "rocky surface");
+    if (hintLower.includes("basalt") || hintLower.includes("volcan")) {
+        terrain.push("volcanic basalt");
+    }
+    if (hintLower.includes("gypsum") || hintLower.includes("salt") || hintLower.includes("evaporite")) {
+        terrain.push("evaporite flats");
+    }
+    if (hintLower.includes("fumarol") || hintLower.includes("sulfur")) {
+        terrain.push("hydrothermal terrain");
+    }
     if (terrain.length === 0) terrain.push("terrestrial field terrain", "silicate soil");
 
     // Infer representative mineralogy & regolith composition
-    let mineralogy = "Terrestrial silicate regolith & weathered crustal rock";
-    if (isHighAltitude && isHyperArid) {
-        mineralogy = "Volcanic tephra, oxidized silicates & UV-weathered evaporites";
-    } else if (isCryogenic) {
-        mineralogy = "Ice-cemented regolith, frost-shattered bedrock & cryogenic fines";
-    } else if (isHyperArid) {
-        mineralogy = "Desiccated sulfate-chloride fines, iron oxides & aeolian sand";
-    } else if (isHighAltitude) {
-        mineralogy = "High-relief basaltic/granitic outcrop & coarse scree regolith";
+    let mineralogy =
+        geologyHint || "Terrestrial silicate regolith & weathered crustal rock";
+    if (!geologyHint) {
+        if (isHighAltitude && isHyperArid) {
+            mineralogy =
+                "Volcanic tephra, oxidized silicates & UV-weathered evaporites";
+        } else if (isCryogenic) {
+            mineralogy =
+                "Ice-cemented regolith, frost-shattered bedrock & cryogenic fines";
+        } else if (isHyperArid) {
+            mineralogy =
+                "Desiccated sulfate-chloride fines, iron oxides & aeolian sand";
+        } else if (isHighAltitude) {
+            mineralogy =
+                "High-relief basaltic/granitic outcrop & coarse scree regolith";
+        }
     }
 
     return {
@@ -562,16 +1016,20 @@ const classifyTelemetryAnalog = ({
 };
 
 /**
- * Synthesizes a complete TerraMatch location object combining Nominatim place
- * metadata, NASA POWER satellite climatology (`T2M`, `RH2M`, `PRECTOTCORR`,
- * `ALLSKY_SFC_SW_DWN`), NASADEM/SRTM elevation, and planetary analog tags.
+ * Synthesizes a complete TerraMatch location object combining Nominatim or
+ * Global Exploration Grid metadata, satellite climatology/meteorology,
+ * NASADEM/SRTM elevation, and planetary analog tags.
  *
  * @param {Object} args - Input telemetry and place metadata.
  * @param {number} args.latitude - Normalized decimal latitude.
  * @param {number} args.longitude - Normalized decimal longitude.
  * @param {string} args.name - Resolved place or feature name.
  * @param {string} args.country - Resolved country or region label.
- * @param {Object} args.telemetry - Combined NASA POWER + NASADEM/SRTM telemetry payload.
+ * @param {Object} args.telemetry - Combined telemetry payload.
+ * @param {string} [args.geologyHint] - Regional mineralogy hint for Whole-Earth Grid sites.
+ * @param {boolean} [args.isGlobalDiscovery] - Flags non-NASA Whole-Earth Scan discoveries.
+ * @param {string} [args.dataSource] - Dataset provenance label.
+ * @param {string} [args.roversTested] - Campaign or scan provenance note.
  * @returns {Object} Full TerraMatch analog profile object ready for Map, Save, and Compare.
  */
 const buildAnalogProfileFromTelemetry = ({
@@ -580,6 +1038,10 @@ const buildAnalogProfileFromTelemetry = ({
     name,
     country,
     telemetry,
+    geologyHint = "",
+    isGlobalDiscovery = false,
+    dataSource = TELEMETRY_DATA_SOURCE_TAG,
+    roversTested = "NASA POWER Climatology + NASADEM/SRTM Telemetry Probe",
 }) => {
     const classification = classifyTelemetryAnalog({
         latitude,
@@ -588,10 +1050,13 @@ const buildAnalogProfileFromTelemetry = ({
         humidityPercent: telemetry.humidityPercent,
         precipitationMmDay: telemetry.precipitationMmDay,
         solarIrradianceKwh: telemetry.solarIrradianceKwh,
+        geologyHint,
     });
 
-    // Deterministic unique ID so repeated probes of the same coordinate deduplicate cleanly
-    const stableId = `earth-telemetry-${latitude.toFixed(4)}_${longitude.toFixed(4)}`;
+    // Deterministic unique ID so repeated probes/scans deduplicate cleanly
+    const stableId = isGlobalDiscovery
+        ? `global-discovery-${latitude.toFixed(4)}_${longitude.toFixed(4)}`
+        : `earth-telemetry-${latitude.toFixed(4)}_${longitude.toFixed(4)}`;
     const roundedTemp = Math.round(telemetry.temperatureC);
 
     return {
@@ -608,7 +1073,7 @@ const buildAnalogProfileFromTelemetry = ({
         temperature: roundedTemp,
         targetSpec: classification.targetSpec,
         analogCategory: classification.analogCategory,
-        roversTested: "NASA POWER Climatology + NASADEM/SRTM Telemetry Probe",
+        roversTested,
         mineralogy: classification.mineralogy,
         terrain: classification.terrain,
         environment: {
@@ -641,10 +1106,13 @@ const buildAnalogProfileFromTelemetry = ({
                 ALLSKY_SFC_SW_DWN: telemetry.solarIrradianceKwh,
             },
         },
-        description: `NASA POWER + NASADEM/SRTM telemetry at ${latitude.toFixed(4)}°, ${longitude.toFixed(4)}° (${telemetry.elevationMeters.toLocaleString()} m elevation): ${telemetry.temperatureC}°C surface temp (T2M), ${telemetry.humidityPercent}% relative humidity (RH2M), ${telemetry.precipitationMmDay} mm/day precipitation (PRECTOTCORR), and ${telemetry.solarIrradianceKwh} kWh/m²/day solar irradiance (ALLSKY_SFC_SW_DWN).`,
+        description: isGlobalDiscovery
+            ? `Whole-Earth Satellite Scan candidate at ${latitude.toFixed(2)}°, ${longitude.toFixed(2)}° (${telemetry.elevationMeters.toLocaleString()} m NASADEM/SRTM elevation): ${telemetry.temperatureC}°C surface temperature, ${telemetry.humidityPercent}% RH, and ${telemetry.solarRadiationWm2} W/m² solar flux. Geology: ${classification.mineralogy}.`
+            : `NASA POWER + NASADEM/SRTM telemetry at ${latitude.toFixed(4)}°, ${longitude.toFixed(4)}° (${telemetry.elevationMeters.toLocaleString()} m elevation): ${telemetry.temperatureC}°C surface temp (T2M), ${telemetry.humidityPercent}% relative humidity (RH2M), ${telemetry.precipitationMmDay} mm/day precipitation (PRECTOTCORR), and ${telemetry.solarIrradianceKwh} kWh/m²/day solar irradiance (ALLSKY_SFC_SW_DWN).`,
         // Explicit dataset provenance tag requested for researcher inspection
-        dataSource: TELEMETRY_DATA_SOURCE_TAG,
+        dataSource,
         isLiveTelemetry: true,
+        isGlobalDiscovery: Boolean(isGlobalDiscovery),
     };
 };
 
@@ -798,4 +1266,213 @@ export const analyzeCoordinateTelemetry = async (
         country,
         telemetry,
     });
+};
+
+// ============================================================================
+// 6. Batch Whole-Earth Discovery Scanner (`scanWholeEarthAnalogs`)
+// ============================================================================
+
+/**
+ * Evaluates a synthesized Whole-Earth Grid analog profile against the scientist's
+ * active environmental & mission filter criteria.
+ *
+ * @param {Object} profile - Synthesized TerraMatch analog profile from `GLOBAL_EXPLORATION_GRID`.
+ * @param {Object} criteria - Active search filters from `Tweaks.jsx`.
+ * @returns {boolean} `true` if the non-NASA Earth candidate satisfies all criteria.
+ */
+const matchesWholeEarthCriteria = (profile, criteria = {}) => {
+    const {
+        searchQuery = "",
+        targetBody = "",
+        terrain = "Any",
+        humidity = "Any",
+        temperature = "Any",
+        tempMin = -60,
+        tempMax = 50,
+        minElevation = 0,
+    } = criteria;
+
+    // 1. Optional text filter across site name, country, category, or mineralogy
+    const trimmedQuery = (searchQuery || "").trim().toLowerCase();
+    if (trimmedQuery) {
+        const textCorpus = [
+            profile.name,
+            profile.country,
+            profile.analogCategory,
+            profile.mineralogy,
+        ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+        if (!textCorpus.includes(trimmedQuery)) {
+            return false;
+        }
+    }
+
+    // 2. Target Planetary Body ("moon" or "mars")
+    if (targetBody && targetBody !== "Any") {
+        const matchesBody = profile.analogType?.some(
+            (type) => type.toLowerCase() === targetBody.toLowerCase()
+        );
+        if (!matchesBody) {
+            return false;
+        }
+    }
+
+    // 3. Terrain & Geology filter pill
+    if (terrain && terrain !== "Any") {
+        const keywords = SCAN_TERRAIN_KEYWORDS[terrain] || [terrain.toLowerCase()];
+        const geologyCorpus = [
+            ...(Array.isArray(profile.terrain) ? profile.terrain : []),
+            profile.mineralogy || "",
+            profile.analogCategory || "",
+            profile.description || "",
+        ]
+            .join(" ")
+            .toLowerCase();
+
+        if (!keywords.some((kw) => geologyCorpus.includes(kw))) {
+            return false;
+        }
+    }
+
+    // 4. Aridity & Moisture Regime filter pill (supports "Hyper-Arid", "Very dry", etc.)
+    if (humidity && humidity !== "Any") {
+        const keywords = SCAN_HUMIDITY_KEYWORDS[humidity] || [humidity.toLowerCase()];
+        const moistureCorpus = [
+            profile.environment?.climate || "",
+            profile.environment?.humidity || "",
+            profile.analogCategory || "",
+            ...(Array.isArray(profile.terrain) ? profile.terrain : []),
+        ]
+            .join(" ")
+            .toLowerCase();
+
+        const matchesKeyword = keywords.some((kw) => moistureCorpus.includes(kw));
+        // Also evaluate numeric RH% directly when scanning dry/hyper-arid thresholds
+        const rh = profile.telemetry?.humidityPercent ?? 50;
+        const matchesDryNumeric =
+            (humidity === "Hyper-Arid" || humidity === "Very dry") && rh < 45;
+        const matchesAridNumeric = humidity === "Arid / Dry" && rh < 60;
+
+        if (!matchesKeyword && !matchesDryNumeric && !matchesAridNumeric) {
+            return false;
+        }
+    }
+
+    // 5. Surface Temperature Tier & Numeric Bounds (-60°C to 50°C)
+    const tempVal =
+        typeof profile.telemetry?.temperatureC === "number"
+            ? profile.telemetry.temperatureC
+            : profile.temperature;
+
+    if (temperature && temperature !== "Any") {
+        if (temperature === "Cryogenic (< -10°C)" && !(tempVal < -10)) {
+            return false;
+        }
+        if (
+            temperature === "Cold (-10 to 10°C)" &&
+            !(tempVal >= -10 && tempVal <= 10)
+        ) {
+            return false;
+        }
+        if (
+            temperature === "Temperate (10 to 25°C)" &&
+            !(tempVal > 10 && tempVal <= 25)
+        ) {
+            return false;
+        }
+        if (temperature === "Extreme Hot (> 25°C)" && !(tempVal > 25)) {
+            return false;
+        }
+    }
+
+    if (tempVal < tempMin || tempVal > tempMax) {
+        return false;
+    }
+
+    // 6. Minimum Elevation cutoff (m)
+    const elevationMeters = profile.environment?.elevationMeters ?? 0;
+    if (minElevation > 0 && elevationMeters < minElevation) {
+        return false;
+    }
+
+    return true;
+};
+
+/**
+ * Scans the entire 45-point `GLOBAL_EXPLORATION_GRID` in ONE single batch
+ * Open-Meteo API request (`latitude=...&longitude=...`), synthesizes full
+ * TerraMatch analog profiles with real NASADEM/SRTM elevation, temperature,
+ * relative humidity, precipitation, and solar radiation, and filters them
+ * against the scientist's environmental criteria.
+ *
+ * @param {Object} [criteria={}] - Mission and environmental search criteria.
+ * @param {AbortSignal} [signal] - Optional AbortSignal for request cancellation.
+ * @returns {Promise<Array<Object>>} Matching non-NASA Earth discovery profiles.
+ */
+export const scanWholeEarthAnalogs = async (criteria = {}, signal) => {
+    // Build comma-separated latitude & longitude vectors for one batch HTTP call
+    const lats = GLOBAL_EXPLORATION_GRID.map((pt) => normalizeLatitude(pt.lat)).join(",");
+    const lons = GLOBAL_EXPLORATION_GRID.map((pt) => normalizeLongitude(pt.lon)).join(",");
+
+    const batchUrl = `${OPEN_METEO_FORECAST_URL}?latitude=${lats}&longitude=${lons}&current=temperature_2m,relative_humidity_2m,precipitation,shortwave_radiation&elevation=nan`;
+
+    const response = await fetch(batchUrl, {
+        headers: { Accept: "application/json" },
+        signal,
+    });
+
+    if (!response.ok) {
+        throw new Error(
+            `Whole-Earth satellite scan failed (Open-Meteo HTTP ${response.status}).`
+        );
+    }
+
+    const rawPayload = await response.json();
+    const entries = Array.isArray(rawPayload) ? rawPayload : [rawPayload];
+
+    // Map each remote grid point + live satellite telemetry response into an analog profile
+    const synthesizedSites = GLOBAL_EXPLORATION_GRID.map((gridPoint, index) => {
+        const entry = entries[index] || {};
+        const current = entry?.current || {};
+
+        const solarRadiationWm2 = Math.round(
+            toFiniteNumber(current.shortwave_radiation, 0)
+        );
+        const precipMmHour = Math.max(0, toFiniteNumber(current.precipitation, 0));
+
+        const telemetry = {
+            elevationMeters: Math.round(toFiniteNumber(entry?.elevation, 0)),
+            temperatureC:
+                Math.round(toFiniteNumber(current.temperature_2m, 10) * 10) / 10,
+            humidityPercent: Math.round(
+                Math.max(0, Math.min(100, toFiniteNumber(current.relative_humidity_2m, 45)))
+            ),
+            precipitationMmDay: Math.round(precipMmHour * 24 * 100) / 100,
+            solarIrradianceKwh:
+                Math.round(((solarRadiationWm2 * 24) / 1000) * 100) / 100,
+            solarRadiationWm2,
+            observedAt: current.time || new Date().toISOString(),
+            usedFallback: false,
+        };
+
+        return buildAnalogProfileFromTelemetry({
+            latitude: normalizeLatitude(gridPoint.lat),
+            longitude: normalizeLongitude(gridPoint.lon),
+            name: gridPoint.name,
+            country: gridPoint.country,
+            telemetry,
+            geologyHint: gridPoint.geologyHint,
+            isGlobalDiscovery: true,
+            dataSource: WHOLE_EARTH_SCAN_DATA_SOURCE,
+            roversTested:
+                "Whole-Earth Satellite Scan (Unexplored Non-NASA Candidate)",
+        });
+    });
+
+    // Filter synthesized global candidates against the scientist's criteria
+    return synthesizedSites.filter((site) =>
+        matchesWholeEarthCriteria(site, criteria)
+    );
 };

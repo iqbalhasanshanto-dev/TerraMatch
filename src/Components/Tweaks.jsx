@@ -20,6 +20,8 @@ import {
     Droplets,
     Sun,
     Mountain,
+    Sparkles,
+    Radar,
 } from "lucide-react";
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
@@ -33,7 +35,10 @@ import {
     getSurfaceTemperature,
     getTargetBodyInfo,
 } from "../utils/analogSpec";
-import { searchGlobalEarthLocation } from "../utils/earthTelemetryApi";
+import {
+    searchGlobalEarthLocation,
+    scanWholeEarthAnalogs,
+} from "../utils/earthTelemetryApi";
 
 // ============================================================================
 // NASA / ESA Rover Mission Selection Filter Option Constants & Keyword Maps
@@ -308,10 +313,17 @@ const Tweaks = ({ onSelectLocation }) => {
     /** Tracks whether the user has explicitly submitted a search/filter query yet. */
     const [hasSearched, setHasSearched] = useState(false);
 
-    /** Array of synthesized live Earth telemetry matches from Nominatim + Open-Meteo. */
+    /**
+     * Active Search Scope mode:
+     * - `"whole-earth"` (default): Scans both the 50 NASA catalog sites AND non-NASA remote Earth sites
+     * - `"catalog"`: Filters only the 50 verified NASA/ESA catalog sites
+     */
+    const [searchScope, setSearchScope] = useState("whole-earth");
+
+    /** Array of synthesized live Earth telemetry matches from Nominatim + NASA POWER. */
     const [globalResults, setGlobalResults] = useState([]);
 
-    /** Loading indicator while querying OpenStreetMap Nominatim & Open-Meteo APIs. */
+    /** Loading indicator while querying OpenStreetMap Nominatim & NASA POWER APIs. */
     const [isGlobalSearching, setIsGlobalSearching] = useState(false);
 
     /** Stores user-facing error text if the global telemetry API request fails. */
@@ -320,8 +332,20 @@ const Tweaks = ({ onSelectLocation }) => {
     /** Records the last query string dispatched to `searchGlobalEarthLocation`. */
     const [lastGlobalQuery, setLastGlobalQuery] = useState("");
 
+    /** Array of newly discovered non-NASA Earth sites returned by `scanWholeEarthAnalogs`. */
+    const [wholeEarthResults, setWholeEarthResults] = useState([]);
+
+    /** Loading indicator while scanning the 45-point Whole-Earth Grid batch API. */
+    const [isWholeEarthScanning, setIsWholeEarthScanning] = useState(false);
+
+    /** Error message if the Whole-Earth batch satellite scan fails. */
+    const [wholeEarthScanError, setWholeEarthScanError] = useState(null);
+
     /** AbortController ref canceling stale in-flight global Earth telemetry searches. */
     const globalAbortRef = useRef(null);
+
+    /** AbortController ref canceling stale in-flight Whole-Earth batch scan requests. */
+    const wholeEarthAbortRef = useRef(null);
 
     // ------------------------------------------------------------------------
     // 3. Derived Saved Location Keys Lookup Set & Cleanup Effect
@@ -340,11 +364,14 @@ const Tweaks = ({ onSelectLocation }) => {
         return set;
     }, [savedLoc]);
 
-    // Cancel any active global telemetry fetch when Tweaks unmounts
+    // Cancel any active global telemetry or Whole-Earth scan fetch when Tweaks unmounts
     useEffect(() => {
         return () => {
             if (globalAbortRef.current) {
                 globalAbortRef.current.abort();
+            }
+            if (wholeEarthAbortRef.current) {
+                wholeEarthAbortRef.current.abort();
             }
         };
     }, []);
@@ -375,148 +402,175 @@ const Tweaks = ({ onSelectLocation }) => {
      * Evaluates all verified catalog locations against search text, target body,
      * rover test objective, terrain & geology, aridity/moisture regime,
      * surface temperature tier/range, and minimum elevation threshold.
+     * Accepts optional `overrides` so 1-click Mission Presets evaluate deterministically.
      */
-    const computeFilteredLocations = useCallback(() => {
-        if (!locData || locData.length === 0) return [];
+    const computeFilteredLocations = useCallback(
+        (overrides = {}) => {
+            if (!locData || locData.length === 0) return [];
 
-        return locData.filter((location) => {
-            // Filter 1: Case-insensitive site name, country, or description text match
-            if (searchQuery.trim()) {
-                const query = searchQuery.trim().toLowerCase();
-                const nameMatch = location.name?.toLowerCase().includes(query);
-                const countryMatch = location.country?.toLowerCase().includes(query);
-                const categoryMatch = location.analogCategory
-                    ?.toLowerCase()
-                    .includes(query);
-                if (!nameMatch && !countryMatch && !categoryMatch) {
+            const activeQuery = overrides.searchQuery ?? searchQuery;
+            const activeTargetBody = overrides.targetBody ?? targetBody;
+            const activeMissionObjective =
+                overrides.missionObjective ?? missionObjective;
+            const activeTerrain = overrides.terrain ?? terrain;
+            const activeHumidity = overrides.humidity ?? humidity;
+            const activeTemperature = overrides.temperature ?? temperature;
+            const activeTempMin = overrides.tempMin ?? tempMin;
+            const activeTempMax = overrides.tempMax ?? tempMax;
+            const activeMinElevation = overrides.minElevation ?? minElevation;
+
+            return locData.filter((location) => {
+                // Filter 1: Case-insensitive site name, country, or description text match
+                if (activeQuery.trim()) {
+                    const query = activeQuery.trim().toLowerCase();
+                    const nameMatch = location.name?.toLowerCase().includes(query);
+                    const countryMatch = location.country?.toLowerCase().includes(query);
+                    const categoryMatch = location.analogCategory
+                        ?.toLowerCase()
+                        .includes(query);
+                    if (!nameMatch && !countryMatch && !categoryMatch) {
+                        return false;
+                    }
+                }
+
+                // Filter 2: Target extraterrestrial body ("moon" or "mars")
+                if (activeTargetBody !== "" && activeTargetBody !== "Any") {
+                    const hasAnalogMatch = location.analogType?.some(
+                        (type) => type.toLowerCase() === activeTargetBody.toLowerCase()
+                    );
+                    if (!hasAnalogMatch) {
+                        return false;
+                    }
+                }
+
+                // Filter 3: Rover Test Objective (analogCategory, roversTested, description, terrain)
+                if (activeMissionObjective !== "Any") {
+                    const keywords =
+                        MISSION_OBJECTIVE_KEYWORDS[activeMissionObjective] || [
+                            activeMissionObjective.toLowerCase(),
+                        ];
+                    const searchableCorpus = [
+                        location.analogCategory || "",
+                        location.roversTested || "",
+                        location.description || "",
+                        ...(Array.isArray(location.terrain) ? location.terrain : []),
+                    ]
+                        .join(" ")
+                        .toLowerCase();
+
+                    const hasObjectiveMatch = keywords.some((kw) =>
+                        searchableCorpus.includes(kw)
+                    );
+                    if (!hasObjectiveMatch) {
+                        return false;
+                    }
+                }
+
+                // Filter 4: Terrain & Geology match across terrain tags, mineralogy & description
+                if (activeTerrain !== "Any") {
+                    const keywords = TERRAIN_KEYWORD_MAP[activeTerrain] || [
+                        activeTerrain.toLowerCase(),
+                    ];
+                    const geologyCorpus = [
+                        ...(Array.isArray(location.terrain) ? location.terrain : []),
+                        location.mineralogy || "",
+                        location.analogCategory || "",
+                        location.description || "",
+                    ]
+                        .join(" ")
+                        .toLowerCase();
+
+                    const hasTerrainMatch = keywords.some((kw) =>
+                        geologyCorpus.includes(kw)
+                    );
+                    if (!hasTerrainMatch) {
+                        return false;
+                    }
+                }
+
+                // Filter 5: Aridity & Moisture Regime classification match
+                if (activeHumidity !== "Any") {
+                    const normalizedHumidity =
+                        activeHumidity === "Very dry" ? "Hyper-Arid" : activeHumidity;
+                    const keywords = HUMIDITY_KEYWORD_MAP[normalizedHumidity] || [
+                        normalizedHumidity.toLowerCase(),
+                    ];
+                    const moistureCorpus = [
+                        location.environment?.climate || "",
+                        location.environment?.humidity || "",
+                        location.analogCategory || "",
+                        location.description || "",
+                        ...(Array.isArray(location.terrain) ? location.terrain : []),
+                    ]
+                        .join(" ")
+                        .toLowerCase();
+
+                    const hasHumidityMatch = keywords.some((kw) =>
+                        moistureCorpus.includes(kw)
+                    );
+                    if (!hasHumidityMatch) {
+                        return false;
+                    }
+                }
+
+                // Filter 6: Surface Temperature Tier & Numeric Bounds (-60°C to 50°C)
+                const siteTemp = getEstimatedTemperature(location);
+                if (activeTemperature !== "Any") {
+                    if (
+                        activeTemperature === "Cryogenic (< -10°C)" &&
+                        !(siteTemp < -10)
+                    ) {
+                        return false;
+                    }
+                    if (
+                        activeTemperature === "Cold (-10 to 10°C)" &&
+                        !(siteTemp >= -10 && siteTemp <= 10)
+                    ) {
+                        return false;
+                    }
+                    if (
+                        activeTemperature === "Temperate (10 to 25°C)" &&
+                        !(siteTemp > 10 && siteTemp <= 25)
+                    ) {
+                        return false;
+                    }
+                    if (
+                        activeTemperature === "Extreme Hot (> 25°C)" &&
+                        !(siteTemp > 25)
+                    ) {
+                        return false;
+                    }
+                }
+                if (siteTemp < activeTempMin || siteTemp > activeTempMax) {
                     return false;
                 }
-            }
 
-            // Filter 2: Target extraterrestrial body ("moon" or "mars")
-            if (targetBody !== "" && targetBody !== "Any") {
-                const hasAnalogMatch = location.analogType?.some(
-                    (type) => type.toLowerCase() === targetBody.toLowerCase()
-                );
-                if (!hasAnalogMatch) {
-                    return false;
-                }
-            }
-
-            // Filter 3: Rover Test Objective (analogCategory, roversTested, description, terrain)
-            if (missionObjective !== "Any") {
-                const keywords = MISSION_OBJECTIVE_KEYWORDS[missionObjective] || [
-                    missionObjective.toLowerCase(),
-                ];
-                const searchableCorpus = [
-                    location.analogCategory || "",
-                    location.roversTested || "",
-                    location.description || "",
-                    ...(Array.isArray(location.terrain) ? location.terrain : []),
-                ]
-                    .join(" ")
-                    .toLowerCase();
-
-                const hasObjectiveMatch = keywords.some((kw) =>
-                    searchableCorpus.includes(kw)
-                );
-                if (!hasObjectiveMatch) {
-                    return false;
-                }
-            }
-
-            // Filter 4: Terrain & Geology match across terrain tags, mineralogy & description
-            if (terrain !== "Any") {
-                const keywords = TERRAIN_KEYWORD_MAP[terrain] || [
-                    terrain.toLowerCase(),
-                ];
-                const geologyCorpus = [
-                    ...(Array.isArray(location.terrain) ? location.terrain : []),
-                    location.mineralogy || "",
-                    location.analogCategory || "",
-                    location.description || "",
-                ]
-                    .join(" ")
-                    .toLowerCase();
-
-                const hasTerrainMatch = keywords.some((kw) =>
-                    geologyCorpus.includes(kw)
-                );
-                if (!hasTerrainMatch) {
-                    return false;
-                }
-            }
-
-            // Filter 5: Aridity & Moisture Regime classification match
-            if (humidity !== "Any") {
-                const keywords = HUMIDITY_KEYWORD_MAP[humidity] || [
-                    humidity.toLowerCase(),
-                ];
-                const moistureCorpus = [
-                    location.environment?.climate || "",
-                    location.environment?.humidity || "",
-                    location.analogCategory || "",
-                    location.description || "",
-                    ...(Array.isArray(location.terrain) ? location.terrain : []),
-                ]
-                    .join(" ")
-                    .toLowerCase();
-
-                const hasHumidityMatch = keywords.some((kw) =>
-                    moistureCorpus.includes(kw)
-                );
-                if (!hasHumidityMatch) {
-                    return false;
-                }
-            }
-
-            // Filter 6: Surface Temperature Tier & Numeric Bounds (-60°C to 50°C)
-            const siteTemp = getEstimatedTemperature(location);
-            if (temperature !== "Any") {
-                if (temperature === "Cryogenic (< -10°C)" && !(siteTemp < -10)) {
-                    return false;
-                }
+                // Filter 7: Minimum Elevation cutoff (0m to 4000m) for high-altitude UV/thin-air sites
                 if (
-                    temperature === "Cold (-10 to 10°C)" &&
-                    !(siteTemp >= -10 && siteTemp <= 10)
+                    activeMinElevation > 0 &&
+                    getSiteElevation(location) < activeMinElevation
                 ) {
                     return false;
                 }
-                if (
-                    temperature === "Temperate (10 to 25°C)" &&
-                    !(siteTemp > 10 && siteTemp <= 25)
-                ) {
-                    return false;
-                }
-                if (temperature === "Extreme Hot (> 25°C)" && !(siteTemp > 25)) {
-                    return false;
-                }
-            }
-            if (siteTemp < tempMin || siteTemp > tempMax) {
-                return false;
-            }
 
-            // Filter 7: Minimum Elevation cutoff (0m to 4000m) for high-altitude UV/thin-air sites
-            if (minElevation > 0 && getSiteElevation(location) < minElevation) {
-                return false;
-            }
-
-            return true;
-        });
-    }, [
-        locData,
-        searchQuery,
-        targetBody,
-        missionObjective,
-        terrain,
-        humidity,
-        temperature,
-        tempMin,
-        tempMax,
-        minElevation,
-        getEstimatedTemperature,
-        getSiteElevation,
-    ]);
+                return true;
+            });
+        },
+        [
+            locData,
+            searchQuery,
+            targetBody,
+            missionObjective,
+            terrain,
+            humidity,
+            temperature,
+            tempMin,
+            tempMax,
+            minElevation,
+            getEstimatedTemperature,
+            getSiteElevation,
+        ]
+    );
 
     // ------------------------------------------------------------------------
     // 6. Synchronization Effect: Show All Markers Until a Search Is Submitted
@@ -578,39 +632,193 @@ const Tweaks = ({ onSelectLocation }) => {
     }, []);
 
     // ------------------------------------------------------------------------
-    // 8. User Action Handlers (Search, Reset, Card/Map Focus, Save)
+    // 8. User Action Handlers (Search, Whole-Earth Scan, Presets, Reset, Save)
     // ------------------------------------------------------------------------
     /**
-     * Applies current filter parameters to the 50 verified NASA/ESA catalog sites,
-     * logs the top match to Recent Searches, and automatically queries Global Earth
-     * Telemetry when a location search query is entered.
+     * Executes the active search across the 50 NASA/ESA catalog sites and, when
+     * `searchScope === "whole-earth"`, simultaneously runs `scanWholeEarthAnalogs`
+     * to discover brand-new non-NASA Earth locations and plot them on the map.
+     * Accepts optional `overrides` for deterministic 1-click Mission Presets.
+     */
+    const executeSearch = useCallback(
+        async (overrides = {}) => {
+            const activeScope = overrides.searchScope ?? searchScope;
+            const activeQuery = overrides.searchQuery ?? searchQuery;
+            const activeCriteria = {
+                searchQuery: activeQuery,
+                targetBody: overrides.targetBody ?? targetBody,
+                missionObjective: overrides.missionObjective ?? missionObjective,
+                terrain: overrides.terrain ?? terrain,
+                humidity: overrides.humidity ?? humidity,
+                temperature: overrides.temperature ?? temperature,
+                tempMin: overrides.tempMin ?? tempMin,
+                tempMax: overrides.tempMax ?? tempMax,
+                minElevation: overrides.minElevation ?? minElevation,
+            };
+
+            const catalogResults = computeFilteredLocations(overrides);
+            setHasSearched(true);
+            setFilteredLoc(catalogResults);
+
+            if (catalogResults.length > 0) {
+                recordRecentSearch?.(catalogResults[0]);
+            }
+
+            // Run Nominatim point lookup when user entered a place name
+            const trimmed = activeQuery.trim();
+            if (trimmed.length >= 2) {
+                runGlobalTelemetrySearch(trimmed);
+            } else {
+                setGlobalResults([]);
+                setGlobalSearchError(null);
+                setLastGlobalQuery("");
+            }
+
+            // If Catalog-Only scope is selected, cancel any pending Whole-Earth Scan
+            if (activeScope !== "whole-earth") {
+                if (wholeEarthAbortRef.current) {
+                    wholeEarthAbortRef.current.abort();
+                }
+                setWholeEarthResults([]);
+                setIsWholeEarthScanning(false);
+                setWholeEarthScanError(null);
+                return;
+            }
+
+            // Whole-Earth Scan Mode: batch-scan 45 remote terrestrial regions
+            if (wholeEarthAbortRef.current) {
+                wholeEarthAbortRef.current.abort();
+            }
+            const scanController = new AbortController();
+            wholeEarthAbortRef.current = scanController;
+
+            setIsWholeEarthScanning(true);
+            setWholeEarthScanError(null);
+
+            try {
+                const discoveredSites = await scanWholeEarthAnalogs(
+                    activeCriteria,
+                    scanController.signal
+                );
+                setWholeEarthResults(discoveredSites);
+                // Merge newly discovered non-NASA Earth sites directly onto the world map
+                setFilteredLoc([...catalogResults, ...discoveredSites]);
+
+                if (catalogResults.length === 0 && discoveredSites.length > 0) {
+                    recordRecentSearch?.(discoveredSites[0]);
+                }
+            } catch (error) {
+                if (error?.name === "AbortError") {
+                    return;
+                }
+                console.error("Whole-Earth analog scan error:", error);
+                setWholeEarthResults([]);
+                setWholeEarthScanError(
+                    error?.message ||
+                        "Unable to complete Whole-Earth satellite scan right now."
+                );
+            } finally {
+                if (wholeEarthAbortRef.current === scanController) {
+                    setIsWholeEarthScanning(false);
+                }
+            }
+        },
+        [
+            searchScope,
+            searchQuery,
+            targetBody,
+            missionObjective,
+            terrain,
+            humidity,
+            temperature,
+            tempMin,
+            tempMax,
+            minElevation,
+            computeFilteredLocations,
+            setFilteredLoc,
+            recordRecentSearch,
+            runGlobalTelemetrySearch,
+        ]
+    );
+
+    /**
+     * Button handler for clicking "Search" or pressing Enter in the search box.
      */
     const handleApplyFilters = () => {
-        const results = computeFilteredLocations();
-        setHasSearched(true);
-        setFilteredLoc(results);
-
-        if (results.length > 0) {
-            recordRecentSearch?.(results[0]);
-        }
-
-        // Automatically query global Earth satellite telemetry when searching by name
-        const trimmed = searchQuery.trim();
-        if (trimmed.length >= 2) {
-            runGlobalTelemetrySearch(trimmed);
-        } else {
-            setGlobalResults([]);
-            setGlobalSearchError(null);
-            setLastGlobalQuery("");
-        }
+        executeSearch();
     };
 
     /**
-     * Restores all search criteria and telemetry results back to neutral defaults.
+     * 1-Click Mission Preset: "🌑 Moon Grey Zone"
+     * Targets cold, high-elevation lunar terminator / polar-highland analogs
+     * and automatically triggers a Whole-Earth Scan for unexplored candidates.
+     */
+    const handleApplyMoonGreyZonePreset = () => {
+        const preset = {
+            searchQuery: "",
+            targetBody: "moon",
+            missionObjective: "Any",
+            terrain: "Any",
+            humidity: "Any",
+            temperature: "Any",
+            tempMin: -60,
+            tempMax: 0,
+            minElevation: 500,
+            searchScope: "whole-earth",
+        };
+        setSearchQuery(preset.searchQuery);
+        setTargetBody(preset.targetBody);
+        setMissionObjective(preset.missionObjective);
+        setTerrain(preset.terrain);
+        setHumidity(preset.humidity);
+        setTemperature(preset.temperature);
+        setTempMin(preset.tempMin);
+        setTempMax(preset.tempMax);
+        setMinElevation(preset.minElevation);
+        setSearchScope(preset.searchScope);
+        executeSearch(preset);
+    };
+
+    /**
+     * 1-Click Mission Preset: "🔴 Mars Highlands"
+     * Targets hyper-arid, elevated Martian highland regolith analogs across
+     * both the verified catalog and the active search scope.
+     */
+    const handleApplyMarsHighlandsPreset = () => {
+        const preset = {
+            searchQuery: "",
+            targetBody: "mars",
+            missionObjective: "Any",
+            terrain: "Any",
+            humidity: "Hyper-Arid",
+            temperature: "Any",
+            tempMin: -50,
+            tempMax: 25,
+            minElevation: 1000,
+            searchScope,
+        };
+        setSearchQuery(preset.searchQuery);
+        setTargetBody(preset.targetBody);
+        setMissionObjective(preset.missionObjective);
+        setTerrain(preset.terrain);
+        setHumidity(preset.humidity);
+        setTemperature(preset.temperature);
+        setTempMin(preset.tempMin);
+        setTempMax(preset.tempMax);
+        setMinElevation(preset.minElevation);
+        executeSearch(preset);
+    };
+
+    /**
+     * Restores all search criteria, Whole-Earth Scan discoveries, and telemetry
+     * results back to neutral defaults.
      */
     const handleReset = () => {
         if (globalAbortRef.current) {
             globalAbortRef.current.abort();
+        }
+        if (wholeEarthAbortRef.current) {
+            wholeEarthAbortRef.current.abort();
         }
         setSearchQuery("");
         setTargetBody("");
@@ -626,6 +834,9 @@ const Tweaks = ({ onSelectLocation }) => {
         setIsGlobalSearching(false);
         setGlobalSearchError(null);
         setLastGlobalQuery("");
+        setWholeEarthResults([]);
+        setIsWholeEarthScanning(false);
+        setWholeEarthScanError(null);
 
         if (locData) {
             setFilteredLoc(locData);
@@ -634,9 +845,9 @@ const Tweaks = ({ onSelectLocation }) => {
     };
 
     /**
-     * Flies the map smoothly to either a catalog location or a live Global Earth
-     * Telemetry site, opens its scientific popup, logs it in Recent Searches,
-     * and collapses the mobile drawer when applicable.
+     * Flies the map smoothly to a catalog site, Whole-Earth Scan discovery, or
+     * live Global Earth Telemetry site, opens its scientific popup, logs it in
+     * Recent Searches, and collapses the mobile drawer when applicable.
      */
     const handleViewOnMap = useCallback(
         (loc) => {
@@ -645,7 +856,7 @@ const Tweaks = ({ onSelectLocation }) => {
             // Immediately record this site in centralized Recent Searches
             recordRecentSearch?.(loc);
 
-            // Dispatch smooth fly-to target (including live telemetry payload if custom/global)
+            // Dispatch smooth fly-to target (Whole-Earth Scan sites already have pins in `filteredLoc`)
             if (
                 typeof loc?.coordinates?.latitude === "number" &&
                 typeof loc?.coordinates?.longitude === "number"
@@ -656,7 +867,8 @@ const Tweaks = ({ onSelectLocation }) => {
                     zoom: 11,
                     locationId: loc._id || loc.id,
                     name: loc.name,
-                    telemetrySite: loc.isLiveTelemetry ? loc : null,
+                    telemetrySite:
+                        loc.isLiveTelemetry && !loc.isGlobalDiscovery ? loc : null,
                     timestamp: Date.now(),
                 });
             }
@@ -693,9 +905,10 @@ const Tweaks = ({ onSelectLocation }) => {
                 : "bg-[#181A21] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9] hover:bg-[#1E2129]"
         }`;
 
-    /** Memoized list of matching catalog result cards to render. */
+    /** Memoized list of matching verified NASA/ESA catalog result cards (excluding global discoveries). */
     const displayedResults = useMemo(() => {
-        return filteredLoc && filteredLoc.length > 0 ? filteredLoc : [];
+        if (!filteredLoc || filteredLoc.length === 0) return [];
+        return filteredLoc.filter((item) => !item.isGlobalDiscovery);
     }, [filteredLoc]);
 
     /** Trimmed query string used for the explicit Global Earth Telemetry CTA. */
@@ -862,6 +1075,37 @@ const Tweaks = ({ onSelectLocation }) => {
                         >
                             Mars
                         </button>
+                    </div>
+
+                    {/* 1-Click Mission Presets Row ("Moon Grey Zone" & "Mars Highlands") */}
+                    <div className="mt-2">
+                        <span className="flex items-center gap-1 text-[10px] font-semibold tracking-wider text-[#8891A0] mb-1 uppercase">
+                            <Sparkles
+                                size={10}
+                                aria-hidden="true"
+                                className="text-[#83CAD8]"
+                            />
+                            <span>Mission Presets</span>
+                        </span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                                type="button"
+                                onClick={handleApplyMoonGreyZonePreset}
+                                className="px-2.5 py-1.5 rounded-lg bg-[#181A21] border border-[#21242C] hover:border-[#83CAD8] text-[11px] font-medium text-[#F1EEE9] flex items-center justify-center gap-1.5 transition cursor-pointer"
+                            >
+                                <span aria-hidden="true">🌑</span>
+                                <span>Moon Grey Zone</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleApplyMarsHighlandsPreset}
+                                className="px-2.5 py-1.5 rounded-lg bg-[#181A21] border border-[#21242C] hover:border-[#D67051] text-[11px] font-medium text-[#F1EEE9] flex items-center justify-center gap-1.5 transition cursor-pointer"
+                            >
+                                <span aria-hidden="true">🔴</span>
+                                <span>Mars Highlands</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1060,25 +1304,84 @@ const Tweaks = ({ onSelectLocation }) => {
                 </div>
 
                 {/* ---------------------------------------------------------- */}
-                {/* Filter Action Buttons: Apply Search & Reset Filters        */}
+                {/* Search Scope Toggle & Filter Action Buttons                */}
                 {/* ---------------------------------------------------------- */}
-                <div className="flex items-center gap-2 pt-1">
-                    <button
-                        type="button"
-                        onClick={handleApplyFilters}
-                        className="flex-1 bg-[#83CAD8] hover:opacity-90 text-[#090D15] font-semibold px-4 py-2 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
-                    >
-                        <Search size={13} aria-hidden="true" className="text-[#090D15]" />
-                        <span>Search</span>
-                    </button>
+                <div className="space-y-2 pt-1">
+                    {/* Search Scope Segmented Toggle: Catalog vs. Whole-Earth Scan */}
+                    <div>
+                        <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-semibold tracking-wider text-[#8891A0] uppercase">
+                                Search Scope
+                            </span>
+                            <span className="text-[10px] font-mono text-[#83CAD8]">
+                                {searchScope === "whole-earth"
+                                    ? "Includes Non-NASA Earth Sites"
+                                    : "50 Historical Sites Only"}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#07090E] border border-[#272C34] rounded-lg">
+                            <button
+                                type="button"
+                                onClick={() => setSearchScope("catalog")}
+                                aria-pressed={searchScope === "catalog"}
+                                className={`py-1.5 px-2 text-[11px] font-medium rounded-md text-center transition cursor-pointer ${
+                                    searchScope === "catalog"
+                                        ? "bg-[#1E2129] border border-[#83CAD8] text-[#F1EEE9] shadow-sm"
+                                        : "bg-[#181A21] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9]"
+                                }`}
+                            >
+                                Catalog (50 Sites)
+                            </button>
 
-                    <button
-                        type="button"
-                        onClick={handleReset}
-                        className="bg-[#181A21] border border-[#21242C] text-xs text-[#8891A0] hover:text-[#F1EEE9] hover:bg-[#1E2129] px-3 py-2 rounded-lg transition cursor-pointer"
-                    >
-                        Reset filters
-                    </button>
+                            <button
+                                type="button"
+                                onClick={() => setSearchScope("whole-earth")}
+                                aria-pressed={searchScope === "whole-earth"}
+                                className={`py-1.5 px-2 text-[11px] font-medium rounded-md text-center transition cursor-pointer flex items-center justify-center gap-1 ${
+                                    searchScope === "whole-earth"
+                                        ? "bg-[#1E2129] border border-[#83CAD8] text-[#83CAD8] shadow-sm"
+                                        : "bg-[#181A21] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9]"
+                                }`}
+                            >
+                                <Radar size={11} aria-hidden="true" />
+                                <span>Whole-Earth Scan</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Primary Search & Reset Buttons */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleApplyFilters}
+                            className="flex-1 bg-[#83CAD8] hover:opacity-90 text-[#090D15] font-semibold px-4 py-2 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
+                        >
+                            {isWholeEarthScanning ? (
+                                <Loader2
+                                    size={13}
+                                    aria-hidden="true"
+                                    className="animate-spin text-[#090D15]"
+                                />
+                            ) : (
+                                <Search
+                                    size={13}
+                                    aria-hidden="true"
+                                    className="text-[#090D15]"
+                                />
+                            )}
+                            <span>
+                                {isWholeEarthScanning ? "Scanning Earth..." : "Search"}
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleReset}
+                            className="bg-[#181A21] border border-[#21242C] text-xs text-[#8891A0] hover:text-[#F1EEE9] hover:bg-[#1E2129] px-3 py-2 rounded-lg transition cursor-pointer"
+                        >
+                            Reset filters
+                        </button>
+                    </div>
                 </div>
 
                 {/* Explicit Live Global Earth Telemetry Search Shortcut when typing a place */}
@@ -1245,7 +1548,233 @@ const Tweaks = ({ onSelectLocation }) => {
                                 </div>
                             </div>
 
-                            {/* Section B: Global Earth Telemetry Matches (Nominatim + Open-Meteo) */}
+                            {/* Section B: NEW EARTH DISCOVERIES (Whole-Earth Scan) */}
+                            {searchScope === "whole-earth" && (
+                                <div className="border-t border-[#21242C] pt-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[10px] font-semibold tracking-wider text-[#83CAD8] uppercase flex items-center gap-1.5">
+                                            <Radar size={12} aria-hidden="true" />
+                                            <span>
+                                                NEW EARTH DISCOVERIES (Whole-Earth Scan •{" "}
+                                                {wholeEarthResults.length})
+                                            </span>
+                                        </span>
+                                    </div>
+
+                                    {isWholeEarthScanning ? (
+                                        <div className="flex items-center justify-center gap-2 py-6 px-4 rounded-xl border border-[#83CAD8]/30 bg-[#181A21]/70 text-xs text-[#8891A0]">
+                                            <Loader2
+                                                size={14}
+                                                className="animate-spin text-[#83CAD8]"
+                                                aria-hidden="true"
+                                            />
+                                            <span>
+                                                Scanning 45 remote terrestrial regions via batch satellite telemetry...
+                                            </span>
+                                        </div>
+                                    ) : wholeEarthScanError ? (
+                                        <div className="p-3 rounded-xl border border-[#D67051]/40 bg-[#181A21] text-xs text-[#D67051] space-y-2">
+                                            <p>{wholeEarthScanError}</p>
+                                            <button
+                                                type="button"
+                                                onClick={handleApplyFilters}
+                                                className="px-2.5 py-1 rounded bg-[#1E2129] border border-[#21242C] text-[#F1EEE9] text-[11px] hover:border-[#83CAD8] cursor-pointer transition"
+                                            >
+                                                Retry Whole-Earth Scan
+                                            </button>
+                                        </div>
+                                    ) : wholeEarthResults.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {wholeEarthResults.map((site) => {
+                                                const siteKey =
+                                                    site._id || site.id || site.name;
+                                                const isSaved =
+                                                    savedLocationIds.has(siteKey) ||
+                                                    savedLocationIds.has(site.id) ||
+                                                    savedLocationIds.has(site.name);
+                                                const { pillLabel, pillClassName } =
+                                                    getTargetBodyInfo(site);
+                                                const telemetry = site.telemetry || {};
+
+                                                return (
+                                                    <article
+                                                        key={siteKey}
+                                                        onClick={() =>
+                                                            handleViewOnMap(site)
+                                                        }
+                                                        className="relative bg-[#181A21] border border-[#83CAD8]/40 rounded-xl p-3.5 transition duration-150 hover:border-[#83CAD8] shadow-md cursor-pointer"
+                                                    >
+                                                        {/* Top Row: Discovery Beacon, Cyan NEW DISCOVERY Badge & Target Body */}
+                                                        <div className="flex items-start justify-between gap-2.5">
+                                                            <div className="flex items-start gap-2.5 min-w-0">
+                                                                <div className="w-8 h-8 rounded-lg bg-[#83CAD8]/15 border border-[#83CAD8]/40 flex items-center justify-center text-[#83CAD8] shrink-0 mt-0.5">
+                                                                    <Radar
+                                                                        size={15}
+                                                                        aria-hidden="true"
+                                                                    />
+                                                                </div>
+
+                                                                <div className="min-w-0">
+                                                                    <span className="inline-block px-1.5 py-0.5 rounded bg-[#83CAD8]/15 border border-[#83CAD8]/40 text-[#83CAD8] text-[9px] font-bold tracking-wider uppercase mb-1">
+                                                                        NEW DISCOVERY
+                                                                    </span>
+                                                                    <h3 className="text-xs sm:text-sm font-semibold text-[#F1EEE9] truncate leading-tight">
+                                                                        {site.name}
+                                                                    </h3>
+                                                                    <p className="text-[11px] text-[#8891A0] truncate mt-0.5">
+                                                                        {site.country}
+                                                                    </p>
+                                                                    <p className="text-[10px] text-[#83CAD8]/90 truncate mt-1">
+                                                                        {site.analogCategory}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex flex-col items-end gap-1 shrink-0">
+                                                                <span
+                                                                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${pillClassName}`}
+                                                                >
+                                                                    {pillLabel}
+                                                                </span>
+                                                                <span className="font-mono text-xs text-[#83CAD8] font-medium">
+                                                                    {telemetry.temperatureC ??
+                                                                        site.temperature}
+                                                                    °C
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Live Satellite Telemetry Summary Grid */}
+                                                        <div className="grid grid-cols-2 gap-1.5 mt-2.5 pt-2 border-t border-[#21242C]/80 text-[10px] font-mono">
+                                                            <div className="flex items-center gap-1 text-[#8891A0]">
+                                                                <Mountain
+                                                                    size={11}
+                                                                    className="text-[#83CAD8] shrink-0"
+                                                                    aria-hidden="true"
+                                                                />
+                                                                <span>
+                                                                    Elev:{" "}
+                                                                    <strong className="text-[#F1EEE9]">
+                                                                        {(
+                                                                            telemetry.elevationMeters ??
+                                                                            0
+                                                                        ).toLocaleString()}{" "}
+                                                                        m
+                                                                    </strong>
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 text-[#8891A0]">
+                                                                <Thermometer
+                                                                    size={11}
+                                                                    className="text-[#83CAD8] shrink-0"
+                                                                    aria-hidden="true"
+                                                                />
+                                                                <span>
+                                                                    Temp:{" "}
+                                                                    <strong className="text-[#F1EEE9]">
+                                                                        {telemetry.temperatureC ??
+                                                                            site.temperature}
+                                                                        °C
+                                                                    </strong>
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 text-[#8891A0]">
+                                                                <Droplets
+                                                                    size={11}
+                                                                    className="text-[#83CAD8] shrink-0"
+                                                                    aria-hidden="true"
+                                                                />
+                                                                <span>
+                                                                    Hum:{" "}
+                                                                    <strong className="text-[#F1EEE9]">
+                                                                        {telemetry.humidityPercent ??
+                                                                            0}
+                                                                        %
+                                                                    </strong>
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 text-[#8891A0]">
+                                                                <Sun
+                                                                    size={11}
+                                                                    className="text-[#83CAD8] shrink-0"
+                                                                    aria-hidden="true"
+                                                                />
+                                                                <span>
+                                                                    Flux:{" "}
+                                                                    <strong className="text-[#F1EEE9]">
+                                                                        {telemetry.solarRadiationWm2 ??
+                                                                            0}{" "}
+                                                                        W/m²
+                                                                    </strong>
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Footer Actions Row */}
+                                                        <div className="flex items-center justify-between border-t border-[#21242C] pt-2.5 mt-2.5 text-xs">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleViewOnMap(site);
+                                                                }}
+                                                                aria-label={`View discovery on map: ${site.name}`}
+                                                                className="card-primary-action flex items-center gap-1.5 text-[#8891A0] hover:text-[#F1EEE9] focus-visible:outline-none transition duration-150 cursor-pointer after:content-[''] after:absolute after:inset-0 after:rounded-xl"
+                                                            >
+                                                                <MapPin
+                                                                    size={13}
+                                                                    aria-hidden="true"
+                                                                    className="text-[#83CAD8]"
+                                                                />
+                                                                <span>View on map</span>
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleSave(site);
+                                                                }}
+                                                                aria-label={
+                                                                    isSaved
+                                                                        ? `Saved ${site.name}`
+                                                                        : `Save ${site.name}`
+                                                                }
+                                                                className="relative z-10 flex items-center gap-1 text-[#8891A0] hover:text-[#83CAD8] transition duration-150 cursor-pointer py-0.5 px-1 rounded"
+                                                            >
+                                                                <Check
+                                                                    size={13}
+                                                                    aria-hidden="true"
+                                                                    className={
+                                                                        isSaved
+                                                                            ? "text-[#83CAD8]"
+                                                                            : "text-[#8891A0]"
+                                                                    }
+                                                                />
+                                                                <span
+                                                                    className={
+                                                                        isSaved
+                                                                            ? "text-[#83CAD8] font-medium"
+                                                                            : ""
+                                                                    }
+                                                                >
+                                                                    {isSaved ? "Saved" : "Save"}
+                                                                </span>
+                                                            </button>
+                                                        </div>
+                                                    </article>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-5 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs">
+                                            No unexplored non-NASA Earth regions matched these exact criteria.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Section C: Global Earth Telemetry Matches (Nominatim + NASA POWER) */}
                             {(isGlobalSearching ||
                                 globalResults.length > 0 ||
                                 globalSearchError ||
