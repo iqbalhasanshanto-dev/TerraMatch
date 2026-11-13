@@ -4,6 +4,7 @@ import {
     Marker,
     Popup,
     TileLayer,
+    useMap,
     useMapEvents,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -138,6 +139,20 @@ const MapClickProbeHandler = ({ isProbeActive, onProbeCoordinate }) => {
     return null;
 };
 
+// Fits initial viewport to 2:1 Equirectangular whole-world bounds on mount
+const WorldViewportInitializer = () => {
+    const map = useMap();
+
+    useEffect(() => {
+        map.fitBounds([
+            [-75, -175],
+            [80, 175],
+        ]);
+    }, [map]);
+
+    return null;
+};
+
 // Satellite map with planetary analog markers and live coordinate telemetry probing
 const Map = ({ isSidebarOpen }) => {
     // Context and location data hooks
@@ -157,7 +172,7 @@ const Map = ({ isSidebarOpen }) => {
     const markerRefs = useRef({});
     const probeMarkerRef = useRef(null);
     const prevSidebarOpenRef = useRef(isSidebarOpen);
-    const defaultPosition = [20.0, 0.0];
+    const defaultPosition = [15.0, 0.0];
 
     // Fast lookup Set of saved location keys
     const savedLocationIds = useMemo(() => {
@@ -289,12 +304,13 @@ const Map = ({ isSidebarOpen }) => {
         };
 
         const currentCenter = map.getCenter();
+        const targetZoom = typeof zoom === "number" ? Math.min(zoom, 5) : 4;
         const isAlreadyAtTarget =
             Math.abs(currentCenter.lat - latitude) < 0.0005 &&
             Math.abs(currentCenter.lng - longitude) < 0.0005 &&
-            Math.abs(map.getZoom() - zoom) < 0.05;
+            Math.abs(map.getZoom() - targetZoom) < 0.05;
 
-        map.flyTo([latitude, longitude], zoom, {
+        map.flyTo([latitude, longitude], targetZoom, {
             animate: true,
             duration: 1.6,
             easeLinearity: 0.25,
@@ -422,7 +438,7 @@ const Map = ({ isSidebarOpen }) => {
                 setMapTarget({
                     latitude: loc.coordinates.latitude,
                     longitude: loc.coordinates.longitude,
-                    zoom: 11,
+                    zoom: 4,
                     locationId: loc._id || loc.id,
                     name: loc.name,
                     timestamp: Date.now(),
@@ -483,38 +499,43 @@ const Map = ({ isSidebarOpen }) => {
                 )}
             </div>
 
-            {/* Single world map with 60° dragging cushion */}
+            {/* L.CRS.EPSG4326 renders the Earth as a 2:1 wide rectangle matching NASA Worldview rather than a 1:1 square */}
             <MapContainer
+                crs={L.CRS.EPSG4326}
                 center={defaultPosition}
-                zoom={1.8}
-                minZoom={1.5}
-                maxZoom={18}
+                zoom={1}
+                minZoom={1}
+                maxZoom={8}
                 zoomSnap={0.25}
                 zoomDelta={0.5}
                 maxBounds={[
-                    [-90, -240],
-                    [90, 240],
+                    [-90, -180],
+                    [90, 180],
                 ]}
-                maxBoundsViscosity={0.85}
+                maxBoundsViscosity={1.0}
                 worldCopyJump={false}
                 zoomControl={false}
                 scrollWheelZoom={true}
-                style={{ backgroundColor: "#07090E" }}
+                style={{ width: "100%", height: "100%", backgroundColor: "#07090E" }}
                 className="h-full w-full z-10"
                 ref={mapRef}
             >
-                {/* Esri World Imagery tile layer bounded to single world */}
+                {/* Fits initial viewport to 2:1 Equirectangular whole-world bounds */}
+                <WorldViewportInitializer />
+
+                {/* NASA GIBS EPSG:4326 Blue Marble 500m global satellite imagery */}
                 <TileLayer
-                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+                    url="https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/BlueMarble_ShadedRelief_Bathymetry/default/500m/{z}/{y}/{x}.jpeg"
+                    tileSize={256}
                     noWrap={true}
                     bounds={[
-                        [-85.0511, -180],
-                        [85.0511, 180],
+                        [-90, -180],
+                        [90, 180],
                     ]}
-                    maxNativeZoom={18}
-                    maxZoom={18}
-                    keepBuffer={6}
+                    attribution="Imagery &copy; NASA GIBS / Earthdata Worldview (EPSG:4326)"
+                    maxNativeZoom={8}
+                    maxZoom={8}
+                    keepBuffer={4}
                     updateWhenIdle={false}
                 />
 
