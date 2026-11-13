@@ -18,6 +18,7 @@ import {
     Thermometer,
     Droplets,
     Sun,
+    ExternalLink,
 } from "lucide-react";
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
@@ -28,6 +29,7 @@ import { analyzeCoordinateTelemetry } from "../utils/earthTelemetryApi";
 import {
     formatSurfaceTemp,
     getAnalogCategory,
+    getNasaWorldviewUrl,
     getRoversTested,
     getTargetBodyInfo,
 } from "../utils/analogSpec";
@@ -225,7 +227,7 @@ const Map = ({ isSidebarOpen }) => {
     const prevSidebarOpenRef = useRef(isSidebarOpen);
 
     /** Global default map center coordinates (equatorial overview). */
-    const defaultPosition = [20.0, 10.0];
+    const defaultPosition = [15.0, 0.0];
 
     // ------------------------------------------------------------------------
     // 4. Derived Saved Keys Lookup & Active Telemetry Pin Resolution
@@ -605,14 +607,14 @@ const Map = ({ isSidebarOpen }) => {
             {/* Leaflet Satellite Map Container: Locked to single Earth (no infinite wrap) */}
             <MapContainer
                 center={defaultPosition}
-                zoom={2.5}
-                minZoom={2.5}
+                zoom={2}
+                minZoom={1.8}
                 maxZoom={17}
                 maxBounds={[
-                    [-85, -180],
-                    [85, 180],
+                    [-85, -195],
+                    [85, 195],
                 ]}
-                maxBoundsViscosity={1.0}
+                maxBoundsViscosity={0.9}
                 worldCopyJump={false}
                 zoomControl={false}
                 scrollWheelZoom={true}
@@ -625,8 +627,8 @@ const Map = ({ isSidebarOpen }) => {
                     attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
                     noWrap={true}
                     bounds={[
-                        [-85, -180],
-                        [85, 180],
+                        [-85, -195],
+                        [85, 195],
                     ]}
                     maxNativeZoom={17}
                     maxZoom={17}
@@ -655,8 +657,14 @@ const Map = ({ isSidebarOpen }) => {
                                 popupclose: handleDismissTelemetryPin,
                             }}
                         >
-                            <Popup className="terramatch-popup" closeButton={true}>
-                                <div className="p-1 text-[#F1EEE9] min-w-56 max-w-68">
+                            <Popup
+                                className="terramatch-popup"
+                                closeButton={true}
+                                autoPan={true}
+                                autoPanPaddingTopLeft={[24, 80]}
+                                autoPanPaddingBottomRight={[24, 40]}
+                            >
+                                <div className="p-1 pr-8 text-[#F1EEE9] min-w-56 max-w-72">
                                     {activeTelemetryPin.isLoading ? (
                                         /* Loading State While Acquiring Nominatim + Open-Meteo Telemetry */
                                         <div className="py-3 flex flex-col items-center justify-center text-center gap-2">
@@ -722,13 +730,13 @@ const Map = ({ isSidebarOpen }) => {
                                             return (
                                                 <div>
                                                     {/* Header: Region Name & Country */}
-                                                    <div className="min-w-0 pr-6">
+                                                    <div className="min-w-0 pr-2">
                                                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-[#83CAD8]/20 to-[#F59E0B]/20 border border-[#83CAD8]/45 text-[9px] font-mono uppercase tracking-wider text-[#83CAD8] mb-1">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
                                                             <span>
                                                                 {site.isGlobalDiscovery
-                                                                    ? "Whole-Earth Satellite Discovery • Non-Catalog Site"
-                                                                    : "Live Satellite Telemetry • Non-Catalog Site"}
+                                                                    ? "SATELLITE DISCOVERY"
+                                                                    : "LIVE TELEMETRY PROBE"}
                                                             </span>
                                                         </span>
                                                         <h4 className="font-bold text-sm text-[#F1EEE9] leading-tight">
@@ -847,7 +855,7 @@ const Map = ({ isSidebarOpen }) => {
                                                         onClick={() =>
                                                             handleSaveTelemetrySite(
                                                                 site
-                                                            )
+                                                             )
                                                         }
                                                         className={`w-full py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
                                                             isSaved
@@ -873,6 +881,20 @@ const Map = ({ isSidebarOpen }) => {
                                                             </>
                                                         )}
                                                     </button>
+
+                                                    {/* Direct NASA Worldview True-Color Satellite Imagery Deep-Link */}
+                                                    <a
+                                                        href={getNasaWorldviewUrl(
+                                                            site.coordinates.latitude,
+                                                            site.coordinates.longitude
+                                                        )}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="mt-1.5 w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-[#181A21] border border-[#21242C] hover:border-[#83CAD8] text-[#8891A0] hover:text-[#83CAD8] flex items-center justify-center gap-1.5 transition"
+                                                    >
+                                                        <span>Open in NASA Worldview</span>
+                                                        <ExternalLink size={12} aria-hidden="true" />
+                                                    </a>
                                                 </div>
                                             );
                                         })()
@@ -934,15 +956,19 @@ const Map = ({ isSidebarOpen }) => {
                             }}
                         >
                             {/* Deep-Space Styled Scientific Analog Site Summary Popup */}
-                            <Popup className="terramatch-popup" closeButton={true}>
-                                <div className="p-1 text-[#F1EEE9] min-w-52 max-w-64">
+                            <Popup
+                                className="terramatch-popup"
+                                closeButton={true}
+                                autoPan={true}
+                                autoPanPaddingTopLeft={[24, 80]}
+                                autoPanPaddingBottomRight={[24, 40]}
+                            >
+                                <div className="p-1 pr-8 text-[#F1EEE9] min-w-52 max-w-68">
                                     {/* Distinct Cyan/Gold Discovery Badge for Non-Catalog Earth Sites */}
                                     {isDiscoverySite && (
                                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-[#83CAD8]/20 to-[#F59E0B]/20 border border-[#83CAD8]/50 text-[#83CAD8] text-[9px] font-bold tracking-wider uppercase mb-1.5">
                                             <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
-                                            <span>
-                                                Whole-Earth Satellite Discovery • Non-Catalog Site
-                                            </span>
+                                            <span>SATELLITE DISCOVERY</span>
                                         </span>
                                     )}
 
@@ -1015,6 +1041,21 @@ const Map = ({ isSidebarOpen }) => {
                                                 : roversTested}
                                         </p>
                                     </div>
+
+                                    {/* Direct NASA Worldview True-Color Satellite Imagery Deep-Link */}
+                                    <a
+                                        href={getNasaWorldviewUrl(
+                                            loc.coordinates.latitude,
+                                            loc.coordinates.longitude
+                                        )}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="mb-2 w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-[#181A21] border border-[#21242C] hover:border-[#83CAD8] text-[#8891A0] hover:text-[#83CAD8] flex items-center justify-center gap-1.5 transition cursor-pointer"
+                                    >
+                                        <span>Open in NASA Worldview</span>
+                                        <ExternalLink size={12} aria-hidden="true" />
+                                    </a>
+
                                     <Modal loc={loc} />
                                 </div>
                             </Popup>

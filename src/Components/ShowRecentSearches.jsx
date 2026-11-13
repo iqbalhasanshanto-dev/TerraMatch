@@ -1,5 +1,14 @@
 import { useState, useContext, useRef, useEffect, useMemo, useCallback } from "react";
-import { Clock3, Globe, MapPin, X, Check, RotateCcw } from "lucide-react";
+import {
+    Clock3,
+    Globe,
+    MapPin,
+    X,
+    Check,
+    RotateCcw,
+    ChevronDown,
+    ChevronUp,
+} from "lucide-react";
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
 import { toast } from "react-toastify";
@@ -49,6 +58,9 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
 
     /** Active planetary target body filter for the pinned analog sites catalog ("all", "moon", "mars"). */
     const [pinnedFilter, setPinnedFilter] = useState("all");
+
+    /** Toggles expansion / collapse of the Pinned Analog Sites catalog section. */
+    const [isCatalogOpen, setIsCatalogOpen] = useState(true);
 
     // ------------------------------------------------------------------------
     // 2. Optimistic Delete & 5-Second Undo Timer State Variables
@@ -292,9 +304,13 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
             {/* ============================================================== */}
             {/* Top Section: Recent Searches History                           */}
             {/* ============================================================== */}
-            <div className="shrink-0 mb-4">
+            <div
+                className={`flex flex-col min-h-0 mb-3 ${
+                    isCatalogOpen ? "flex-1" : "flex-1"
+                }`}
+            >
                 {/* Header Toolbar: Title, Clear All Action, and Live Saved Counter */}
-                <div className="flex justify-between items-center mb-2.5 pr-10">
+                <div className="flex justify-between items-center mb-2.5 pr-10 shrink-0">
                     <div className="flex items-center gap-2">
                         <Clock3 size={15} aria-hidden="true" className="text-[#8891A0]" />
                         <h2 className="font-semibold text-xs sm:text-sm text-[#F1EEE9] tracking-tight">
@@ -322,7 +338,7 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
 
                 {/* Recent Searches List or Compact Empty Message */}
                 {displayedSearches.length > 0 ? (
-                    <div className="space-y-2.5 max-h-56 sm:max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
                         {displayedSearches.map((item) => {
                             const itemKey = getRecentItemKey(item);
                             const isSaved =
@@ -441,9 +457,9 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
                     </div>
                 ) : (
                     /* Compact Empty Message When No Recent Searches */
-                    <div className="text-center py-4 px-3 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs">
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs">
                         <p className="font-medium text-[#F1EEE9]">No recent searches yet.</p>
-                        <p className="text-[11px] text-[#8891A0] mt-0.5">
+                        <p className="text-[11px] text-[#8891A0] mt-1 max-w-xs">
                             Click any pinned analog site below to view live telemetry on the map.
                         </p>
                     </div>
@@ -453,8 +469,12 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
             {/* ============================================================== */}
             {/* Bottom Section: Pinned Analog Sites Directory ({locData.length})*/}
             {/* ============================================================== */}
-            <div className="flex-1 flex flex-col min-h-0 border-t border-[#21242C] pt-3">
-                <div className="flex items-center justify-between gap-2 mb-2 pr-10">
+            <div
+                className={`flex flex-col min-h-0 border-t border-[#21242C] pt-3 transition-all duration-200 ${
+                    isCatalogOpen ? "flex-1" : "shrink-0"
+                }`}
+            >
+                <div className="flex items-center justify-between gap-2 mb-2 pr-10 shrink-0">
                     <div className="flex items-center gap-1.5 min-w-0">
                         <MapPin size={14} aria-hidden="true" className="text-[#83CAD8] shrink-0" />
                         <h3 className="font-semibold text-xs text-[#F1EEE9] truncate">
@@ -462,82 +482,112 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
                         </h3>
                     </div>
 
-                    {/* Quick Planetary Filter Pills (All / Moon / Mars) */}
-                    <div className="flex items-center gap-1 bg-[#181A21] border border-[#21242C] p-0.5 rounded-lg shrink-0">
-                        {[
-                            { id: "all", label: "All" },
-                            { id: "moon", label: "Moon" },
-                            { id: "mars", label: "Mars" },
-                        ].map((filter) => {
-                            const isSelected = pinnedFilter === filter.id;
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Quick Planetary Filter Pills (All / Moon / Mars) */}
+                        {isCatalogOpen && (
+                            <div className="flex items-center gap-1 bg-[#181A21] border border-[#21242C] p-0.5 rounded-lg shrink-0">
+                                {[
+                                    { id: "all", label: "All" },
+                                    { id: "moon", label: "Moon" },
+                                    { id: "mars", label: "Mars" },
+                                ].map((filter) => {
+                                    const isSelected = pinnedFilter === filter.id;
+                                    return (
+                                        <button
+                                            key={filter.id}
+                                            type="button"
+                                            onClick={() => setPinnedFilter(filter.id)}
+                                            className={`px-2 py-0.5 rounded text-[10px] font-medium transition cursor-pointer ${
+                                                isSelected
+                                                    ? filter.id === "mars"
+                                                        ? "bg-[#D67051] text-[#090D15] font-semibold"
+                                                        : "bg-[#83CAD8] text-[#090D15] font-semibold"
+                                                    : "text-[#8891A0] hover:text-[#F1EEE9]"
+                                            }`}
+                                        >
+                                            {filter.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Expand / Collapse Toggle Button */}
+                        <button
+                            type="button"
+                            onClick={() => setIsCatalogOpen((prev) => !prev)}
+                            aria-expanded={isCatalogOpen}
+                            aria-label={
+                                isCatalogOpen
+                                    ? "Collapse pinned analog sites catalog"
+                                    : "Expand pinned analog sites catalog"
+                            }
+                            title={
+                                isCatalogOpen
+                                    ? "Collapse catalog to give Recent Searches full height"
+                                    : "Expand pinned analog sites catalog"
+                            }
+                            className="p-1 rounded-md bg-[#181A21] border border-[#21242C] text-[#8891A0] hover:text-[#83CAD8] hover:border-[#83CAD8]/60 transition cursor-pointer"
+                        >
+                            {isCatalogOpen ? (
+                                <ChevronDown size={14} aria-hidden="true" />
+                            ) : (
+                                <ChevronUp size={14} aria-hidden="true" />
+                            )}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Scrollable List of Pinned Analog Sites (Visible when isCatalogOpen === true) */}
+                {isCatalogOpen && (
+                    <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                        {filteredPinnedSites.map((location) => {
+                            const locKey = location._id || location.id || location.name;
+                            const { pillLabel, pillClassName } = getTargetBodyInfo(location);
+                            const recognition = getAnalogRecognitionStatus(location);
+                            const surfaceTemp = formatSurfaceTemp(location);
+
                             return (
                                 <button
-                                    key={filter.id}
+                                    key={locKey}
                                     type="button"
-                                    onClick={() => setPinnedFilter(filter.id)}
-                                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition cursor-pointer ${
-                                        isSelected
-                                            ? filter.id === "mars"
-                                                ? "bg-[#D67051] text-[#090D15] font-semibold"
-                                                : "bg-[#83CAD8] text-[#090D15] font-semibold"
-                                            : "text-[#8891A0] hover:text-[#F1EEE9]"
-                                    }`}
+                                    onClick={() => handleViewOnMap(location)}
+                                    className="w-full text-left bg-[#181A21] border border-[#21242C] hover:border-[#83CAD8]/60 rounded-xl p-2.5 flex items-center justify-between gap-2 cursor-pointer transition group shadow-sm"
                                 >
-                                    {filter.label}
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-medium text-[#F1EEE9] group-hover:text-[#83CAD8] truncate transition">
+                                            {location.name}
+                                        </p>
+                                        <p className="text-[10px] text-[#8891A0] truncate mt-0.5">
+                                            {location.country}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        <span
+                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${recognition.badgeClass}`}
+                                        >
+                                            {recognition.label}
+                                        </span>
+                                        <span
+                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${pillClassName}`}
+                                        >
+                                            {pillLabel}
+                                        </span>
+                                        <span className="font-mono text-[10px] text-[#83CAD8] font-medium">
+                                            {surfaceTemp}
+                                        </span>
+                                        <MapPin
+                                            size={12}
+                                            aria-hidden="true"
+                                            className="text-[#8891A0] group-hover:text-[#83CAD8] transition"
+                                        />
+                                    </div>
                                 </button>
                             );
                         })}
                     </div>
-                </div>
-
-                {/* Scrollable List of Pinned Analog Sites */}
-                <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-                    {filteredPinnedSites.map((location) => {
-                        const locKey = location._id || location.id || location.name;
-                        const { pillLabel, pillClassName } = getTargetBodyInfo(location);
-                        const recognition = getAnalogRecognitionStatus(location);
-                        const surfaceTemp = formatSurfaceTemp(location);
-
-                        return (
-                            <button
-                                key={locKey}
-                                type="button"
-                                onClick={() => handleViewOnMap(location)}
-                                className="w-full text-left bg-[#181A21] border border-[#21242C] hover:border-[#83CAD8]/60 rounded-xl p-2.5 flex items-center justify-between gap-2 cursor-pointer transition group shadow-sm"
-                            >
-                                <div className="min-w-0">
-                                    <p className="text-xs font-medium text-[#F1EEE9] group-hover:text-[#83CAD8] truncate transition">
-                                        {location.name}
-                                    </p>
-                                    <p className="text-[10px] text-[#8891A0] truncate mt-0.5">
-                                        {location.country}
-                                    </p>
-                                </div>
-
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                    <span
-                                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${recognition.badgeClass}`}
-                                    >
-                                        {recognition.label}
-                                    </span>
-                                    <span
-                                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${pillClassName}`}
-                                    >
-                                        {pillLabel}
-                                    </span>
-                                    <span className="font-mono text-[10px] text-[#83CAD8] font-medium">
-                                        {surfaceTemp}
-                                    </span>
-                                    <MapPin
-                                        size={12}
-                                        aria-hidden="true"
-                                        className="text-[#8891A0] group-hover:text-[#83CAD8] transition"
-                                    />
-                                </div>
-                            </button>
-                        );
-                    })}
-                </div>
+                )}
             </div>
 
             {/* 5-Second Dark Undo Snackbar Banner */}

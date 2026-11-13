@@ -1,9 +1,11 @@
 import { Link } from "react-router";
 import {
     formatSurfaceTemp,
+    getAgencyDatasetProvenance,
     getAnalogCategory,
     getAnalogRecognitionStatus,
     getMineralogy,
+    getNasaWorldviewUrl,
     getRoversTested,
     getScientificFidelityAnalysis,
     getTargetBodyInfo,
@@ -15,6 +17,8 @@ import {
     Compass,
     Thermometer,
     Droplets,
+    ExternalLink,
+    Database,
 } from "lucide-react";
 
 /**
@@ -40,6 +44,7 @@ const Modal = ({ loc }) => {
     const mineralogy = getMineralogy(loc);
     const recognition = getAnalogRecognitionStatus(loc);
     const fidelity = getScientificFidelityAnalysis(loc);
+    const agencyDatasets = getAgencyDatasetProvenance(loc);
 
     // Dimension icon mapping
     const dimensionIcons = {
@@ -252,6 +257,61 @@ const Modal = ({ loc }) => {
                         </div>
                     </div>
 
+                    {/* ====================================================== */}
+                    {/* 6. Official Multi-Agency Planetary Data Provenance     */}
+                    {/* ====================================================== */}
+                    <div className="my-4 p-4 bg-[#0B0E13] border border-[#21242C] rounded-xl space-y-3">
+                        <div className="flex items-center justify-between border-b border-[#21242C] pb-2">
+                            <div className="flex items-center gap-2">
+                                <Database size={14} className="text-[#83CAD8]" />
+                                <h4 className="text-xs font-semibold text-[#F1EEE9] tracking-tight">
+                                    Official Multi-Agency Planetary Data Provenance
+                                </h4>
+                            </div>
+                            <span className="text-[10px] text-[#8891A0] font-mono">
+                                NASA • CSA • ESA • JAXA
+                            </span>
+                        </div>
+                        <p className="text-[10px] text-[#8891A0] leading-relaxed">
+                            Validated planetary instruments and Earth observation archives integrated for {loc.name}.
+                        </p>
+
+                        <div className="space-y-2 pt-1">
+                            {agencyDatasets.map((ds, idx) => (
+                                <div
+                                    key={idx}
+                                    className="bg-[#181A21] border border-[#21242C] rounded-lg p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                >
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            <span
+                                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider border ${ds.badgeClass}`}
+                                            >
+                                                {ds.agency}
+                                            </span>
+                                            <span className="text-xs font-semibold text-[#F1EEE9]">
+                                                {ds.name}
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] text-[#8891A0] mt-0.5">
+                                            {ds.parameter} • <span className="font-mono text-[#83CAD8]">{ds.resolution}</span>
+                                        </p>
+                                    </div>
+
+                                    <a
+                                        href={ds.portalUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="shrink-0 text-[10px] font-medium text-[#83CAD8] hover:underline flex items-center gap-1"
+                                    >
+                                        <span>Archive</span>
+                                        <ExternalLink size={10} aria-hidden="true" />
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* Terrain Characteristics Tags */}
                     <div className="mt-4">
                         <p className="font-semibold text-xs text-[#F1EEE9] mb-2">
@@ -270,7 +330,20 @@ const Modal = ({ loc }) => {
                     </div>
 
                     {/* Modal Actions Footer */}
-                    <div className="modal-action border-t border-[#21242C] pt-4 mt-5 flex items-center justify-end gap-2.5">
+                    <div className="modal-action border-t border-[#21242C] pt-4 mt-5 flex flex-wrap items-center justify-end gap-2.5">
+                        <a
+                            href={getNasaWorldviewUrl(
+                                loc.coordinates?.latitude,
+                                loc.coordinates?.longitude
+                            )}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3.5 py-1.5 rounded-lg border border-[#272C34] hover:border-[#83CAD8] text-[#8891A0] hover:text-[#83CAD8] text-xs font-medium flex items-center gap-1.5 transition cursor-pointer"
+                        >
+                            <span>Open in NASA Worldview</span>
+                            <ExternalLink size={12} aria-hidden="true" />
+                        </a>
+
                         <form method="dialog">
                             <button
                                 type="submit"

@@ -36,37 +36,60 @@ const LEGACY_PLACEHOLDER_IDS = new Set([
 ]);
 
 /**
- * The 10 official NASA Earthdata, Moon PDS, and Mars PDS planetary archives
- * used both as the authoritative catalog definition and as the automatic static
+ * The 11 official 2026 NASA Space Apps Challenge resources plus authoritative
+ * NASA Earthdata, Moon PDS, and Mars PDS planetary archives.
+ * Used both as the authoritative catalog definition and as the automatic static
  * fallback whenever `GET /data-sources` is unreachable on Netlify.
- * Each dataset defines real scientific parameters measured and spatial resolutions.
+ * Each dataset defines real scientific parameters measured, spatial resolutions,
+ * agency attribution, and official archive portal links.
  */
 const DEFAULT_PLANETARY_ARCHIVES = [
     // ------------------------------------------------------------------------
-    // Earth Datasets (Category: "earth") — NASA Earthdata
+    // 1. NASA Earthdata Search & Worldview (Challenge Resources #1 & #2)
     // ------------------------------------------------------------------------
     {
         id: "nasadem",
-        name: "NASADEM (NASA Digital Elevation Model)",
+        name: "NASA Earthdata Search (NASADEM Elevation DEM)",
         provider: "NASA Earthdata",
+        agency: "NASA",
+        agencyBadge: "bg-[#0B3A60]/30 border-[#0B3A60] text-[#83CAD8]",
         targetBody: "Earth",
         category: "earth",
-        parameter: "Topography & Slope",
-        dataTypes: ["Topography & Slope", "Elevation DEM"],
+        parameter: "Topography, Terrain & Slope",
+        dataTypes: ["Topography & Slope", "Laser & Radar Elevation DEM"],
         resolution: "30m Global DEM",
         status: "Verified Archive",
         feed: true,
-        portalUrl: "https://search.earthdata.nasa.gov/search?q=NASADEM",
+        portalUrl: "https://search.earthdata.nasa.gov/",
         description:
-            "Reprocessed global SRTM radar elevation and slope dataset providing high-accuracy terrain relief for Earth analog site characterization.",
+            "NASA Earthdata Search gateway integrating NASADEM, MODIS, SMAP, and GPM satellite observations for terrestrial planetary analog characterization.",
+    },
+    {
+        id: "nasa-worldview",
+        name: "NASA Worldview (GIBS Satellite Imagery Portal)",
+        provider: "NASA EOSDIS / GIBS",
+        agency: "NASA",
+        agencyBadge: "bg-[#0B3A60]/30 border-[#0B3A60] text-[#83CAD8]",
+        targetBody: "Earth",
+        category: "earth",
+        parameter: "Daily True-Color Satellite Imagery & Surface Reflectance",
+        dataTypes: ["True-Color Imagery", "Atmospheric & Surface Layers"],
+        resolution: "250m Daily Global Satellite Imagery",
+        status: "Verified Archive",
+        feed: true,
+        portalUrl: "https://worldview.earthdata.nasa.gov/index.html",
+        description:
+            "Interactive full-resolution satellite imagery browser providing daily true-color and thermal layers (VIIRS, MODIS, AIRS) for Earth analog monitoring.",
     },
     {
         id: "modis-mod11",
         name: "MODIS Land Surface Temperature (MOD11)",
         provider: "NASA Earthdata",
+        agency: "NASA",
+        agencyBadge: "bg-[#0B3A60]/30 border-[#0B3A60] text-[#83CAD8]",
         targetBody: "Earth",
         category: "earth",
-        parameter: "Surface Temperature",
+        parameter: "Surface Temperature & Diurnal Extrema",
         dataTypes: ["Surface Temperature", "Thermal Radiometry"],
         resolution: "1 km Daily Thermal Grid",
         status: "Verified Archive",
@@ -74,15 +97,17 @@ const DEFAULT_PLANETARY_ARCHIVES = [
         portalUrl:
             "https://search.earthdata.nasa.gov/search?q=MODIS%20Land%20Surface%20Temperature",
         description:
-            "Terra and Aqua MODIS thermal infrared land surface temperature and emissivity observations benchmarking diurnal thermal extremes.",
+            "Terra and Aqua MODIS thermal infrared land surface temperature observations benchmarking diurnal thermal extremes against Moon and Mars curves.",
     },
     {
         id: "smap-l3",
-        name: "SMAP L3 Soil Moisture",
+        name: "SMAP L3 Global Soil Moisture",
         provider: "NASA Earthdata",
+        agency: "NASA",
+        agencyBadge: "bg-[#0B3A60]/30 border-[#0B3A60] text-[#83CAD8]",
         targetBody: "Earth",
         category: "earth",
-        parameter: "Soil Moisture",
+        parameter: "Soil Moisture & Desiccation",
         dataTypes: ["Soil Moisture", "L-Band Radiometry"],
         resolution: "9 km Global Radiometer Grid",
         status: "Verified Archive",
@@ -90,27 +115,31 @@ const DEFAULT_PLANETARY_ARCHIVES = [
         portalUrl:
             "https://search.earthdata.nasa.gov/search?q=SMAP%20L3%20Soil%20Moisture",
         description:
-            "Soil Moisture Active Passive L-band radiometer volumetric soil moisture retrievals quantifying hyper-arid desert desiccation.",
+            "Soil Moisture Active Passive L-band radiometer volumetric soil moisture retrievals quantifying hyper-arid desert desiccation and permafrost water-ice table boundaries.",
     },
     {
         id: "gpm-imerg",
-        name: "GPM IMERG Precipitation",
+        name: "GPM IMERG Global Precipitation",
         provider: "NASA Earthdata",
+        agency: "NASA",
+        agencyBadge: "bg-[#0B3A60]/30 border-[#0B3A60] text-[#83CAD8]",
         targetBody: "Earth",
         category: "earth",
-        parameter: "Precipitation & Rainfall",
+        parameter: "Precipitation & Rainfall Rates",
         dataTypes: ["Precipitation & Rainfall", "Multi-Satellite Weathering"],
         resolution: "0.1° (~10 km) Multi-Satellite Grid",
         status: "Verified Archive",
         feed: true,
         portalUrl: "https://search.earthdata.nasa.gov/search?q=GPM%20IMERG",
         description:
-            "Integrated Multi-satellitE Retrievals for GPM delivering global precipitation rates to evaluate hydrologic weathering analog limits.",
+            "Integrated Multi-satellitE Retrievals for GPM delivering global precipitation rates to evaluate hydrologic weathering analog limits on Earth.",
     },
     {
         id: "modis-mod09",
-        name: "MODIS Surface Reflectance (MOD09)",
+        name: "MODIS Surface Reflectance & Albedo (MOD09)",
         provider: "NASA Earthdata",
+        agency: "NASA",
+        agencyBadge: "bg-[#0B3A60]/30 border-[#0B3A60] text-[#83CAD8]",
         targetBody: "Earth",
         category: "earth",
         parameter: "Surface Albedo & Mineral Reflectance",
@@ -121,51 +150,72 @@ const DEFAULT_PLANETARY_ARCHIVES = [
         portalUrl:
             "https://search.earthdata.nasa.gov/search?q=MODIS%20Surface%20Reflectance",
         description:
-            "Atmospherically corrected multispectral surface reflectance and albedo characteristics across barren regolith and basaltic testbeds.",
+            "Atmospherically corrected multispectral surface reflectance and albedo characteristics across barren regolith, basaltic flows, and dune fields.",
     },
 
     // ------------------------------------------------------------------------
-    // Moon Datasets (Category: "moon") — NASA PDS Lunar Archives
+    // 2. NASA Planetary Data System (PDS) Moon & Mars (Challenge Resources #3, #4, #5, #6)
     // ------------------------------------------------------------------------
     {
-        id: "lro-lola",
-        name: "LRO LOLA Lunar Elevation (LRO-L-LOLA-4-GDR-V1.0)",
-        provider: "NASA PDS / WUSTL",
-        targetBody: "Moon",
+        id: "nasa-pds",
+        name: "NASA Planetary Data System (PDS — Moon & Mars Archive)",
+        provider: "NASA PDS / GSFC",
+        agency: "NASA",
+        agencyBadge: "bg-[#0B3A60]/30 border-[#0B3A60] text-[#83CAD8]",
+        targetBody: "Moon & Mars",
         category: "moon",
-        parameter: "Topography & Slope",
-        dataTypes: ["Topography & Slope", "Laser Altimetry DEM"],
-        resolution: "5m Polar / 118m Global DEM",
+        parameter: "Planetary Geodesy, Regolith & Atmospheric Telemetry",
+        dataTypes: ["Orbital Archive", "Planetary Telemetry"],
+        resolution: "All PDS Mission Nodes",
         status: "Verified Archive",
         feed: true,
-        portalUrl:
-            "https://pds.nasa.gov/ds-view/pds/viewDataset.jsp?dsid=LRO-L-LOLA-4-GDR-V1.0",
+        portalUrl: "https://pds.nasa.gov/",
         description:
-            "Lunar Reconnaissance Orbiter Laser Altimeter gridded data records mapping crater slopes, permanently shadowed regions, and polar relief.",
+            "NASA's primary digital planetary archive federating all robotic and human exploration datasets across the Moon and Mars.",
+    },
+    {
+        id: "lro-lola",
+        name: "NASA LRO LOLA Lunar Elevation (LRO-L-LOLA-4-GDR-V1.0)",
+        provider: "NASA PDS / WUSTL",
+        agency: "NASA",
+        agencyBadge: "bg-[#0B3A60]/30 border-[#0B3A60] text-[#83CAD8]",
+        targetBody: "Moon",
+        category: "moon",
+        parameter: "Crater Topography, Slope & Polar PSR Relief",
+        dataTypes: ["Topography & Slope", "Laser Altimetry DEM"],
+        resolution: "5m Polar / 118m Global Laser DEM",
+        status: "Verified Archive",
+        feed: true,
+        portalUrl: "https://pds-geosciences.wustl.edu/missions/lro/",
+        description:
+            "Lunar Reconnaissance Orbiter Laser Altimeter precision topographic records mapping crater wall slopes, south pole Artemis base locations, and lava tube skylights.",
     },
     {
         id: "lro-diviner",
-        name: "LRO Diviner Lunar Radiometer (LRO-L-DLRE-4-RDR-V1.0)",
+        name: "NASA LRO Diviner Lunar Radiometer (Polar & Cryogenic Archive)",
         provider: "NASA PDS / UCLA",
+        agency: "NASA",
+        agencyBadge: "bg-[#0B3A60]/30 border-[#0B3A60] text-[#83CAD8]",
         targetBody: "Moon",
         category: "moon",
-        parameter: "Surface Temperature",
+        parameter: "Surface Temperature & Polar Cryogenic Cold Traps",
         dataTypes: ["Surface Temperature", "Thermal Radiometry"],
         resolution: "100m Lunar Grid (~128 px/deg)",
         status: "Verified Archive",
         feed: true,
-        portalUrl:
-            "https://data.nasa.gov/dataset/?q=LRO-L-DLRE-4-RDR-V1.0",
+        portalUrl: "https://pds-geosciences.wustl.edu/missions/lro/diviner.htm",
         description:
-            "Nine-channel infrared radiometer measuring lunar diurnal bolometric brightness temperatures from equatorial noon to cryogenic polar traps.",
+            "Nine-channel thermal radiometer measuring lunar bolometric brightness temperatures from equatorial noon (390K) to cryogenic polar traps (40K).",
     },
     {
         id: "ch1-m3",
-        name: "Chandrayaan-1 Moon Mineralogy Mapper (urn:nasa:pds:ch1_m3)",
+        name: "Chandrayaan-1 Moon Mineralogy Mapper (M3 Bundle)",
         provider: "NASA PDS / ISRO",
+        agency: "NASA",
+        agencyBadge: "bg-[#0B3A60]/30 border-[#0B3A60] text-[#83CAD8]",
         targetBody: "Moon",
         category: "moon",
-        parameter: "Mineralogy & Water-Ice",
+        parameter: "Mineralogy, Pyroxene & Polar Water-Ice",
         dataTypes: ["Mineralogy & Water-Ice", "Imaging Spectroscopy"],
         resolution: "140m Hyperspectral Grid",
         status: "Verified Archive",
@@ -173,42 +223,138 @@ const DEFAULT_PLANETARY_ARCHIVES = [
         portalUrl:
             "https://pds.nasa.gov/ds-view/pds/viewBundle.jsp?identifier=urn:nasa:pds:ch1_m3",
         description:
-            "Visible-to-near-infrared imaging spectrometer bundle identifying highland anorthosite, mare basalt, and polar OH/H2O absorption features.",
+            "Visible-to-near-infrared imaging spectrometer identifying anorthosite highlands, mare basalt flows, and surface OH/H2O absorption features.",
     },
-
-    // ------------------------------------------------------------------------
-    // Mars Datasets (Category: "mars") — NASA PDS Geosciences / GSFC
-    // ------------------------------------------------------------------------
     {
-        id: "mars-ode",
-        name: "Mars Orbital Data Explorer (ODE)",
-        provider: "NASA PDS Geosciences / WUSTL",
+        id: "mgs-mola",
+        name: "Mars Global Surveyor MOLA & Mars ODE Archive",
+        provider: "NASA PDS / GSFC & WUSTL",
+        agency: "NASA",
+        agencyBadge: "bg-[#4A1D13]/40 border-[#D67051]/60 text-[#D67051]",
         targetBody: "Mars",
         category: "mars",
-        parameter: "Multi-Mission Geodesy & Spectroscopy",
+        parameter: "Topography, Global Datum & Landing Site Relief",
+        dataTypes: ["Topography & Slope", "Laser Altimetry DEM"],
+        resolution: "463m Global Datum (128 px/deg)",
+        status: "Verified Archive",
+        feed: true,
+        portalUrl: "https://pds-geosciences.wustl.edu/missions/mgs/mola.html",
+        description:
+            "Mars Orbiter Laser Altimeter global topographic baseline establishing datum elevation, slopes, and crater depths across Martian exploration zones.",
+    },
+    {
+        id: "mars-ode",
+        name: "Mars Orbital Data Explorer (ODE — PDS Geosciences)",
+        provider: "NASA PDS Geosciences / WUSTL",
+        agency: "NASA",
+        agencyBadge: "bg-[#4A1D13]/40 border-[#D67051]/60 text-[#D67051]",
+        targetBody: "Mars",
+        category: "mars",
+        parameter: "Multi-Mission Geodesy, Imagery & Spectroscopy Index",
         dataTypes: ["Multi-Mission Geodesy", "PDS Query Index"],
-        resolution: "Sub-Meter to 100m Multi-Resolution",
+        resolution: "Sub-Meter (HiRISE) to 100m (CRISM/CTX)",
         status: "Verified Archive",
         feed: true,
         portalUrl: "https://ode.rsl.wustl.edu/mars/mapsearch",
         description:
-            "Integrated PDS Geosciences Node spatial search portal indexing MRO HiRISE, CRISM, CTX, Mars Express, and Viking orbital observations.",
+            "Integrated spatial search engine cross-referencing MRO HiRISE, CRISM, CTX, Mars Express, and Viking data for Martian landing site analysis.",
     },
+
+    // ------------------------------------------------------------------------
+    // 3. CSA RADARSAT Constellation & Open Archives (Challenge Resources #7, #8, #9)
+    // ------------------------------------------------------------------------
     {
-        id: "mgs-mola",
-        name: "Mars Global Surveyor MOLA (MGS MOLA)",
-        provider: "NASA PDS / GSFC",
-        targetBody: "Mars",
-        category: "mars",
-        parameter: "Topography & Planetary Datum",
-        dataTypes: ["Topography & Slope", "Laser Altimetry DEM"],
-        resolution: "463m Global DEM (128 px/deg)",
+        id: "csa-rcm",
+        name: "CSA RADARSAT Constellation Mission (RCM — C-Band SAR)",
+        provider: "Canadian Space Agency (CSA)",
+        agency: "CSA",
+        agencyBadge: "bg-[#451818]/40 border-[#EF4444]/60 text-[#FCA5A5]",
+        targetBody: "Earth",
+        category: "earth",
+        parameter: "C-Band Synthetic Aperture Radar (Cryosphere & Roughness)",
+        dataTypes: ["SAR Radar", "Cryosphere & Roughness"],
+        resolution: "1m – 100m Multi-Polarization Radar Modes",
         status: "Verified Archive",
         feed: true,
-        portalUrl:
-            "https://pds-geosciences.wustl.edu/missions/mgs/mola.html",
+        portalUrl: "https://donnees-data.asc-csa.gc.ca/en/dataset/rcm",
         description:
-            "Mars Orbiter Laser Altimeter precision global topographic datum and slope profiles used as the reference elevation baseline for Martian analogs.",
+            "Three-spacecraft C-band SAR constellation tracking permafrost ice-tables, glacial topography, and micro-relief surface roughness in Canadian Arctic analogs.",
+    },
+    {
+        id: "csa-radarsat1",
+        name: "CSA RADARSAT-1 Open Archive (All-Weather SAR)",
+        provider: "Canadian Space Agency (CSA)",
+        agency: "CSA",
+        agencyBadge: "bg-[#451818]/40 border-[#EF4444]/60 text-[#FCA5A5]",
+        targetBody: "Earth",
+        category: "earth",
+        parameter: "Long-Term Polar Cryosphere & Geological Structure",
+        dataTypes: ["C-Band SAR", "Historical Polar Baselines"],
+        resolution: "8m – 100m Standard & Beam Modes",
+        status: "Verified Archive",
+        feed: true,
+        portalUrl: "https://donnees-data.asc-csa.gc.ca/en/dataset/radarsat1",
+        description:
+            "Complete open archive of RADARSAT-1 synthetic aperture radar observations capturing 17 years of Arctic cryospheric changes and structural geology.",
+    },
+    {
+        id: "csa-sar-tutorial",
+        name: "CSA Synthetic Aperture Radar (SAR) Python & QGIS Workflow",
+        provider: "Canadian Space Agency (CSA)",
+        agency: "CSA",
+        agencyBadge: "bg-[#451818]/40 border-[#EF4444]/60 text-[#FCA5A5]",
+        targetBody: "Earth",
+        category: "earth",
+        parameter: "SAR Polarimetric Processing & Terrain Analysis Tutorial",
+        dataTypes: ["Python Pipeline", "QGIS Geospatial Scripts"],
+        resolution: "Open-Source Python / QGIS Planetary Pipeline",
+        status: "Verified Archive",
+        feed: true,
+        portalUrl: "https://github.com/asc-csa/Synthetic_Aperture_Radar_Tutorial",
+        description:
+            "Official CSA Python and QGIS tutorial series for processing radar backscatter, polarimetry, and surface roughness across Earth analog testbeds.",
+    },
+
+    // ------------------------------------------------------------------------
+    // 4. ESA Copernicus Data Space & Open Science Catalog (Challenge Resource #10)
+    // ------------------------------------------------------------------------
+    {
+        id: "esa-copernicus",
+        name: "ESA Copernicus Data Space & Open Science Catalog",
+        provider: "European Space Agency (ESA)",
+        agency: "ESA",
+        agencyBadge: "bg-[#1E1B4B]/40 border-[#6366F1]/60 text-[#A5B4FC]",
+        targetBody: "Earth",
+        category: "earth",
+        parameter: "Multispectral Mineralogy (Sentinel-2) & C-SAR (Sentinel-1)",
+        dataTypes: ["Multispectral Imagery", "Interferometric C-SAR"],
+        resolution: "10m Multispectral / 5m SAR Spatial Resolution",
+        status: "Verified Archive",
+        feed: true,
+        portalUrl: "https://dataspace.copernicus.eu/",
+        description:
+            "European Copernicus Earth observation ecosystem delivering open Sentinel-1 SAR backscatter and Sentinel-2 13-band multispectral mineral spectroscopy.",
+    },
+
+    // ------------------------------------------------------------------------
+    // 5. JAXA G-Portal (ALOS PALSAR & GCOM-C) (Challenge Resource #11)
+    // ------------------------------------------------------------------------
+    {
+        id: "jaxa-gportal",
+        name: "JAXA G-Portal (ALOS PALSAR L-Band Radar & GCOM-C Cryosphere)",
+        provider: "Japan Aerospace Exploration Agency (JAXA)",
+        agency: "JAXA",
+        agencyBadge: "bg-[#3B1F4B]/40 border-[#A855F7]/60 text-[#D8B4FE]",
+        targetBody: "Earth",
+        category: "earth",
+        parameter: "L-Band Radar Subsurface Penetration & Polar Cryosphere",
+        dataTypes: ["L-Band SAR", "Cryosphere & Land Color"],
+        resolution: "10m Polarimetric L-Band SAR / 250m Global Color",
+        status: "Verified Archive",
+        feed: true,
+        portalUrl: "https://gportal.jaxa.jp/gpr/index/index",
+        description:
+            "JAXA satellite portal providing penetrating L-band radar (PALSAR-2) to image sub-sand bedrock and paleochannels, plus GCOM-C cryosphere observations.",
     },
 ];
 
@@ -278,12 +424,14 @@ const reconcileOfficialCatalog = (serverRecords) => {
             (item) => item?.id === official.id
         );
         if (!match) return official;
-        // Enforce authoritative scientific parameters and portal links
+        // Enforce authoritative scientific parameters, agency badges, and portal links
         return {
             ...official,
             ...match,
             name: official.name,
             provider: official.provider,
+            agency: official.agency,
+            agencyBadge: official.agencyBadge,
             targetBody: official.targetBody,
             category: official.category,
             parameter: official.parameter,
@@ -353,8 +501,11 @@ const DataServerPage = () => {
     // ------------------------------------------------------------------------
     // 2. Filter, Search & Custom Ingestion Modal State Variables
     // ------------------------------------------------------------------------
-    /** Active planetary category filter ("all", "moon", "mars", "earth", "feeds"). */
+    /** Active planetary category filter ("all", "moon", "mars", "earth"). */
     const [activeCategory, setActiveCategory] = useState("all");
+
+    /** Active space agency filter ("all", "nasa", "csa", "esa", "jaxa"). */
+    const [activeAgency, setActiveAgency] = useState("all");
 
     /** Free-text search query matching dataset name, provider, body, or data types. */
     const [searchQuery, setSearchQuery] = useState("");
@@ -398,7 +549,7 @@ const DataServerPage = () => {
             .then((data) => {
                 if (!isMounted) return;
                 if (Array.isArray(data) && data.length > 0) {
-                    // Reconcile official 10 NASA/PDS datasets and merge local custom sources
+                    // Reconcile official 2026 Space Apps datasets and merge local custom sources
                     const reconciled = reconcileOfficialCatalog(data);
                     setDatasets(mergeDatasets(reconciled, localCustomSources));
                 } else {
@@ -430,40 +581,62 @@ const DataServerPage = () => {
     }, []);
 
     // ------------------------------------------------------------------------
-    // 4. Category Filter Definitions
+    // 4. Agency & Target Planetary Body Filter Definitions
     // ------------------------------------------------------------------------
-    const categoryPills = [
+    /** Agency filter pill definitions covering official 2026 Space Apps Challenge partners */
+    const agencyPills = [
         { id: "all", label: "All Sources" },
+        { id: "nasa", label: "NASA (Earth, Moon & Mars)" },
+        { id: "csa", label: "CSA (RADARSAT SAR)" },
+        { id: "esa", label: "ESA (Copernicus)" },
+        { id: "jaxa", label: "JAXA (G-Portal)" },
+    ];
+
+    /** Target planetary body category filter pills */
+    const categoryPills = [
+        { id: "all", label: "All Bodies" },
         { id: "moon", label: "Moon Archives" },
         { id: "mars", label: "Mars Missions" },
         { id: "earth", label: "Earth Remote Sensing" },
-        { id: "feeds", label: "Active Feeds" },
     ];
 
     // ------------------------------------------------------------------------
     // 5. Dataset Filtering Logic
     // ------------------------------------------------------------------------
-    /** Computes filtered datasets list based on active category and text query. */
+    /** Computes filtered datasets list based on active category, agency, and text query. */
     const filteredDatasets = useMemo(() => {
         return datasets.filter((item) => {
-            const body = item.targetBody || "";
-            const category = item.category || "";
+            const body = (item.targetBody || "").toLowerCase();
+            const category = (item.category || "").toLowerCase();
+            const itemAgency = (item.agency || item.provider || "").toLowerCase();
 
+            // 1. Target planetary body category filter
             if (activeCategory === "moon") {
-                if (category !== "moon" && !body.includes("Moon")) return false;
+                if (category !== "moon" && !body.includes("moon")) return false;
             } else if (activeCategory === "mars") {
-                if (category !== "mars" && !body.includes("Mars")) return false;
+                if (category !== "mars" && !body.includes("mars")) return false;
             } else if (activeCategory === "earth") {
-                if (category !== "earth" && !body.includes("Earth")) return false;
-            } else if (activeCategory === "feeds") {
-                if (!item.feed) return false;
+                if (category !== "earth" && !body.includes("earth")) return false;
             }
 
+            // 2. Official Agency filter (NASA, CSA, ESA, JAXA)
+            if (activeAgency === "nasa") {
+                if (!itemAgency.includes("nasa")) return false;
+            } else if (activeAgency === "csa") {
+                if (!itemAgency.includes("csa") && !itemAgency.includes("canadian")) return false;
+            } else if (activeAgency === "esa") {
+                if (!itemAgency.includes("esa") && !itemAgency.includes("copernicus")) return false;
+            } else if (activeAgency === "jaxa") {
+                if (!itemAgency.includes("jaxa") && !itemAgency.includes("japan")) return false;
+            }
+
+            // 3. Free-text search query matching name, provider, agency, parameter, or types
             if (searchQuery.trim()) {
                 const query = searchQuery.trim().toLowerCase();
                 const nameMatch = (item.name || "").toLowerCase().includes(query);
                 const providerMatch = (item.provider || "").toLowerCase().includes(query);
-                const bodyMatch = body.toLowerCase().includes(query);
+                const agencyMatch = (item.agency || "").toLowerCase().includes(query);
+                const bodyMatch = body.includes(query);
                 const parameterMatch = (item.parameter || "").toLowerCase().includes(query);
                 const resolutionMatch = (item.resolution || "").toLowerCase().includes(query);
                 const typeMatch =
@@ -472,6 +645,7 @@ const DataServerPage = () => {
                 if (
                     !nameMatch &&
                     !providerMatch &&
+                    !agencyMatch &&
                     !bodyMatch &&
                     !parameterMatch &&
                     !resolutionMatch &&
@@ -483,7 +657,7 @@ const DataServerPage = () => {
 
             return true;
         });
-    }, [datasets, activeCategory, searchQuery]);
+    }, [datasets, activeCategory, activeAgency, searchQuery]);
 
     // ------------------------------------------------------------------------
     // 6. Custom Source Ingestion Handler (LocalStorage + MongoDB Background)
@@ -638,11 +812,62 @@ const DataServerPage = () => {
                 </div>
 
                 {/* ========================================================== */}
-                {/* 2. Filter Toolbar: Category Pills & Search Input           */}
+                {/* 2. Filter Toolbar: Agency & Category Pills + Search Input  */}
                 {/* ========================================================== */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-1">
-                    {/* Left: Category Filter Pills */}
-                    <div className="flex flex-wrap items-center gap-2">
+                <div className="space-y-3 pt-1">
+                    {/* Top Row: Agency Pills (NASA, CSA, ESA, JAXA) & Search Input */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-[10px] font-semibold text-[#8891A0] uppercase tracking-wider mr-1 shrink-0">
+                                Agency:
+                            </span>
+                            {agencyPills.map((pill) => {
+                                const isSelected = activeAgency === pill.id;
+                                return (
+                                    <button
+                                        key={pill.id}
+                                        type="button"
+                                        onClick={() => setActiveAgency(pill.id)}
+                                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                                            isSelected
+                                                ? "bg-[#1A1D23] border border-[#83CAD8] text-[#83CAD8] shadow-sm"
+                                                : "bg-[#0B0E13] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9]"
+                                        }`}
+                                    >
+                                        {pill.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Search Filter Input */}
+                        <div className="flex items-center gap-2 w-full md:w-72 bg-[#0B0E13] border border-[#272C34] rounded-lg px-2.5 py-1.5 focus-within:border-[#83CAD8] transition">
+                            <Search size={14} className="text-[#8891A0] shrink-0" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Filter datasets or mission..."
+                                className="w-full bg-transparent text-xs text-[#F1EEE9] placeholder-[#8891A0] focus:outline-none"
+                            />
+                            {searchQuery && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchQuery("")}
+                                    className="text-[#8891A0] hover:text-[#F1EEE9] text-xs cursor-pointer"
+                                    aria-label="Clear search query"
+                                >
+                                    <X size={13} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Bottom Row: Target Planetary Body Pills (All, Moon, Mars, Earth) */}
+                    <div className="flex flex-wrap items-center gap-1.5 border-t border-[#21242C]/60 pt-2.5">
+                        <span className="text-[10px] font-semibold text-[#8891A0] uppercase tracking-wider mr-1 shrink-0">
+                            Target Body:
+                        </span>
                         {categoryPills.map((pill) => {
                             const isSelected = activeCategory === pill.id;
                             return (
@@ -650,9 +875,9 @@ const DataServerPage = () => {
                                     key={pill.id}
                                     type="button"
                                     onClick={() => setActiveCategory(pill.id)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer ${
                                         isSelected
-                                            ? "bg-[#1A1D23] border border-[#21242C] text-[#F1EEE9] shadow-sm"
+                                            ? "bg-[#181A21] border border-[#83CAD8]/50 text-[#F1EEE9] shadow-sm font-semibold"
                                             : "bg-[#0B0E13] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9]"
                                     }`}
                                 >
@@ -660,28 +885,6 @@ const DataServerPage = () => {
                                 </button>
                             );
                         })}
-                    </div>
-
-                    {/* Right: Search Filter Input */}
-                    <div className="flex items-center gap-2 w-full md:w-72 bg-[#0B0E13] border border-[#272C34] rounded-lg px-2.5 py-1.5 focus-within:border-[#83CAD8] transition">
-                        <Search size={14} className="text-[#8891A0] shrink-0" />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Filter datasets or mission..."
-                            className="w-full bg-transparent text-xs text-[#F1EEE9] placeholder-[#8891A0] focus:outline-none"
-                        />
-                        {searchQuery && (
-                            <button
-                                type="button"
-                                onClick={() => setSearchQuery("")}
-                                className="text-[#8891A0] hover:text-[#F1EEE9] text-xs cursor-pointer"
-                                aria-label="Clear search query"
-                            >
-                                <X size={13} />
-                            </button>
-                        )}
                     </div>
                 </div>
 
@@ -719,8 +922,18 @@ const DataServerPage = () => {
                                                 </p>
                                             </div>
 
-                                            {/* Target Planetary Body Badge & Custom Delete Button */}
+                                            {/* Agency Badge, Target Planetary Body Badge & Custom Delete Button */}
                                             <div className="flex items-center gap-1.5 shrink-0">
+                                                {dataset.agency && (
+                                                    <span
+                                                        className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                                            dataset.agencyBadge ||
+                                                            "bg-[#181A21] border-[#21242C] text-[#8891A0]"
+                                                        }`}
+                                                    >
+                                                        {dataset.agency}
+                                                    </span>
+                                                )}
                                                 <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#181A21] border border-[#21242C] text-[#8891A0]">
                                                     {dataset.targetBody}
                                                 </span>
@@ -817,33 +1030,46 @@ const DataServerPage = () => {
                 {/* ========================================================== */}
                 <aside
                     aria-label="Planetary telemetry archives overview"
-                    className="w-full mt-8 bg-[#0B0E13] border border-[#21242C] rounded-xl px-5 sm:px-6 py-4 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    className="w-full mt-8 bg-[#0B0E13] border border-[#21242C] rounded-xl px-5 sm:px-6 py-5 shadow-md flex flex-col gap-4"
                 >
-                    {/* Left: Open Planetary Datasets Summary */}
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#83CAD8] shrink-0">
-                            <Database size={16} />
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        {/* Left: Open Planetary Datasets Summary */}
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#83CAD8] shrink-0">
+                                <Database size={16} />
+                            </div>
+                            <div>
+                                <p className="text-xs sm:text-sm font-semibold text-[#F1EEE9] leading-tight">
+                                    {filteredDatasets.length} Open Planetary &amp; Earth Datasets Integrated (NASA, CSA, ESA, JAXA &amp; Custom Sources)
+                                </p>
+                                <p className="text-[11px] text-[#8891A0] mt-0.5">
+                                    OGC WMS/WMTS endpoints, SAR radar archives &amp; Cloud-Optimized GeoTIFFs (COG) ready for Moon and Mars analog mission analysis.
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-xs sm:text-sm font-semibold text-[#F1EEE9] leading-tight">
-                                {filteredDatasets.length} Open Planetary &amp; Earth Datasets Integrated (NASA, ESA, ISRO, USGS &amp; Custom Sources)
-                            </p>
-                            <p className="text-[11px] text-[#8891A0] mt-0.5">
-                                OGC WMS/WMTS endpoints &amp; Cloud-Optimized GeoTIFFs (COG) ready for Moon and Mars analog mission analysis.
-                            </p>
+
+                        {/* Right Action: Ingest Custom Source Trigger */}
+                        <div className="flex items-center justify-end shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setIsAddModalOpen(true)}
+                                className="bg-[#83CAD8] hover:opacity-90 text-[#090D15] font-semibold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                            >
+                                <Plus size={14} className="text-[#090D15]" />
+                                <span>+ Add Custom Source</span>
+                            </button>
                         </div>
                     </div>
 
-                    {/* Right Action: Ingest Custom Source Trigger */}
-                    <div className="flex items-center justify-end">
-                        <button
-                            type="button"
-                            onClick={() => setIsAddModalOpen(true)}
-                            className="bg-[#83CAD8] hover:opacity-90 text-[#090D15] font-semibold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer"
-                        >
-                            <Plus size={14} className="text-[#090D15]" />
-                            <span>+ Add Custom Source</span>
-                        </button>
+                    {/* Official Non-U.S. Government Partner Attribution Notice */}
+                    <div className="border-t border-[#21242C] pt-3 text-[11px] text-[#8891A0] leading-relaxed">
+                        <p>
+                            <strong className="text-[#F1EEE9]">Official 2026 NASA Space Apps Challenge Partner Notice:</strong>{" "}
+                            Data resources integrated within TerraMatch include open telemetry, radar, and satellite archives from the{" "}
+                            <strong className="text-[#F1EEE9]">Canadian Space Agency (CSA)</strong>,{" "}
+                            <strong className="text-[#F1EEE9]">European Space Agency (ESA)</strong>, and{" "}
+                            <strong className="text-[#F1EEE9]">Japan Aerospace Exploration Agency (JAXA)</strong>, provided under international open science agreements and the 2026 NASA Space Apps Challenge partnership framework.
+                        </p>
                     </div>
                 </aside>
             </div>

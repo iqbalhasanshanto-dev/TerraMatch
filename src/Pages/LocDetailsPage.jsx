@@ -19,12 +19,16 @@ import {
     Scale,
     Wind,
     ShieldAlert,
+    ExternalLink,
+    Database,
 } from "lucide-react";
 import {
     formatSurfaceTemp,
+    getAgencyDatasetProvenance,
     getAnalogCategory,
     getAnalogRecognitionStatus,
     getMineralogy,
+    getNasaWorldviewUrl,
     getRoversTested,
     getScientificFidelityAnalysis,
     getTargetBodyInfo,
@@ -125,6 +129,7 @@ const LocDetailsPage = () => {
     const mineralogy = getMineralogy(neededLocation);
     const recognition = getAnalogRecognitionStatus(neededLocation);
     const fidelity = getScientificFidelityAnalysis(neededLocation);
+    const agencyDatasets = getAgencyDatasetProvenance(neededLocation);
 
     /**
      * Persists this location via `StateProvider.saveLocation` immediately
@@ -186,29 +191,44 @@ const LocDetailsPage = () => {
                             </p>
                         </div>
 
-                        {/* Save / Bookmark CTA */}
-                        <button
-                            type="button"
-                            onClick={handleSave}
-                            className="bg-[#83CAD8] hover:opacity-90 text-[#090D15] font-semibold px-4 py-2 rounded-lg text-xs flex items-center gap-2 shadow-sm transition cursor-pointer shrink-0"
-                        >
-                            {isAlreadySaved ? (
-                                <Check
-                                    size={15}
-                                    aria-hidden="true"
-                                    className="text-[#090D15]"
-                                />
-                            ) : (
-                                <Bookmark
-                                    size={15}
-                                    aria-hidden="true"
-                                    className="text-[#090D15]"
-                                />
-                            )}
-                            <span>
-                                {isAlreadySaved ? "Saved to Profile" : "Save this Location"}
-                            </span>
-                        </button>
+                        {/* Action Buttons: Open in NASA Worldview & Save / Bookmark CTA */}
+                        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                            <a
+                                href={getNasaWorldviewUrl(
+                                    neededLocation.coordinates?.latitude,
+                                    neededLocation.coordinates?.longitude
+                                )}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-[#181A21] border border-[#272C34] hover:border-[#83CAD8] text-[#8891A0] hover:text-[#83CAD8] font-semibold px-3.5 py-2 rounded-lg text-xs flex items-center gap-2 shadow-sm transition cursor-pointer"
+                            >
+                                <span>Open in NASA Worldview</span>
+                                <ExternalLink size={14} aria-hidden="true" />
+                            </a>
+
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                className="bg-[#83CAD8] hover:opacity-90 text-[#090D15] font-semibold px-4 py-2 rounded-lg text-xs flex items-center gap-2 shadow-sm transition cursor-pointer"
+                            >
+                                {isAlreadySaved ? (
+                                    <Check
+                                        size={15}
+                                        aria-hidden="true"
+                                        className="text-[#090D15]"
+                                    />
+                                ) : (
+                                    <Bookmark
+                                        size={15}
+                                        aria-hidden="true"
+                                        className="text-[#090D15]"
+                                    />
+                                )}
+                                <span>
+                                    {isAlreadySaved ? "Saved to Profile" : "Save this Location"}
+                                </span>
+                            </button>
+                        </div>
                     </div>
 
                     {/* Analog Target Body Badges */}
@@ -412,7 +432,77 @@ const LocDetailsPage = () => {
                     </div>
 
                     {/* ====================================================== */}
-                    {/* 5. Environmental & Terrain Breakdown                   */}
+                    {/* 5. Official Multi-Agency Planetary Science Provenance  */}
+                    {/* ====================================================== */}
+                    <div className="border border-[#21242C] rounded-xl p-6 bg-[#0B0E13] space-y-4 shadow-md">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#21242C] pb-3">
+                            <div className="flex items-center gap-2.5">
+                                <Database size={17} className="text-[#83CAD8]" />
+                                <div>
+                                    <h2 className="text-sm font-bold text-[#F1EEE9] tracking-tight">
+                                        Official Multi-Agency Planetary Science Provenance
+                                    </h2>
+                                    <p className="text-xs text-[#8891A0] mt-0.5">
+                                        Authoritative datasets and satellite archives (NASA, CSA, ESA, JAXA) used to characterize this analog.
+                                    </p>
+                                </div>
+                            </div>
+                            <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded bg-[#181A21] border border-[#21242C] text-[#8891A0] self-start sm:self-auto">
+                                2026 Space Apps Archive
+                            </span>
+                        </div>
+
+                        {/* Agency Datasets Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+                            {agencyDatasets.map((ds, idx) => (
+                                <div
+                                    key={idx}
+                                    className="bg-[#181A21] border border-[#21242C] rounded-xl p-4 flex flex-col justify-between gap-3"
+                                >
+                                    <div>
+                                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                                            <span
+                                                className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider border ${ds.badgeClass}`}
+                                            >
+                                                {ds.agency}
+                                            </span>
+                                            <span className="text-[10px] text-[#8891A0] font-mono">
+                                                {ds.resolution}
+                                            </span>
+                                        </div>
+
+                                        <h3 className="text-xs font-semibold text-[#F1EEE9] leading-snug">
+                                            {ds.name}
+                                        </h3>
+                                        <p className="text-[11px] text-[#83CAD8] mt-1 font-medium">
+                                            {ds.parameter}
+                                        </p>
+                                        <p className="text-xs text-[#8891A0] mt-1.5 leading-relaxed">
+                                            {ds.description}
+                                        </p>
+                                    </div>
+
+                                    <div className="pt-2 border-t border-[#21242C] flex items-center justify-between">
+                                        <span className="text-[10px] text-[#8891A0] truncate max-w-[200px]">
+                                            {ds.agencyFullName}
+                                        </span>
+                                        <a
+                                            href={ds.portalUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 text-xs font-medium text-[#83CAD8] hover:underline"
+                                        >
+                                            <span>Open Archive</span>
+                                            <ExternalLink size={12} aria-hidden="true" />
+                                        </a>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ====================================================== */}
+                    {/* 6. Environmental & Terrain Breakdown                   */}
                     {/* ====================================================== */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         {/* Environment Metrics */}
