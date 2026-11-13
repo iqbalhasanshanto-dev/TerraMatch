@@ -19,6 +19,7 @@ import {
     Droplets,
     Sun,
     ExternalLink,
+    Globe,
 } from "lucide-react";
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
@@ -559,6 +560,18 @@ const Map = ({ isSidebarOpen }) => {
         }
     };
 
+    /**
+     * Resets the map viewport to the complete "Whole World" planetary framing.
+     * Smoothly flies the Leaflet camera back to equatorial center [20, 0] at
+     * fractional zoom 1.5 with animation, allowing judges and users to snap
+     * back to the full planet view in one click.
+     */
+    const handleResetToWholeWorld = useCallback(() => {
+        if (mapRef.current) {
+            mapRef.current.setView([20.0, 0.0], 1.5, { animate: true });
+        }
+    }, []);
+
     // Show loading spinner while initial planetary analog sites fetch completes
     if (loading) return <Loader />;
 
@@ -604,34 +617,77 @@ const Map = ({ isSidebarOpen }) => {
                 )}
             </div>
 
-            {/* Leaflet Satellite Map Container: Edge-to-edge satellite coverage without grey gaps */}
+            {/* Top-Right "Whole World" Global Overview Reset Button:
+                Allows judges and users to instantly snap back to the complete whole-world
+                satellite view ([20, 0] at fractional zoom 1.5) with smooth Leaflet animation.
+                Dynamically offsets horizontally when the right drawer sidebar opens/closes. */}
+            <div
+                className={`absolute top-3.5 z-20 flex items-center select-none transition-all duration-300 ${
+                    isSidebarOpen
+                        ? "lg:right-[25rem] right-4"
+                        : "right-32 sm:right-36"
+                }`}
+            >
+                <button
+                    type="button"
+                    onClick={handleResetToWholeWorld}
+                    className="flex items-center gap-1.5 min-h-9 px-3 py-1.5 rounded-xl bg-[#0B0E13]/95 backdrop-blur-md border border-[#21242C] text-[#F1EEE9] hover:text-[#83CAD8] hover:border-[#83CAD8]/60 hover:bg-[#1E2129] shadow-xl transition cursor-pointer text-xs font-semibold whitespace-nowrap"
+                    title="Reset to Whole World overview"
+                    aria-label="Reset to Whole World overview"
+                >
+                    <Globe size={14} className="text-[#83CAD8] shrink-0" aria-hidden="true" />
+                    <span>Whole World</span>
+                </button>
+            </div>
+
+            {/* ============================================================== */}
+            {/* Leaflet Satellite Map Container: Whole World Framing & Zoom    */}
+            {/* ============================================================== */}
+            {/*
+                1. Full World Framing & Fractional Zoom:
+                   - center={[20, 0]}: Balances Earth's landmasses in the center of the viewport.
+                   - zoom={1.5} & minZoom={1.5}: Fits the complete Earth into the viewport at once.
+                   - maxZoom={18}: Allows deep zoom down to rover-scale terrain imagery.
+                   - zoomSnap={0.25}: Enables fractional zoom increments so map fits perfectly on any display.
+                   - zoomDelta={0.5}: Controls smooth half-step zooming via wheel and buttons.
+                   - worldCopyJump={true}: Seamlessly synchronizes markers and panning across ±180° longitude.
+                   - maxBounds={[[-85, -360], [85, 360]]} & maxBoundsViscosity={1.0}: Prevents scrolling off
+                     polar regions into blank grey void while allowing smooth continuous east-west panning.
+            */}
             <MapContainer
                 center={defaultPosition}
-                zoom={2}
-                minZoom={2}
-                maxZoom={17}
+                zoom={1.5}
+                minZoom={1.5}
+                maxZoom={18}
+                zoomSnap={0.25}
+                zoomDelta={0.5}
                 maxBounds={[
-                    [-85, -180],
-                    [85, 180],
+                    [-85, -360],
+                    [85, 360],
                 ]}
                 maxBoundsViscosity={1.0}
-                worldCopyJump={false}
+                worldCopyJump={true}
                 zoomControl={false}
                 scrollWheelZoom={true}
                 className="h-full w-full z-10"
                 ref={mapRef}
             >
-                {/* High-Resolution Esri World Imagery Satellite Tile Layer:
-                    `noWrap={false}` lets tiles fill wide 16:9 viewports edge-to-edge with real
-                    satellite imagery and eliminates grey "Map data not yet available" tiles,
-                    while MapContainer's `maxBounds={[[-85, -180], [85, 180]]}` restricts user
-                    panning from wandering into repeating worlds. */}
+                {/* ============================================================== */}
+                {/* High-Resolution Esri World Imagery Satellite Tile Layer        */}
+                {/* ============================================================== */}
+                {/*
+                    2. Seamless Global Satellite Tile Layer:
+                       - `noWrap={false}`: Enables continuous worldwide tile wrapping across screens.
+                       - No `bounds` prop: Ensures satellite imagery reaches screen edges edge-to-edge
+                         with zero grey "Map data not yet available" border tiles.
+                       - `keepBuffer={6}` & `updateWhenIdle={false}`: Pre-caches surrounding tiles for fast panning.
+                */}
                 <TileLayer
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
                     noWrap={false}
-                    maxNativeZoom={17}
-                    maxZoom={17}
+                    maxNativeZoom={18}
+                    maxZoom={18}
                     keepBuffer={6}
                     updateWhenIdle={false}
                 />
