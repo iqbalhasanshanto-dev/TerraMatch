@@ -3,7 +3,6 @@ import {
     MapContainer,
     Marker,
     Popup,
-    WMSTileLayer,
     useMap,
     useMapEvents,
 } from "react-leaflet";
@@ -139,43 +138,104 @@ const MapClickProbeHandler = ({ isProbeActive, onProbeCoordinate }) => {
     return null;
 };
 
+// Custom Esri World Imagery EPSG:4326 tile layer component:
+// Leverages ArcGIS Server's dynamic MapServer /export REST endpoint to fetch 256x256 image tiles
+// reprojected on-the-fly into EPSG:4326 (WGS 84 Plate Carrée).
+// This preserves the map's true 2:1 rectangular aspect ratio (crs={L.CRS.EPSG4326}) while delivering
+// Esri World Imagery's uniform satellite colors and crisp high-resolution zoom-in detail (up to zoom 17/18)
+// with no patchy cloud artifacts over Asia and no black-tile cutoffs when zooming in.
+function EsriEPSG4326TileLayer() {
+    const map = useMap();
+    useEffect(() => {
+        const Esri4326Layer = L.TileLayer.extend({
+            getTileUrl: function (coords) {
+                const tileBounds = this._tileCoordsToBounds(coords);
+                const sw = tileBounds.getSouthWest();
+                const ne = tileBounds.getNorthEast();
+                const bbox = `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`;
+                return `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=4326&size=256,256&format=jpg&f=image`;
+            },
+        });
+        const layer = new Esri4326Layer("", {
+            tileSize: 256,
+            minZoom: 1,
+            maxZoom: 18,
+            maxNativeZoom: 17,
+            noWrap: true,
+            bounds: [
+                [-90, -180],
+                [90, 180],
+            ],
+            attribution: "Tiles &copy; Esri &mdash; Source: Esri, USGS, NASA",
+        });
+        layer.addTo(map);
+        return () => {
+            map.removeLayer(layer);
+        };
+    }, [map]);
+    return null;
+}
+
 // Child helper that dynamically calculates the exact zoom where the 2:1 EPSG:4326 world (512px wide at zoom = 1)
-// fits the container width (Math.log2(containerWidth / 256)), sets minZoom to that value, and ensures the map fills
-// the rectangular viewport cleanly from edge to edge when the window or sidebar resizes.
-const Fit2DWorldOnResize = () => {
+// fits the visible map area (accounting for the 340px right sidebar), sets minZoom with a 0.3 zoom-out buffer
+// so the user can zoom out to view the entire world, and listens to "zoomend" to smoothly animate back (elastic spring-back)
+// to fitZoom if the user zoomed out below fitZoom.
+function Fit2DWorldOnResize() {
     const map = useMap();
 
     useEffect(() => {
-        const fitWorld = () => {
+        const calculateFitZoom = () => {
             const container = map.getContainer();
-            if (!container) return;
+            if (!container) return null;
             const containerWidth = container.clientWidth;
-            if (!containerWidth) return;
+            if (!containerWidth) return null;
 
             // In EPSG:4326 (Plate Carrée / Equirectangular), Leaflet projects the 360° longitude span
             // across 512px at zoom = 1 (width = 256 * 2^zoom).
-            // To fit containerWidth edge-to-edge: 256 * 2^zoom = containerWidth => zoom = Math.log2(containerWidth / 256).
-            const fitZoom = Math.log2(containerWidth / 256);
-            map.setMinZoom(fitZoom);
+            // Calculate visible width subtracting the open sidebar (340px) with a 600px floor:
+            const visibleWidth = Math.max(containerWidth - 340, 600);
+            return Math.max(1.2, Math.log2(visibleWidth / 256));
+        };
 
-            // Ensure map zoom is at least fitZoom so the rectangular map fills edge-to-edge with no empty margins
+        const fitWorld = () => {
+            const fitZoom = calculateFitZoom();
+            if (fitZoom === null) return;
+
+            // Allow the user to zoom out 0.3 levels below fitZoom to see the whole world
+            map.setMinZoom(fitZoom - 0.3);
+
+            // Ensure initial mount or window resize doesn't leave empty margins
             if (map.getZoom() < fitZoom) {
                 map.setZoom(fitZoom);
             }
         };
 
+        // Elastic zoom-out snap listener:
+        // When the user zooms out beyond fitZoom to inspect the globe and finishes zooming ("zoomend"),
+        // smoothly fly back to fitZoom at the default center [15, 25] with a 0.35s duration.
+        const handleZoomEnd = () => {
+            const fitZoom = calculateFitZoom();
+            if (fitZoom === null) return;
+
+            if (map.getZoom() < fitZoom - 0.01) {
+                map.flyTo([15, 25], fitZoom, { duration: 0.35 });
+            }
+        };
+
         fitWorld();
         map.on("resize", fitWorld);
+        map.on("zoomend", handleZoomEnd);
         window.addEventListener("resize", fitWorld);
 
         return () => {
             map.off("resize", fitWorld);
+            map.off("zoomend", handleZoomEnd);
             window.removeEventListener("resize", fitWorld);
         };
     }, [map]);
 
     return null;
-};
+}
 
 // Satellite map with planetary analog markers and live coordinate telemetry probing
 const Map = ({ isSidebarOpen }) => {
@@ -327,7 +387,7 @@ const Map = ({ isSidebarOpen }) => {
         };
 
         const currentCenter = map.getCenter();
-        const targetZoom = typeof zoom === "number" ? Math.min(zoom, 5) : 5;
+        const targetZoom = typeof zoom === "number" ? Math.min(zoom, 14) : 8;
         const isAlreadyAtTarget =
             Math.abs(currentCenter.lat - latitude) < 0.0005 &&
             Math.abs(currentCenter.lng - longitude) < 0.0005 &&
@@ -461,7 +521,7 @@ const Map = ({ isSidebarOpen }) => {
                 setMapTarget({
                     latitude: loc.coordinates.latitude,
                     longitude: loc.coordinates.longitude,
-                    zoom: 5,
+                    zoom: 8,
                     locationId: loc._id || loc.id,
                     name: loc.name,
                     timestamp: Date.now(),
@@ -494,7 +554,7 @@ const Map = ({ isSidebarOpen }) => {
     return (
         <div
             ref={containerRef}
-            className="relative w-full h-full bg-[#051626] overflow-hidden select-none"
+            className="relative w-full h-full bg-[#07090E] overflow-hidden select-none"
         >
             {/* Live coordinate telemetry probe toggle */}
             <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-2">
@@ -523,7 +583,7 @@ const Map = ({ isSidebarOpen }) => {
             </div>
 
             {/* 
-              Why L.CRS.EPSG4326 + <WMSTileLayer> (EOX Sentinel-2 Cloudless) Produces a True 2D 2:1 Rectangular Map:
+              Why L.CRS.EPSG4326 + <EsriEPSG4326TileLayer> Produces a True 2D 2:1 Rectangular Map:
               1. Aspect Ratio (2:1): Standard Web Mercator (EPSG:3857) projects the spherical Earth onto a 1:1 square
                  by stretching latitudes non-linearly and cutting off the poles at ±85.0511°. On wide screens, this leads
                  to severe polar distortion and empty vertical letterboxing. EPSG:4326 (WGS 84 / Plate Carrée / Equirectangular)
@@ -532,56 +592,46 @@ const Map = ({ isSidebarOpen }) => {
               2. 100% Accurate Pin Alignment: Because EPSG:4326 is an unprojected linear cylindrical grid (x = lng, y = lat),
                  latitude and longitude coordinates directly map to pixel offsets without non-linear Mercator stretching. Every
                  analog pin and probe reticle sits with 100% geometric accuracy on its exact physical terrain feature.
-              3. Native WMS Projection: Standard XYZ tile services (like Esri or OSM) only serve EPSG:3857 tiles. EOX Sentinel-2
-                 Cloudless WMS natively supports and renders EPSG:4326 on the fly. Leaflet queries bounding boxes in decimal degrees,
-                 and the WMS server returns seamlessly aligned equirectangular satellite imagery with zero duplicate loops (noWrap={true})
-                 and zero tile errors.
-              4. Clean Remounting (key="terramatch-2d-epsg4326-wms"): Guarantees that React cleanly remounts the Leaflet map instance
-                 with the new coordinate reference system, eliminating stale projections and viewport calculations.
+              3. Custom Esri EPSG:4326 Export Tile Layer: Standard XYZ tile services only serve Web Mercator. Esri's ArcGIS
+                 export endpoint dynamically renders 256x256 tiles on-the-fly in EPSG:4326. This guarantees uniform satellite colors
+                 and crisp high-resolution zoom-in detail (up to native zoom 17 / max zoom 18) with zero patchy clouds over Asia
+                 and no black-tile cutoffs.
+              4. Eastern Longitude Cushion (+255°):
+                 maxBounds={[[-95, -195], [95, 255]]} extends eastern longitude +75° beyond 180° to 255°.
+                 This ensures Australia, Oceania, and East Asia never get blocked behind the open Recent Searches right sidebar.
+              5. Elastic Zoom-Out Snap (<Fit2DWorldOnResize />):
+                 minZoom allows zooming out 0.3 levels below fitZoom to view the whole globe, and smoothly animates back to fitZoom
+                 via map.flyTo([15, 25], fitZoom, { duration: 0.35 }) upon zoom completion.
+              6. Clean Remounting (key="terramatch-esri-4326-world"): Guarantees that React cleanly mounts the Leaflet map instance
+                 with the updated coordinate reference system and configuration.
             */}
             <MapContainer
-                key="terramatch-2d-epsg4326-wms"
+                key="terramatch-esri-4326-world"
                 crs={L.CRS.EPSG4326}
-                center={[15, 0]}
-                zoom={2}
-                minZoom={1.5}
-                maxZoom={10}
+                center={[15, 25]}
+                zoom={1.6}
+                minZoom={1.2}
+                maxZoom={17}
                 zoomSnap={0.1}
                 zoomDelta={0.5}
                 wheelPxPerZoomLevel={25}
                 maxBounds={[
-                    [-90, -195],
-                    [90, 195],
+                    [-95, -195],
+                    [95, 255],
                 ]}
-                maxBoundsViscosity={0.85}
+                maxBoundsViscosity={0.75}
                 worldCopyJump={false}
                 zoomControl={false}
                 scrollWheelZoom={true}
                 className="w-full h-full z-0"
-                style={{ width: "100%", height: "100%", backgroundColor: "#051626" }}
+                style={{ width: "100%", height: "100%", backgroundColor: "#07090E" }}
                 ref={mapRef}
             >
-                {/* Dynamically fits the 2:1 EPSG:4326 world edge-to-edge on window and sidebar resizes */}
+                {/* Dynamically fits the 2:1 EPSG:4326 world edge-to-edge with elastic zoom-out spring-back */}
                 <Fit2DWorldOnResize />
 
-                {/* 
-                  EOX Sentinel-2 Cloudless WMS Layer (EPSG:4326):
-                  Server-side rendered WGS 84 satellite imagery natively supporting EPSG:4326.
-                  noWrap={true} and bounds ensure a single continuous global rectangular map without duplicate world repeats.
-                */}
-                <WMSTileLayer
-                    url="https://tiles.maps.eox.at/wms?"
-                    layers="s2cloudless"
-                    format="image/jpeg"
-                    transparent={false}
-                    version="1.1.1"
-                    noWrap={true}
-                    bounds={[
-                        [-90, -180],
-                        [90, 180],
-                    ]}
-                    attribution="Sentinel-2 cloudless &copy; EOX / Copernicus ESA"
-                />
+                {/* Custom Esri World Imagery EPSG:4326 export tile layer */}
+                <EsriEPSG4326TileLayer />
 
                 {/* Click-to-probe event listener */}
                 <MapClickProbeHandler

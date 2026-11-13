@@ -381,11 +381,17 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
                     isCatalogOpen ? "flex-1" : "shrink-0"
                 }`}
             >
-                {/* Header Row: Icon + Full Title on Left, Collapse/Expand Toggle on Far Right */}
+                {/* 
+                  Non-truncated sidebar header layout:
+                  The title row ("Pinned Analog Sites (count)") and the planetary filter pills (All / Moon / Mars)
+                  are stacked on separate dedicated flex rows with whitespace-nowrap and shrink-0.
+                  This ensures that even when the sidebar is narrow or resized, the title "Pinned Analog Sites (51)"
+                  is never clipped or truncated with ellipsis (...).
+                */}
                 <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
-                    <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                         <MapPin size={14} aria-hidden="true" className="text-[#83CAD8] shrink-0" />
-                        <h3 className="font-semibold text-xs text-[#F1EEE9] whitespace-nowrap">
+                        <h3 className="font-semibold text-xs text-[#F1EEE9] whitespace-nowrap shrink-0">
                             Pinned Analog Sites ({locData.length})
                         </h3>
                     </div>
