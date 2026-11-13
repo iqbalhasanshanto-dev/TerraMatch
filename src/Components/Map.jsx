@@ -3,7 +3,8 @@ import {
     MapContainer,
     Marker,
     Popup,
-    TileLayer,
+    WMSTileLayer,
+    useMap,
     useMapEvents,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -138,6 +139,44 @@ const MapClickProbeHandler = ({ isProbeActive, onProbeCoordinate }) => {
     return null;
 };
 
+// Child helper that dynamically calculates the exact zoom where the 2:1 EPSG:4326 world (512px wide at zoom = 1)
+// fits the container width (Math.log2(containerWidth / 256)), sets minZoom to that value, and ensures the map fills
+// the rectangular viewport cleanly from edge to edge when the window or sidebar resizes.
+const Fit2DWorldOnResize = () => {
+    const map = useMap();
+
+    useEffect(() => {
+        const fitWorld = () => {
+            const container = map.getContainer();
+            if (!container) return;
+            const containerWidth = container.clientWidth;
+            if (!containerWidth) return;
+
+            // In EPSG:4326 (Plate Carrée / Equirectangular), Leaflet projects the 360° longitude span
+            // across 512px at zoom = 1 (width = 256 * 2^zoom).
+            // To fit containerWidth edge-to-edge: 256 * 2^zoom = containerWidth => zoom = Math.log2(containerWidth / 256).
+            const fitZoom = Math.log2(containerWidth / 256);
+            map.setMinZoom(fitZoom);
+
+            // Ensure map zoom is at least fitZoom so the rectangular map fills edge-to-edge with no empty margins
+            if (map.getZoom() < fitZoom) {
+                map.setZoom(fitZoom);
+            }
+        };
+
+        fitWorld();
+        map.on("resize", fitWorld);
+        window.addEventListener("resize", fitWorld);
+
+        return () => {
+            map.off("resize", fitWorld);
+            window.removeEventListener("resize", fitWorld);
+        };
+    }, [map]);
+
+    return null;
+};
+
 // Satellite map with planetary analog markers and live coordinate telemetry probing
 const Map = ({ isSidebarOpen }) => {
     // Context and location data hooks
@@ -157,7 +196,6 @@ const Map = ({ isSidebarOpen }) => {
     const markerRefs = useRef({});
     const probeMarkerRef = useRef(null);
     const prevSidebarOpenRef = useRef(isSidebarOpen);
-    const defaultCenter = [20, 10];
 
     // Fast lookup Set of saved location keys
     const savedLocationIds = useMemo(() => {
@@ -272,7 +310,7 @@ const Map = ({ isSidebarOpen }) => {
         if (!mapTarget || !mapRef.current || loading) return;
 
         const map = mapRef.current;
-        const { latitude, longitude, zoom = 11 } = mapTarget;
+        const { latitude, longitude, zoom = 5 } = mapTarget;
 
         if (typeof latitude !== "number" || typeof longitude !== "number") return;
 
@@ -289,7 +327,7 @@ const Map = ({ isSidebarOpen }) => {
         };
 
         const currentCenter = map.getCenter();
-        const targetZoom = typeof zoom === "number" ? Math.min(zoom, 5) : 4;
+        const targetZoom = typeof zoom === "number" ? Math.min(zoom, 5) : 5;
         const isAlreadyAtTarget =
             Math.abs(currentCenter.lat - latitude) < 0.0005 &&
             Math.abs(currentCenter.lng - longitude) < 0.0005 &&
@@ -423,7 +461,7 @@ const Map = ({ isSidebarOpen }) => {
                 setMapTarget({
                     latitude: loc.coordinates.latitude,
                     longitude: loc.coordinates.longitude,
-                    zoom: 4,
+                    zoom: 5,
                     locationId: loc._id || loc.id,
                     name: loc.name,
                     timestamp: Date.now(),
@@ -456,7 +494,7 @@ const Map = ({ isSidebarOpen }) => {
     return (
         <div
             ref={containerRef}
-            className="relative w-full h-full bg-[#07090E] overflow-hidden select-none"
+            className="relative w-full h-full bg-[#051626] overflow-hidden select-none"
         >
             {/* Live coordinate telemetry probe toggle */}
             <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-2">
@@ -485,47 +523,64 @@ const Map = ({ isSidebarOpen }) => {
             </div>
 
             {/* 
-              Standard Web Mercator (EPSG:3857) projection:
-              Removing EPSG4326 restores standard Leaflet projection so all [lat, lng] markers
-              align 100% accurately with continental landmasses without shrinking or vertical distortion.
-              
-              Generous maxBounds cushion:
-              Latitude padding (±110) and longitude padding (±250) with viscosity 0.7 unlock smooth
-              dragging in all directions without freezing and allow Leaflet to auto-pan smoothly when popups open.
+              Why L.CRS.EPSG4326 + <WMSTileLayer> (EOX Sentinel-2 Cloudless) Produces a True 2D 2:1 Rectangular Map:
+              1. Aspect Ratio (2:1): Standard Web Mercator (EPSG:3857) projects the spherical Earth onto a 1:1 square
+                 by stretching latitudes non-linearly and cutting off the poles at ±85.0511°. On wide screens, this leads
+                 to severe polar distortion and empty vertical letterboxing. EPSG:4326 (WGS 84 / Plate Carrée / Equirectangular)
+                 maps longitude directly from -180° to +180° (span 360°) and latitude from -90° to +90° (span 180°). This
+                 yields an exact 2:1 rectangular aspect ratio that naturally fills modern widescreen displays edge-to-edge.
+              2. 100% Accurate Pin Alignment: Because EPSG:4326 is an unprojected linear cylindrical grid (x = lng, y = lat),
+                 latitude and longitude coordinates directly map to pixel offsets without non-linear Mercator stretching. Every
+                 analog pin and probe reticle sits with 100% geometric accuracy on its exact physical terrain feature.
+              3. Native WMS Projection: Standard XYZ tile services (like Esri or OSM) only serve EPSG:3857 tiles. EOX Sentinel-2
+                 Cloudless WMS natively supports and renders EPSG:4326 on the fly. Leaflet queries bounding boxes in decimal degrees,
+                 and the WMS server returns seamlessly aligned equirectangular satellite imagery with zero duplicate loops (noWrap={true})
+                 and zero tile errors.
+              4. Clean Remounting (key="terramatch-2d-epsg4326-wms"): Guarantees that React cleanly remounts the Leaflet map instance
+                 with the new coordinate reference system, eliminating stale projections and viewport calculations.
             */}
             <MapContainer
-                center={defaultCenter}
-                zoom={2.2}
-                minZoom={1.8}
-                maxZoom={18}
+                key="terramatch-2d-epsg4326-wms"
+                crs={L.CRS.EPSG4326}
+                center={[15, 0]}
+                zoom={2}
+                minZoom={1.5}
+                maxZoom={10}
                 zoomSnap={0.1}
                 zoomDelta={0.5}
+                wheelPxPerZoomLevel={25}
                 maxBounds={[
-                    [-110, -250],
-                    [110, 250],
+                    [-90, -195],
+                    [90, 195],
                 ]}
-                maxBoundsViscosity={0.7}
+                maxBoundsViscosity={0.85}
                 worldCopyJump={false}
                 zoomControl={false}
                 scrollWheelZoom={true}
-                style={{ width: "100%", height: "100%", backgroundColor: "#07090E" }}
-                className="h-full w-full z-10"
+                className="w-full h-full z-0"
+                style={{ width: "100%", height: "100%", backgroundColor: "#051626" }}
                 ref={mapRef}
             >
+                {/* Dynamically fits the 2:1 EPSG:4326 world edge-to-edge on window and sidebar resizes */}
+                <Fit2DWorldOnResize />
+
                 {/* 
-                  Esri World Imagery satellite map layer:
-                  noWrap and bounds [[-85.0511, -180], [85.0511, 180]] ensure a single global map is rendered
-                  without requesting out-of-bounds grey error tiles.
+                  EOX Sentinel-2 Cloudless WMS Layer (EPSG:4326):
+                  Server-side rendered WGS 84 satellite imagery natively supporting EPSG:4326.
+                  noWrap={true} and bounds ensure a single continuous global rectangular map without duplicate world repeats.
                 */}
-                <TileLayer
-                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                <WMSTileLayer
+                    url="https://tiles.maps.eox.at/wms?"
+                    layers="s2cloudless"
+                    format="image/jpeg"
+                    transparent={false}
+                    version="1.1.1"
                     noWrap={true}
                     bounds={[
-                        [-85.0511, -180],
-                        [85.0511, 180],
+                        [-90, -180],
+                        [90, 180],
                     ]}
-                    maxZoom={18}
-                    attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+                    attribution="Sentinel-2 cloudless &copy; EOX / Copernicus ESA"
                 />
 
                 {/* Click-to-probe event listener */}
@@ -551,24 +606,19 @@ const Map = ({ isSidebarOpen }) => {
                         >
                             {/* 
                               Top-navbar popup avoidance:
-                              autoPanPaddingTopLeft={[20, 90]} keeps the card at least 90px below the fixed top navbar.
-                              Northern pins (lat > 25) open downward via offset={[0, 260]} and .popup-open-below styling.
+                              autoPanPaddingTopLeft={[20, 85]} pushes popup down if close to the navbar.
+                              Markers with lat > 20 receive the .popup-below class to flip downward below the pin.
                             */}
                             <Popup
-                                className={`terramatch-popup ${
-                                    activeTelemetryPin.coordinates.latitude > 25
-                                        ? "popup-open-below"
-                                        : ""
-                                }`}
+                                className={
+                                    activeTelemetryPin.coordinates.latitude > 20
+                                        ? "terra-popup popup-below"
+                                        : "terra-popup"
+                                }
                                 closeButton={true}
                                 autoPan={true}
-                                autoPanPaddingTopLeft={[20, 90]}
+                                autoPanPaddingTopLeft={[20, 85]}
                                 autoPanPaddingBottomRight={[20, 40]}
-                                offset={
-                                    activeTelemetryPin.coordinates.latitude > 25
-                                        ? [0, 260]
-                                        : [0, 0]
-                                }
                             >
                                 <div className="p-1 pr-8 text-[#F1EEE9] min-w-56 max-w-72">
                                     {activeTelemetryPin.isLoading ? (
@@ -823,7 +873,7 @@ const Map = ({ isSidebarOpen }) => {
                     const isDiscoverySite = Boolean(
                         loc.isGlobalDiscovery || loc.isLiveTelemetry
                     );
-                    const isNorthern = loc.coordinates.latitude > 25;
+                    const isNorthern = loc.coordinates.latitude > 20;
                     const { popupBadges } = getTargetBodyInfo(loc);
                     const surfaceTemp = formatSurfaceTemp(loc);
                     const analogCategory = getAnalogCategory(loc);
@@ -864,18 +914,19 @@ const Map = ({ isSidebarOpen }) => {
                         >
                             {/* 
                               Top-navbar popup avoidance:
-                              autoPanPaddingTopLeft={[20, 90]} ensures popups are always pushed at least 90px below the navbar.
-                              Northern hemisphere pins (lat > 25) open downward via offset={[0, 260]} and popup-open-below class.
+                              autoPanPaddingTopLeft={[20, 85]} ensures popups are always pushed down below the navbar.
+                              Northern hemisphere pins (lat > 20) receive .popup-below to flip cleanly downward.
                             */}
                             <Popup
-                                className={`terramatch-popup ${
-                                    isNorthern ? "popup-open-below" : ""
-                                }`}
+                                className={
+                                    isNorthern
+                                        ? "terra-popup popup-below"
+                                        : "terra-popup"
+                                }
                                 closeButton={true}
                                 autoPan={true}
-                                autoPanPaddingTopLeft={[20, 90]}
+                                autoPanPaddingTopLeft={[20, 85]}
                                 autoPanPaddingBottomRight={[20, 40]}
-                                offset={isNorthern ? [0, 260] : [0, 0]}
                             >
                                 <div className="p-1 pr-8 text-[#F1EEE9] min-w-52 max-w-68">
                                     {/* Satellite discovery badge */}
