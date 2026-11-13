@@ -18,7 +18,6 @@ import {
     Thermometer,
     Droplets,
     Sun,
-    X,
 } from "lucide-react";
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
@@ -85,6 +84,57 @@ const globalDiscoveryIcon = L.divIcon({
     popupAnchor: [0, -13],
 });
 
+/**
+ * Generates custom glowing SVG map marker icons styled in TerraMatch's deep-space palette:
+ * - Moon Analog (`["moon"]`): Glowing cyan (`#83CAD8`) teardrop beacon with dark `#07090E` core.
+ * - Mars Analog (`["mars"]`): Glowing terracotta (`#D67051`) pin with dark `#07090E` core.
+ * - Dual Moon & Mars (`["moon", "mars"]`): Cyan-rimmed pin with terracotta/gold (`#CEB882`) core.
+ *
+ * @param {Object} loc - Candidate planetary analog location object.
+ * @returns {L.DivIcon} Custom Leaflet DivIcon instance.
+ */
+const createAnalogMarkerIcon = (loc) => {
+    const { hasMars, isDual } = getTargetBodyInfo(loc);
+
+    let mainColor = "#83CAD8"; // Cyan for Moon
+    let glowColor = "rgba(131,202,216,0.55)";
+    let innerColor = "#07090E";
+    let ringColor = "#83CAD8";
+
+    if (isDual) {
+        mainColor = "#83CAD8";
+        glowColor = "rgba(206,184,130,0.6)";
+        innerColor = "#CEB882"; // Gold / Terracotta core for dual Moon & Mars
+        ringColor = "#83CAD8";
+    } else if (hasMars) {
+        mainColor = "#D67051"; // Terracotta for Mars
+        glowColor = "rgba(214,112,81,0.6)";
+        innerColor = "#07090E";
+        ringColor = "#D67051";
+    }
+
+    const svgHtml = `
+        <div style="filter: drop-shadow(0 2px 7px ${glowColor}); display:flex; align-items:center; justify-content:center; width:26px; height:32px;">
+            <svg width="26" height="32" viewBox="0 0 26 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M13 1C6.37 1 1 6.37 1 13C1 21.5 13 31 13 31C13 31 25 21.5 25 13C25 6.37 19.63 1 13 1Z" 
+                      fill="${mainColor}" 
+                      stroke="#07090E" 
+                      stroke-width="1.5" 
+                      stroke-linejoin="round" />
+                <circle cx="13" cy="12" r="4.8" fill="${innerColor}" stroke="${ringColor}" stroke-width="1.5" />
+            </svg>
+        </div>
+    `;
+
+    return L.divIcon({
+        className: "terramatch-analog-marker-icon",
+        html: svgHtml,
+        iconSize: [26, 32],
+        iconAnchor: [13, 32],
+        popupAnchor: [0, -32],
+    });
+};
+
 // ============================================================================
 // 3. Helper Sub-Component: Leaflet Click-to-Probe Listener
 // ============================================================================
@@ -92,11 +142,20 @@ const globalDiscoveryIcon = L.divIcon({
 /**
  * Listens for map click events inside `<MapContainer>` when Probe Mode is active
  * and forwards clicked `(lat, lng)` coordinates to `onProbeCoordinate`.
+ * Ignores clicks on popups, marker icons, or buttons so closing popups never drops pins.
  */
 const MapClickProbeHandler = ({ isProbeActive, onProbeCoordinate }) => {
     useMapEvents({
         click(event) {
             if (!isProbeActive) return;
+            // Prevent click-through when closing popups, tapping markers or clicking buttons
+            if (
+                event.originalEvent?.target?.closest?.(
+                    ".leaflet-popup, .leaflet-marker-icon, button, a"
+                )
+            ) {
+                return;
+            }
             const { lat, lng } = event.latlng;
             onProbeCoordinate(lat, lng);
         },
@@ -504,9 +563,10 @@ const Map = ({ isSidebarOpen }) => {
     // ------------------------------------------------------------------------
     // 9. Active Dataset Resolution
     // ------------------------------------------------------------------------
-    // Display filtered subset when search criteria are active; otherwise show all sites
+    // Display filtered subset when search criteria are active; otherwise show all sites.
+    // If a search returns 0 matches (filteredLoc is []), dataToMap accurately becomes []
     const dataToMap =
-        filteredLoc && filteredLoc.length > 0 ? filteredLoc : locData || [];
+        Array.isArray(filteredLoc) ? filteredLoc : locData || [];
 
     // ------------------------------------------------------------------------
     // 10. Component Render Block
@@ -542,22 +602,36 @@ const Map = ({ isSidebarOpen }) => {
                 )}
             </div>
 
-            {/* Leaflet Satellite Map Container */}
+            {/* Leaflet Satellite Map Container: Locked to single Earth (no infinite wrap) */}
             <MapContainer
                 center={defaultPosition}
                 zoom={2.5}
-                minZoom={2}
-                maxZoom={18}
+                minZoom={2.5}
+                maxZoom={17}
+                maxBounds={[
+                    [-85, -180],
+                    [85, 180],
+                ]}
+                maxBoundsViscosity={1.0}
+                worldCopyJump={false}
                 zoomControl={false}
                 scrollWheelZoom={true}
                 className="h-full w-full z-10"
                 ref={mapRef}
             >
-                {/* High-Resolution Esri World Imagery Satellite Tile Layer */}
+                {/* High-Resolution Esri World Imagery Satellite Tile Layer with Fast Buffering */}
                 <TileLayer
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
-                    maxZoom={18}
+                    noWrap={true}
+                    bounds={[
+                        [-85, -180],
+                        [85, 180],
+                    ]}
+                    maxNativeZoom={17}
+                    maxZoom={17}
+                    keepBuffer={6}
+                    updateWhenIdle={false}
                 />
 
                 {/* Click-to-Probe Coordinate Event Listener */}
@@ -577,8 +651,11 @@ const Map = ({ isSidebarOpen }) => {
                             ]}
                             icon={telemetryProbeIcon}
                             ref={probeMarkerRef}
+                            eventHandlers={{
+                                popupclose: handleDismissTelemetryPin,
+                            }}
                         >
-                            <Popup className="terramatch-popup">
+                            <Popup className="terramatch-popup" closeButton={true}>
                                 <div className="p-1 text-[#F1EEE9] min-w-56 max-w-68">
                                     {activeTelemetryPin.isLoading ? (
                                         /* Loading State While Acquiring Nominatim + Open-Meteo Telemetry */
@@ -644,36 +721,22 @@ const Map = ({ isSidebarOpen }) => {
 
                                             return (
                                                 <div>
-                                                    {/* Header: Region Name & Dismiss Pin Action */}
-                                                    <div className="flex items-start justify-between gap-2">
-                                                        <div className="min-w-0">
-                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-[#83CAD8]/20 to-[#F59E0B]/20 border border-[#83CAD8]/45 text-[9px] font-mono uppercase tracking-wider text-[#83CAD8] mb-1">
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
-                                                                <span>
-                                                                    {site.isGlobalDiscovery
-                                                                        ? "Whole-Earth Satellite Discovery • Non-Catalog Site"
-                                                                        : "Live Satellite Telemetry • Non-Catalog Site"}
-                                                                </span>
+                                                    {/* Header: Region Name & Country */}
+                                                    <div className="min-w-0 pr-6">
+                                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-[#83CAD8]/20 to-[#F59E0B]/20 border border-[#83CAD8]/45 text-[9px] font-mono uppercase tracking-wider text-[#83CAD8] mb-1">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
+                                                            <span>
+                                                                {site.isGlobalDiscovery
+                                                                    ? "Whole-Earth Satellite Discovery • Non-Catalog Site"
+                                                                    : "Live Satellite Telemetry • Non-Catalog Site"}
                                                             </span>
-                                                            <h4 className="font-bold text-sm text-[#F1EEE9] leading-tight">
-                                                                {site.name}
-                                                            </h4>
-                                                            <p className="text-xs text-[#8891A0]">
-                                                                {site.country}
-                                                            </p>
-                                                        </div>
-
-                                                        <button
-                                                            type="button"
-                                                            onClick={
-                                                                handleDismissTelemetryPin
-                                                            }
-                                                            aria-label="Clear telemetry pin"
-                                                            title="Clear telemetry pin"
-                                                            className="p-1 rounded bg-[#181A21] border border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9] cursor-pointer shrink-0"
-                                                        >
-                                                            <X size={12} />
-                                                        </button>
+                                                        </span>
+                                                        <h4 className="font-bold text-sm text-[#F1EEE9] leading-tight">
+                                                            {site.name}
+                                                        </h4>
+                                                        <p className="text-xs text-[#8891A0]">
+                                                            {site.country}
+                                                        </p>
                                                     </div>
 
                                                     {/* Exact Coordinates & Suitability Badges */}
@@ -844,7 +907,11 @@ const Map = ({ isSidebarOpen }) => {
                                 loc.coordinates.latitude,
                                 loc.coordinates.longitude,
                             ]}
-                            {...(isDiscoverySite ? { icon: globalDiscoveryIcon } : {})}
+                            icon={
+                                isDiscoverySite
+                                    ? globalDiscoveryIcon
+                                    : createAnalogMarkerIcon(loc)
+                            }
                             ref={(instance) => {
                                 // Store ref under all canonical keys for reliable popup lookup
                                 if (instance) {
@@ -867,7 +934,7 @@ const Map = ({ isSidebarOpen }) => {
                             }}
                         >
                             {/* Deep-Space Styled Scientific Analog Site Summary Popup */}
-                            <Popup className="terramatch-popup">
+                            <Popup className="terramatch-popup" closeButton={true}>
                                 <div className="p-1 text-[#F1EEE9] min-w-52 max-w-64">
                                     {/* Distinct Cyan/Gold Discovery Badge for Non-Catalog Earth Sites */}
                                     {isDiscoverySite && (

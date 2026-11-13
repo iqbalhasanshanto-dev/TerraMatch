@@ -15,7 +15,6 @@ import {
     MapPin,
     Check,
     ChevronDown,
-    ChevronUp,
     Satellite,
     Loader2,
     Thermometer,
@@ -473,9 +472,6 @@ const Tweaks = ({ onSelectLocation }) => {
     /** Selected Aridity & moisture filter value. */
     const [humidity, setHumidity] = useState("Any");
 
-    /** Tracks which inline Environment accordion row is currently expanded (`null` if none). */
-    const [openEnvRow, setOpenEnvRow] = useState(null);
-
     /** Numeric minimum surface temperature bound (`-60°C` to `50°C`). */
     const [tempMin, setTempMin] = useState(TEMP_SLIDER_MIN);
 
@@ -487,9 +483,6 @@ const Tweaks = ({ onSelectLocation }) => {
 
     /** Numeric minimum elevation cutoff (`0 m` to `4,800 m`). */
     const [minElevation, setMinElevation] = useState(0);
-
-    /** Controls open/closed state of the collapsible full-catalog sites drawer. */
-    const [showAllSitesCatalog, setShowAllSitesCatalog] = useState(false);
 
     /** Tracks whether the user has explicitly submitted a search query yet. */
     const [hasSearched, setHasSearched] = useState(false);
@@ -652,7 +645,7 @@ const Tweaks = ({ onSelectLocation }) => {
             const activeTempMax = overrides.tempMax ?? tempMax;
             const activeMinElevation = overrides.minElevation ?? minElevation;
 
-            return locData.filter((location) => {
+            const filtered = locData.filter((location) => {
                 // 1. Free-text query match against name, country, category, or coordinates
                 if (activeQuery.trim()) {
                     const query = activeQuery.trim().toLowerCase();
@@ -668,6 +661,14 @@ const Tweaks = ({ onSelectLocation }) => {
 
                 // 2. Target extraterrestrial body ("moon" or "mars")
                 if (activeTargetBody !== "" && activeTargetBody !== "Any") {
+                    // Permanent Moon Base cannot be an analog for Mars exploration
+                    if (
+                        activeTargetBody.toLowerCase() === "mars" &&
+                        activeMissionObjective === "Permanent Moon Base & Habitation"
+                    ) {
+                        return false;
+                    }
+
                     const hasAnalogMatch = location.analogType?.some(
                         (type) => type.toLowerCase() === activeTargetBody.toLowerCase()
                     );
@@ -763,6 +764,25 @@ const Tweaks = ({ onSelectLocation }) => {
 
                 return true;
             });
+
+            // Prioritize dedicated Mars analogs when Mars is selected
+            if (activeTargetBody.toLowerCase() === "mars") {
+                filtered.sort((a, b) => {
+                    const aMarsOnly =
+                        Array.isArray(a.analogType) &&
+                        a.analogType.length === 1 &&
+                        a.analogType[0].toLowerCase() === "mars";
+                    const bMarsOnly =
+                        Array.isArray(b.analogType) &&
+                        b.analogType.length === 1 &&
+                        b.analogType[0].toLowerCase() === "mars";
+                    if (aMarsOnly && !bMarsOnly) return -1;
+                    if (!aMarsOnly && bMarsOnly) return 1;
+                    return 0;
+                });
+            }
+
+            return filtered;
         },
         [
             locData,
@@ -777,6 +797,37 @@ const Tweaks = ({ onSelectLocation }) => {
             getEstimatedTemperature,
             getSiteElevation,
         ]
+    );
+
+    /**
+     * Flies the satellite map smoothly to any selected site, logs it in Recent
+     * Searches, and collapses the mobile drawer when applicable.
+     */
+    const handleViewOnMap = useCallback(
+        (loc) => {
+            if (!loc) return;
+
+            recordRecentSearch?.(loc);
+
+            if (
+                typeof loc?.coordinates?.latitude === "number" &&
+                typeof loc?.coordinates?.longitude === "number"
+            ) {
+                setMapTarget({
+                    latitude: loc.coordinates.latitude,
+                    longitude: loc.coordinates.longitude,
+                    zoom: 11,
+                    locationId: loc._id || loc.id,
+                    name: loc.name,
+                    telemetrySite:
+                        loc.isLiveTelemetry && !loc.isGlobalDiscovery ? loc : null,
+                    timestamp: Date.now(),
+                });
+            }
+
+            onSelectLocation?.(loc);
+        },
+        [recordRecentSearch, setMapTarget, onSelectLocation]
     );
 
     // ------------------------------------------------------------------------
@@ -831,6 +882,8 @@ const Tweaks = ({ onSelectLocation }) => {
      * Executes the active search across the verified NASA/ESA catalog and, when
      * `searchScope === "whole-earth"`, simultaneously runs `scanWholeEarthAnalogs`
      * to discover non-NASA Earth locations and plot them onto the map.
+     * Also automatically runs Nominatim + NASA POWER global place search whenever
+     * a location or coordinate string is entered.
      */
     const executeSearch = useCallback(
         async (overrides = {}) => {
@@ -853,20 +906,57 @@ const Tweaks = ({ onSelectLocation }) => {
 
             const catalogResults = computeFilteredLocations(overrides);
             setHasSearched(true);
-            setFilteredLoc(catalogResults);
 
-            if (catalogResults.length > 0) {
-                recordRecentSearch?.(catalogResults[0]);
-            }
-
-            // Dispatch Nominatim point lookup when user entered a place or coordinates
+            // Automatically query global live telemetry if user entered a place name or coordinate
             const trimmed = activeQuery.trim();
+            let globalMatches = [];
             if (trimmed.length >= 2) {
-                runGlobalTelemetrySearch(trimmed);
+                if (globalAbortRef.current) {
+                    globalAbortRef.current.abort();
+                }
+                const globalController = new AbortController();
+                globalAbortRef.current = globalController;
+                setIsGlobalSearching(true);
+                setGlobalSearchError(null);
+                setLastGlobalQuery(trimmed);
+
+                try {
+                    globalMatches = await searchGlobalEarthLocation(
+                        trimmed,
+                        globalController.signal
+                    );
+                    setGlobalResults(globalMatches);
+                } catch (err) {
+                    if (err?.name !== "AbortError") {
+                        console.error("Global Earth telemetry search error:", err);
+                        setGlobalResults([]);
+                        setGlobalSearchError(
+                            err?.message ||
+                                "Unable to fetch live satellite telemetry right now."
+                        );
+                    }
+                } finally {
+                    if (globalAbortRef.current === globalController) {
+                        setIsGlobalSearching(false);
+                    }
+                }
             } else {
                 setGlobalResults([]);
                 setGlobalSearchError(null);
                 setLastGlobalQuery("");
+            }
+
+            // If catalog has matches, display them on map.
+            // If catalog has 0 matches but global place search found a location (e.g. "Bangladesh"),
+            // plot globalMatches on map and fly directly to it!
+            if (catalogResults.length === 0 && globalMatches.length > 0) {
+                setFilteredLoc(globalMatches);
+                handleViewOnMap(globalMatches[0]);
+            } else {
+                setFilteredLoc(catalogResults);
+                if (catalogResults.length > 0) {
+                    recordRecentSearch?.(catalogResults[0]);
+                }
             }
 
             // Cancel any pending Whole-Earth scan if user selected NASA catalog only
@@ -896,9 +986,17 @@ const Tweaks = ({ onSelectLocation }) => {
                     scanController.signal
                 );
                 setWholeEarthResults(discoveredSites);
-                setFilteredLoc([...catalogResults, ...discoveredSites]);
 
-                if (catalogResults.length === 0 && discoveredSites.length > 0) {
+                // Combine catalog matches (or global place matches if catalog is empty) with newly discovered sites
+                const baseList =
+                    catalogResults.length > 0
+                        ? catalogResults
+                        : globalMatches.length > 0
+                        ? globalMatches
+                        : [];
+                setFilteredLoc([...baseList, ...discoveredSites]);
+
+                if (baseList.length === 0 && discoveredSites.length > 0) {
                     recordRecentSearch?.(discoveredSites[0]);
                 }
             } catch (error) {
@@ -930,7 +1028,7 @@ const Tweaks = ({ onSelectLocation }) => {
             computeFilteredLocations,
             setFilteredLoc,
             recordRecentSearch,
-            runGlobalTelemetrySearch,
+            handleViewOnMap,
         ]
     );
 
@@ -941,7 +1039,6 @@ const Tweaks = ({ onSelectLocation }) => {
      * Submits the currently configured filters via the primary CTA button or Enter key.
      */
     const handleApplyFilters = () => {
-        setOpenEnvRow(null);
         setScopeMenuOpen(false);
         executeSearch();
     };
@@ -972,7 +1069,7 @@ const Tweaks = ({ onSelectLocation }) => {
 
     /**
      * Restores all search inputs, environment filters, sliders, and telemetry results
-     * back to their neutral default values.
+     * back to their neutral default values and resets filteredLoc to null.
      */
     const handleReset = () => {
         if (globalAbortRef.current) {
@@ -987,7 +1084,6 @@ const Tweaks = ({ onSelectLocation }) => {
         setMissionObjective("Any objective");
         setTerrain("Any");
         setHumidity("Any");
-        setOpenEnvRow(null);
         setTempMin(TEMP_SLIDER_MIN);
         setTempMax(TEMP_SLIDER_MAX);
         setMinElevation(0);
@@ -1000,9 +1096,7 @@ const Tweaks = ({ onSelectLocation }) => {
         setIsWholeEarthScanning(false);
         setWholeEarthScanError(null);
 
-        if (locData) {
-            setFilteredLoc(locData);
-        }
+        setFilteredLoc(null);
         toast.info("Filters reset to default.");
     };
 
@@ -1037,38 +1131,6 @@ const Tweaks = ({ onSelectLocation }) => {
     };
 
     /**
-     * Flies the satellite map smoothly to any selected site, logs it in Recent
-     * Searches, and collapses the mobile drawer when applicable.
-     */
-    const handleViewOnMap = useCallback(
-        (loc) => {
-            if (!loc) return;
-
-            recordRecentSearch?.(loc);
-
-            if (
-                typeof loc?.coordinates?.latitude === "number" &&
-                typeof loc?.coordinates?.longitude === "number"
-            ) {
-                setMapTarget({
-                    latitude: loc.coordinates.latitude,
-                    longitude: loc.coordinates.longitude,
-                    zoom: 11,
-                    locationId: loc._id || loc.id,
-                    name: loc.name,
-                    telemetrySite:
-                        loc.isLiveTelemetry && !loc.isGlobalDiscovery ? loc : null,
-                    timestamp: Date.now(),
-                });
-            }
-
-            setShowAllSitesCatalog(false);
-            onSelectLocation?.(loc);
-        },
-        [recordRecentSearch, setMapTarget, onSelectLocation]
-    );
-
-    /**
      * Saves a catalog or newly discovered Earth site to saved locations
      * immediately for both signed-in users and guests.
      */
@@ -1078,55 +1140,12 @@ const Tweaks = ({ onSelectLocation }) => {
     };
 
     // ------------------------------------------------------------------------
-    // 9. Environment Accordion Row Configuration
-    // ------------------------------------------------------------------------
-    /** Declarative definitions for the 3 clean horizontal Environment rows. */
-    const environmentRows = [
-        {
-            id: "objective",
-            label: "Exploration objective",
-            displayValue: missionObjective,
-            isDefault: missionObjective === "Any objective",
-            selectedValue: missionObjective,
-            options: MISSION_OBJECTIVE_OPTIONS,
-            onSelect: (value) => {
-                setMissionObjective(value);
-                setSelectedPreset("custom");
-            },
-        },
-        {
-            id: "terrain",
-            label: "Terrain & geology",
-            displayValue: terrain === "Any" ? "Any terrain" : terrain,
-            isDefault: terrain === "Any",
-            selectedValue: terrain,
-            options: TERRAIN_OPTIONS,
-            onSelect: (value) => {
-                setTerrain(value);
-                setSelectedPreset("custom");
-            },
-        },
-        {
-            id: "humidity",
-            label: "Aridity & moisture",
-            displayValue: humidity === "Any" ? "Any regime" : humidity,
-            isDefault: humidity === "Any",
-            selectedValue: humidity,
-            options: HUMIDITY_OPTIONS,
-            onSelect: (value) => {
-                setHumidity(value);
-                setSelectedPreset("custom");
-            },
-        },
-    ];
-
-    // ------------------------------------------------------------------------
-    // 10. Component Render Block
+    // 9. Component Render Block
     // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full flex flex-col bg-[#0B0E13] text-[#F1EEE9] select-none">
             {/* ============================================================== */}
-            {/* Header Block: Title, Live Site Count Toggle & Subtitle         */}
+            {/* Header Block: Title & Subtitle                                 */}
             {/* Right padding (`pr-10`) avoids overlapping the drawer close btn */}
             {/* ============================================================== */}
             <div className="pb-3 mb-3 border-b border-[#21242C] shrink-0">
@@ -1134,98 +1153,11 @@ const Tweaks = ({ onSelectLocation }) => {
                     <h2 className="text-lg font-bold text-[#F1EEE9] tracking-tight leading-tight">
                         Find a match
                     </h2>
-
-                    {/* Clickable live count toggling the full-catalog drawer */}
-                    <button
-                        type="button"
-                        onClick={() => setShowAllSitesCatalog((prev) => !prev)}
-                        aria-expanded={showAllSitesCatalog}
-                        aria-controls="tweaks-all-sites-catalog"
-                        className="text-xs font-semibold text-[#83CAD8] hover:underline cursor-pointer shrink-0 transition"
-                    >
-                        {locData.length} sites live
-                    </button>
                 </div>
-
                 <p className="text-xs text-[#8891A0] mt-0.5">
                     Find Earth analogs for planetary missions.
                 </p>
             </div>
-
-            {/* ============================================================== */}
-            {/* Collapsible Full-Catalog Drawer (Toggled via "50 sites live")  */}
-            {/* ============================================================== */}
-            {showAllSitesCatalog && (
-                <div
-                    id="tweaks-all-sites-catalog"
-                    className="mb-3 bg-[#07090E] border border-[#21242C] rounded-xl p-2.5 shrink-0"
-                >
-                    <div className="flex items-center justify-between mb-2 px-0.5">
-                        <span className="text-[10px] font-semibold tracking-wider text-[#8891A0] uppercase">
-                            All Planetary Analog Sites ({locData.length})
-                        </span>
-                        <button
-                            type="button"
-                            onClick={() => setShowAllSitesCatalog(false)}
-                            className="text-[10px] text-[#83CAD8] hover:underline font-medium flex items-center gap-0.5 cursor-pointer"
-                        >
-                            <span>Close</span>
-                            <ChevronUp size={12} aria-hidden="true" />
-                        </button>
-                    </div>
-
-                    {/* Scrollable list of compact clickable site directory cards */}
-                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
-                        {locData.map((location) => {
-                            const catalogKey =
-                                location._id || location.id || location.name;
-                            const { pillLabel, pillClassName } =
-                                getTargetBodyInfo(location);
-                            const recognition = getAnalogRecognitionStatus(location);
-                            const surfaceTemp = formatSurfaceTemp(location);
-
-                            return (
-                                <button
-                                    key={catalogKey}
-                                    type="button"
-                                    onClick={() => handleViewOnMap(location)}
-                                    className="w-full text-left bg-[#181A21] border border-[#21242C] hover:border-[#83CAD8]/60 rounded-lg p-2.5 flex items-center justify-between gap-2 cursor-pointer transition"
-                                >
-                                    <div className="min-w-0">
-                                        <p className="text-xs font-medium text-[#F1EEE9] truncate leading-tight">
-                                            {location.name}
-                                        </p>
-                                        <p className="text-[10px] text-[#8891A0] truncate mt-0.5">
-                                            {location.country}
-                                        </p>
-                                    </div>
-
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                        <span
-                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${recognition.badgeClass}`}
-                                        >
-                                            {recognition.label}
-                                        </span>
-                                        <span
-                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${pillClassName}`}
-                                        >
-                                            {pillLabel}
-                                        </span>
-                                        <span className="font-mono text-[10px] text-[#83CAD8] font-medium">
-                                            {surfaceTemp}
-                                        </span>
-                                        <MapPin
-                                            size={12}
-                                            aria-hidden="true"
-                                            className="text-[#8891A0]"
-                                        />
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
 
             {/* ============================================================== */}
             {/* Scrollable Search Console Controls & Results Container         */}
@@ -1279,10 +1211,34 @@ const Tweaks = ({ onSelectLocation }) => {
                                     key={body.id}
                                     type="button"
                                     onClick={() => {
-                                        setTargetBody((prev) =>
-                                            prev === body.id ? "" : body.id
-                                        );
+                                        // Toggle selection or set new body
+                                        const nextBody =
+                                            targetBody === body.id ? "" : body.id;
+                                        setTargetBody(nextBody);
                                         setSelectedPreset("custom");
+
+                                        // Conflict resolution between Moon/Mars missions
+                                        if (nextBody === "mars") {
+                                            if (
+                                                selectedPreset === "moon-base" ||
+                                                selectedPreset === "lunar-lava-tubes"
+                                            ) {
+                                                setSelectedPreset("custom");
+                                            }
+                                            if (
+                                                missionObjective ===
+                                                "Permanent Moon Base & Habitation"
+                                            ) {
+                                                setMissionObjective("Any objective");
+                                            }
+                                        } else if (nextBody === "moon") {
+                                            if (
+                                                selectedPreset === "mars-highlands" ||
+                                                selectedPreset === "martian-dunes"
+                                            ) {
+                                                setSelectedPreset("custom");
+                                            }
+                                        }
                                     }}
                                     aria-pressed={isSelected}
                                     className={
@@ -1342,11 +1298,11 @@ const Tweaks = ({ onSelectLocation }) => {
                 </div>
 
                 {/* ---------------------------------------------------------- */}
-                {/* 4. Environment Section (Accordion Rows + Range Sliders)    */}
+                {/* 4. Environment Section (Dropdowns + Range Sliders)         */}
                 {/* ---------------------------------------------------------- */}
                 <div className="pt-1">
                     {/* Environment Section Header + Reset Action */}
-                    <div className="flex items-center justify-between pb-1">
+                    <div className="flex items-center justify-between pb-3">
                         <h3 className="text-sm font-bold text-[#F1EEE9]">
                             Environment
                         </h3>
@@ -1359,78 +1315,115 @@ const Tweaks = ({ onSelectLocation }) => {
                         </button>
                     </div>
 
-                    {/* 3 Clean Horizontal Inline Accordion Rows */}
-                    <div>
-                        {environmentRows.map((row) => {
-                            const isOpen = openEnvRow === row.id;
-                            return (
-                                <div
-                                    key={row.id}
-                                    className="border-b border-[#21242C] py-3"
-                                >
-                                    {/* Row Header Trigger */}
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setOpenEnvRow((prev) =>
-                                                prev === row.id ? null : row.id
-                                            )
-                                        }
-                                        aria-expanded={isOpen}
-                                        className="w-full flex items-center justify-between gap-2 text-left cursor-pointer group"
+                    {/* Dropdown 1: Exploration Objective */}
+                    <div className="mb-3">
+                        <label
+                            htmlFor="tweaks-exploration-objective"
+                            className="block text-xs font-medium text-[#8891A0] mb-1.5"
+                        >
+                            Exploration objective
+                        </label>
+                        <div className="relative">
+                            <select
+                                id="tweaks-exploration-objective"
+                                value={missionObjective}
+                                onChange={(e) => {
+                                    setMissionObjective(e.target.value);
+                                    setSelectedPreset("custom");
+                                }}
+                                style={{ colorScheme: "dark" }}
+                                className="w-full appearance-none bg-[#181A21] border border-[#272C34] focus:border-[#83CAD8] rounded-xl px-3.5 py-2.5 pr-9 text-xs text-[#F1EEE9] focus:outline-none cursor-pointer transition"
+                            >
+                                {MISSION_OBJECTIVE_OPTIONS.map((option) => (
+                                    <option
+                                        key={option}
+                                        value={option}
+                                        className="bg-[#181A21] text-[#F1EEE9]"
                                     >
-                                        <span className="text-xs font-medium text-[#8891A0] group-hover:text-[#F1EEE9] transition">
-                                            {row.label}
-                                        </span>
-                                        <span
-                                            className={`flex items-center gap-1 text-xs font-semibold transition ${
-                                                row.isDefault
-                                                    ? "text-[#8891A0] group-hover:text-[#F1EEE9]"
-                                                    : "text-[#83CAD8]"
-                                            }`}
-                                        >
-                                            <span>{row.displayValue}</span>
-                                            <ChevronDown
-                                                size={14}
-                                                aria-hidden="true"
-                                                className={`transition-transform duration-200 ${
-                                                    isOpen ? "rotate-180" : ""
-                                                }`}
-                                            />
-                                        </span>
-                                    </button>
+                                        {option}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown
+                                size={14}
+                                aria-hidden="true"
+                                className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8891A0]"
+                            />
+                        </div>
+                    </div>
 
-                                    {/* Expandable Inline Pill Tray */}
-                                    {isOpen && (
-                                        <div className="mt-2.5 flex flex-wrap gap-1.5">
-                                            {row.options.map((option) => {
-                                                const isOptionSelected =
-                                                    row.selectedValue === option;
-                                                return (
-                                                    <button
-                                                        key={option}
-                                                        type="button"
-                                                        onClick={() =>
-                                                            row.onSelect(option)
-                                                        }
-                                                        aria-pressed={
-                                                            isOptionSelected
-                                                        }
-                                                        className={`px-2.5 py-1 rounded-lg text-[11px] border transition cursor-pointer ${
-                                                            isOptionSelected
-                                                                ? "bg-[#1A1D23] border-[#83CAD8] text-[#83CAD8] font-semibold shadow-sm"
-                                                                : "bg-[#181A21] border-[#21242C] text-[#8891A0] hover:text-[#F1EEE9] hover:border-[#272C34]"
-                                                        }`}
-                                                    >
-                                                        {option}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
+                    {/* Dropdown 2: Terrain & Geology */}
+                    <div className="mb-3">
+                        <label
+                            htmlFor="tweaks-terrain-geology"
+                            className="block text-xs font-medium text-[#8891A0] mb-1.5"
+                        >
+                            Terrain &amp; geology
+                        </label>
+                        <div className="relative">
+                            <select
+                                id="tweaks-terrain-geology"
+                                value={terrain}
+                                onChange={(e) => {
+                                    setTerrain(e.target.value);
+                                    setSelectedPreset("custom");
+                                }}
+                                style={{ colorScheme: "dark" }}
+                                className="w-full appearance-none bg-[#181A21] border border-[#272C34] focus:border-[#83CAD8] rounded-xl px-3.5 py-2.5 pr-9 text-xs text-[#F1EEE9] focus:outline-none cursor-pointer transition"
+                            >
+                                {TERRAIN_OPTIONS.map((option) => (
+                                    <option
+                                        key={option}
+                                        value={option}
+                                        className="bg-[#181A21] text-[#F1EEE9]"
+                                    >
+                                        {option}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown
+                                size={14}
+                                aria-hidden="true"
+                                className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8891A0]"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Dropdown 3: Aridity & Moisture */}
+                    <div className="mb-3">
+                        <label
+                            htmlFor="tweaks-aridity-moisture"
+                            className="block text-xs font-medium text-[#8891A0] mb-1.5"
+                        >
+                            Aridity &amp; moisture
+                        </label>
+                        <div className="relative">
+                            <select
+                                id="tweaks-aridity-moisture"
+                                value={humidity}
+                                onChange={(e) => {
+                                    setHumidity(e.target.value);
+                                    setSelectedPreset("custom");
+                                }}
+                                style={{ colorScheme: "dark" }}
+                                className="w-full appearance-none bg-[#181A21] border border-[#272C34] focus:border-[#83CAD8] rounded-xl px-3.5 py-2.5 pr-9 text-xs text-[#F1EEE9] focus:outline-none cursor-pointer transition"
+                            >
+                                {HUMIDITY_OPTIONS.map((option) => (
+                                    <option
+                                        key={option}
+                                        value={option}
+                                        className="bg-[#181A21] text-[#F1EEE9]"
+                                    >
+                                        {option}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown
+                                size={14}
+                                aria-hidden="true"
+                                className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8891A0]"
+                            />
+                        </div>
                     </div>
 
                     {/* ------------------------------------------------------ */}

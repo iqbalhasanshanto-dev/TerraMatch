@@ -262,8 +262,8 @@ const StateProvider = ({ children }) => {
     /** Controls whether the Search & Filter panel ("Tweaks") is displayed in the sidebar. */
     const [isSearch, setIsSearch] = useState(false);
 
-    /** Filtered list of candidate analog sites synchronized between Tweaks and Map. */
-    const [filteredLoc, setFilteredLoc] = useState([]);
+    /** Filtered list of candidate analog sites synchronized between Tweaks and Map (`null` on initial dashboard overview). */
+    const [filteredLoc, setFilteredLoc] = useState(null);
 
     /** Target viewport coordinates & marker metadata for animated Leaflet flyTo + popup open. */
     const [mapTarget, setMapTarget] = useState(null);

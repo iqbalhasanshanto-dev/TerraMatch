@@ -1,7 +1,7 @@
 // ----------------------------------------------------------------------------
 // External Dependencies & UI Icons
 // ----------------------------------------------------------------------------
-import { useState, useContext } from "react";
+import { useState, useContext, useRef, useEffect, useCallback, useMemo } from "react";
 import {
     LayoutDashboard,
     Search,
@@ -48,14 +48,27 @@ const Navbar = () => {
     // Current Firebase authenticated user object (null when signed out)
     const { user } = useAuth();
 
-    // Global search mode toggle shared between the navbar and RightDashboard
-    const { isSearch, setIsSearch } = useContext(StateContext);
+    // Global search mode toggle and filter setter shared between the navbar and RightDashboard
+    const { isSearch, setIsSearch, setFilteredLoc } = useContext(StateContext);
 
     // Current router location used to synchronize active navigation styling and redirect state
     const location = useLocation();
 
     // Controls open/closed visibility of the collapsible mobile navigation drawer (< xl viewports)
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    /** Ref container for desktop <nav> element to measure tab boundaries. */
+    const navRef = useRef(null);
+
+    /** Map of tab DOM element references keyed by item path for measuring width and position. */
+    const tabRefs = useRef(new Map());
+
+    /** Dynamic position & width state for the single shared sliding cyan underline bar. */
+    const [indicatorStyle, setIndicatorStyle] = useState({
+        left: 0,
+        width: 0,
+        opacity: 0,
+    });
 
     // ------------------------------------------------------------------------
     // 2. Derived Navigation State & Pre-Login Return Path
@@ -96,10 +109,12 @@ const Navbar = () => {
     };
 
     /**
-     * Restores default dashboard mode (Recent Searches) and closes the mobile menu.
+     * Restores default dashboard mode (Recent Searches), clears active search
+     * filter so all pins display on the map, and closes the mobile menu.
      */
     const handleDashboardClick = () => {
         setIsSearch(false);
+        setFilteredLoc?.(null);
         setMobileMenuOpen(false);
     };
 
@@ -115,48 +130,52 @@ const Navbar = () => {
     // 4. Primary Navigation Tab Configuration
     // ------------------------------------------------------------------------
     // Centralized route definitions shared between desktop underline tabs and mobile drawer
-    const navItems = [
-        {
-            label: "Dashboard",
-            path: "/",
-            icon: LayoutDashboard,
-            exact: true,
-            onClick: handleDashboardClick,
-        },
-        {
-            label: "Search",
-            path: "/search",
-            icon: Search,
-            onClick: handleSearchClick,
-        },
-        {
-            label: "Saved",
-            path: "/saved",
-            icon: Star,
-            onClick: handleGenericNavClick,
-        },
-        {
-            label: "Compare",
-            path: "/compare",
-            icon: Columns3,
-            onClick: handleGenericNavClick,
-        },
-        {
-            label: "Data Sources",
-            path: "/data-sources",
-            icon: Database,
-            onClick: handleGenericNavClick,
-        },
-        {
-            label: "About",
-            path: "/about",
-            icon: BookOpen,
-            onClick: handleGenericNavClick,
-        },
-    ];
+    const navItems = useMemo(
+        () => [
+            {
+                label: "Dashboard",
+                path: "/",
+                icon: LayoutDashboard,
+                exact: true,
+                onClick: handleDashboardClick,
+            },
+            {
+                label: "Search",
+                path: "/search",
+                icon: Search,
+                onClick: handleSearchClick,
+            },
+            {
+                label: "Saved",
+                path: "/saved",
+                icon: Star,
+                onClick: handleGenericNavClick,
+            },
+            {
+                label: "Compare",
+                path: "/compare",
+                icon: Columns3,
+                onClick: handleGenericNavClick,
+            },
+            {
+                label: "Data Sources",
+                path: "/data-sources",
+                icon: Database,
+                onClick: handleGenericNavClick,
+            },
+            {
+                label: "About",
+                path: "/about",
+                icon: BookOpen,
+                onClick: handleGenericNavClick,
+            },
+        ],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        []
+    );
 
     // ------------------------------------------------------------------------
-    // 5. Helper Function: Active Tab Matcher
+    // 5. Helper Function & Effect: Sliding Underline Indicator Measurement
     // ------------------------------------------------------------------------
     /**
      * Determines whether a navigation item matches the active route or search state.
@@ -165,7 +184,7 @@ const Navbar = () => {
      * @param {Object} item - Navigation configuration entry from `navItems`
      * @returns {boolean} True when the tab should display active styling
      */
-    const isTabActive = (item) => {
+    const isTabActive = useCallback((item) => {
         if (isSearchActive) {
             return item.path === "/search";
         }
@@ -179,7 +198,34 @@ const Navbar = () => {
             );
         }
         return location.pathname === item.path;
-    };
+    }, [isSearchActive, location.pathname]);
+
+    /**
+     * Measures the active tab's `offsetLeft` and `offsetWidth` to animate the
+     * shared sliding cyan indicator bar across the desktop navbar.
+     */
+    const updateIndicator = useCallback(() => {
+        const activeItem = navItems.find((item) => isTabActive(item));
+        if (activeItem && tabRefs.current.has(activeItem.path)) {
+            const el = tabRefs.current.get(activeItem.path);
+            if (el) {
+                setIndicatorStyle({
+                    left: el.offsetLeft,
+                    width: el.offsetWidth,
+                    opacity: 1,
+                });
+                return;
+            }
+        }
+        setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }));
+    }, [isTabActive, navItems]);
+
+    // Recalculate sliding indicator position on route transitions or window resize
+    useEffect(() => {
+        updateIndicator();
+        window.addEventListener("resize", updateIndicator);
+        return () => window.removeEventListener("resize", updateIndicator);
+    }, [updateIndicator]);
 
     // ------------------------------------------------------------------------
     // 6. Component Render Block
@@ -218,10 +264,14 @@ const Navbar = () => {
 
             {/* ==============================================================
                 Center Navigation Tabs (Desktop Viewports >= xl)
-                Spans full header height (`h-full` inside `h-14`) so each
-                active underline indicator sits flush on the bottom border.
+                Spans full header height (`h-full` inside `h-14`) with a single
+                shared sliding cyan indicator bar that glides between tabs.
                ============================================================== */}
-            <nav aria-label="Primary" className="hidden xl:flex items-center gap-7 h-full">
+            <nav
+                ref={navRef}
+                aria-label="Primary"
+                className="hidden xl:flex items-center gap-7 h-full relative"
+            >
                 {navItems.map((item) => {
                     // Determine whether this tab represents the current view or search mode
                     const active = isTabActive(item);
@@ -231,6 +281,13 @@ const Navbar = () => {
                     return (
                         <NavLink
                             key={item.path}
+                            ref={(el) => {
+                                if (el) {
+                                    tabRefs.current.set(item.path, el);
+                                } else {
+                                    tabRefs.current.delete(item.path);
+                                }
+                            }}
                             to={item.path}
                             end={item.exact}
                             onClick={item.onClick}
@@ -254,17 +311,21 @@ const Navbar = () => {
 
                             {/* Tab Label */}
                             <span>{item.label}</span>
-
-                            {/* Active Bottom Indicator Bar: Crisp glowing cyan bar flush at navbar bottom */}
-                            {active && (
-                                <span
-                                    aria-hidden="true"
-                                    className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#83CAD8] rounded-t-full shadow-[0_-2px_8px_rgba(131,202,216,0.5)]"
-                                />
-                            )}
                         </NavLink>
                     );
                 })}
+
+                {/* Single Shared Sliding Cyan Underline Indicator Bar */}
+                {indicatorStyle.opacity > 0 && (
+                    <span
+                        className="absolute bottom-0 h-[3px] bg-[#83CAD8] rounded-t-full shadow-[0_-2px_8px_rgba(131,202,216,0.55)] transition-all duration-300 ease-out pointer-events-none"
+                        style={{
+                            left: indicatorStyle.left,
+                            width: indicatorStyle.width,
+                        }}
+                        aria-hidden="true"
+                    />
+                )}
             </nav>
 
             {/* ==============================================================

@@ -1,11 +1,13 @@
 import { useState, useContext, useRef, useEffect, useMemo, useCallback } from "react";
 import { Clock3, Globe, MapPin, X, Check, RotateCcw } from "lucide-react";
+import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
 import { toast } from "react-toastify";
 import StateContext from "../States/StateContext";
 import {
     formatSurfaceTemp,
     getAnalogCategory,
+    getAnalogRecognitionStatus,
     getTargetBodyInfo,
 } from "../utils/analogSpec";
 
@@ -42,6 +44,12 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     /** Centralized saved bookmarks hook for badge count, Saved indicators, and saving. */
     const { savedLoc, saveLocation } = useSaved();
 
+    /** 50 pinned planetary analog sites catalog from useLocations. */
+    const { locData = [] } = useLocations();
+
+    /** Active planetary target body filter for the pinned analog sites catalog ("all", "moon", "mars"). */
+    const [pinnedFilter, setPinnedFilter] = useState("all");
+
     // ------------------------------------------------------------------------
     // 2. Optimistic Delete & 5-Second Undo Timer State Variables
     // ------------------------------------------------------------------------
@@ -61,13 +69,25 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     }, []);
 
     // ------------------------------------------------------------------------
-    // 3. Derived Lists, Identifiers & Saved Lookup Set
+    // 3. Derived Lists, Identifiers & Filtered Pinned Sites
     // ------------------------------------------------------------------------
     /** List of recent searches available for all users (including guests). */
     const displayedSearches = recentSearched || [];
 
     /** Reflects the user's or guest's live saved count. */
     const savedCount = savedLoc?.length || 0;
+
+    /** Filters the 50 catalog sites by selected target planetary body (All, Moon, or Mars). */
+    const filteredPinnedSites = useMemo(() => {
+        if (!Array.isArray(locData)) return [];
+        if (pinnedFilter === "all") return locData;
+        return locData.filter((loc) => {
+            const { hasMoon, hasMars } = getTargetBodyInfo(loc);
+            if (pinnedFilter === "moon") return hasMoon;
+            if (pinnedFilter === "mars") return hasMars;
+            return true;
+        });
+    }, [locData, pinnedFilter]);
 
     /** Fast lookup set of saved IDs / names so saved recent items display `"Saved"`. */
     const savedLocationIds = useMemo(() => {
@@ -265,173 +285,259 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
     };
 
     // ------------------------------------------------------------------------
-    // 8. Component Render Block
+    // 8. Component Render Block: Split Dashboard Sidebar (Recent + Pinned)
     // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full flex flex-col text-[#F1EEE9] select-none relative">
-            {/* Header Toolbar: Title, Clear All Action, and Live Saved Counter */}
-            <div className="flex justify-between items-center mb-3 pr-10">
-                <div className="flex items-center gap-2">
-                    <Clock3 size={16} aria-hidden="true" className="text-[#8891A0]" />
-                    <h2 className="font-semibold text-sm text-[#F1EEE9] tracking-tight">
-                        Recent Searches
-                    </h2>
-                </div>
+            {/* ============================================================== */}
+            {/* Top Section: Recent Searches History                           */}
+            {/* ============================================================== */}
+            <div className="shrink-0 mb-4">
+                {/* Header Toolbar: Title, Clear All Action, and Live Saved Counter */}
+                <div className="flex justify-between items-center mb-2.5 pr-10">
+                    <div className="flex items-center gap-2">
+                        <Clock3 size={15} aria-hidden="true" className="text-[#8891A0]" />
+                        <h2 className="font-semibold text-xs sm:text-sm text-[#F1EEE9] tracking-tight">
+                            Recent Searches
+                        </h2>
+                    </div>
 
-                <div className="flex items-center gap-2.5">
-                    {displayedSearches.length > 0 && (
-                        <button
-                            type="button"
-                            onClick={handleDeleteAll}
-                            className="text-xs text-[#8891A0] hover:text-[#F1EEE9] transition cursor-pointer"
-                        >
-                            Clear all
-                        </button>
-                    )}
-
-                    {/* Live Saved Sites Count Badge */}
-                    <span className="text-[11px] font-medium text-[#8891A0] bg-[#181A21] border border-[#21242C] px-2 py-0.5 rounded-md">
-                        {savedCount} Saved
-                    </span>
-                </div>
-            </div>
-
-            {/* Scrollable Recent Searches Card List or Clean Empty State */}
-            <div className="space-y-3 overflow-y-auto flex-1 pr-1 custom-scrollbar">
-                {displayedSearches.length > 0 ? (
-                    displayedSearches.map((item) => {
-                        const itemKey = getRecentItemKey(item);
-                        const isSaved =
-                            savedLocationIds.has(item._id) ||
-                            savedLocationIds.has(item.locationId) ||
-                            savedLocationIds.has(item.id) ||
-                            savedLocationIds.has(item.name);
-                        const { pillLabel, pillClassName } = getTargetBodyInfo(item);
-                        const surfaceTemp = formatSurfaceTemp(item);
-                        const analogCategory = getAnalogCategory(item);
-
-                        return (
-                            /* Clickable Recent Location Card (Clicking anywhere focuses map) */
-                            <article
-                                key={itemKey}
-                                onClick={() => handleViewOnMap(item)}
-                                className="relative bg-[#181A21] border border-[#21242C] rounded-xl p-3.5 transition duration-150 hover:border-[#83CAD8]/50 has-[.card-primary-action:focus-visible]:outline-2 has-[.card-primary-action:focus-visible]:outline-[#83CAD8] shadow-md cursor-pointer"
+                    <div className="flex items-center gap-2">
+                        {displayedSearches.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={handleDeleteAll}
+                                className="text-[11px] text-[#8891A0] hover:text-[#F1EEE9] transition cursor-pointer"
                             >
-                                {/* Card Header Row: Icon, Location Name, Country, Target Body & Temp */}
-                                <div className="flex items-start justify-between gap-2.5">
-                                    <div className="flex items-start gap-3 min-w-0">
-                                        <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#8891A0] shrink-0 mt-0.5">
-                                            <Globe size={16} aria-hidden="true" />
+                                Clear all
+                            </button>
+                        )}
+
+                        {/* Live Saved Sites Count Badge */}
+                        <span className="text-[10px] font-medium text-[#8891A0] bg-[#181A21] border border-[#21242C] px-2 py-0.5 rounded-md">
+                            {savedCount} Saved
+                        </span>
+                    </div>
+                </div>
+
+                {/* Recent Searches List or Compact Empty Message */}
+                {displayedSearches.length > 0 ? (
+                    <div className="space-y-2.5 max-h-56 sm:max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                        {displayedSearches.map((item) => {
+                            const itemKey = getRecentItemKey(item);
+                            const isSaved =
+                                savedLocationIds.has(item._id) ||
+                                savedLocationIds.has(item.locationId) ||
+                                savedLocationIds.has(item.id) ||
+                                savedLocationIds.has(item.name);
+                            const { pillLabel, pillClassName } = getTargetBodyInfo(item);
+                            const surfaceTemp = formatSurfaceTemp(item);
+                            const analogCategory = getAnalogCategory(item);
+
+                            return (
+                                /* Clickable Recent Location Card (Clicking anywhere focuses map) */
+                                <article
+                                    key={itemKey}
+                                    onClick={() => handleViewOnMap(item)}
+                                    className="relative bg-[#181A21] border border-[#21242C] rounded-xl p-3 transition duration-150 hover:border-[#83CAD8]/50 has-[.card-primary-action:focus-visible]:outline-2 has-[.card-primary-action:focus-visible]:outline-[#83CAD8] shadow-md cursor-pointer"
+                                >
+                                    {/* Card Header Row: Icon, Location Name, Country, Target Body & Temp */}
+                                    <div className="flex items-start justify-between gap-2.5">
+                                        <div className="flex items-start gap-2.5 min-w-0">
+                                            <div className="w-7 h-7 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#8891A0] shrink-0 mt-0.5">
+                                                <Globe size={14} aria-hidden="true" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h3 className="text-xs font-semibold text-[#F1EEE9] truncate leading-tight">
+                                                    {item.name}
+                                                </h3>
+                                                <p className="text-[10px] text-[#8891A0] truncate mt-0.5">
+                                                    {item.country}
+                                                </p>
+                                                <p className="text-[10px] text-[#8891A0]/85 truncate mt-0.5">
+                                                    {analogCategory}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="min-w-0">
-                                            <h3 className="text-xs sm:text-sm font-semibold text-[#F1EEE9] truncate leading-tight">
-                                                {item.name}
-                                            </h3>
-                                            <p className="text-[11px] text-[#8891A0] truncate mt-0.5">
-                                                {item.country}
-                                            </p>
-                                            <p className="text-[10px] text-[#8891A0]/85 truncate mt-1">
-                                                {analogCategory}
-                                            </p>
-                                        </div>
-                                    </div>
 
-                                    {/* Target Body Pill & Real Mean Surface Temperature */}
-                                    <div className="flex flex-col items-end gap-1 shrink-0">
-                                        <span
-                                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${pillClassName}`}
-                                        >
-                                            {pillLabel}
-                                        </span>
-                                        <span className="font-mono text-xs text-[#83CAD8] font-medium">
-                                            {surfaceTemp}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Card Actions Footer: View on Map (stretched), Remove, Save */}
-                                <div className="flex items-center justify-between border-t border-[#21242C] pt-2.5 mt-2.5 text-xs">
-                                    {/* Primary Action stretched over card via ::after pseudo-element */}
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleViewOnMap(item);
-                                        }}
-                                        aria-label={`View on map: ${item.name}`}
-                                        className="card-primary-action flex items-center gap-1.5 text-[#8891A0] hover:text-[#F1EEE9] focus-visible:outline-none transition duration-150 cursor-pointer after:content-[''] after:absolute after:inset-0 after:rounded-xl"
-                                    >
-                                        <MapPin
-                                            size={13}
-                                            aria-hidden="true"
-                                            className="text-[#8891A0]"
-                                        />
-                                        <span>View on map</span>
-                                    </button>
-
-                                    {/* Isolated Remove & Save Controls (Elevated above card overlay) */}
-                                    <div className="relative z-10 flex items-center gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDelete(itemKey);
-                                            }}
-                                            aria-label={`Remove ${item.name}`}
-                                            className="flex items-center gap-1 text-[#D04D39] hover:text-[#D04D39]/80 transition duration-150 cursor-pointer py-0.5 px-1 rounded"
-                                        >
-                                            <X size={13} aria-hidden="true" />
-                                            <span>Remove</span>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleSave(item);
-                                            }}
-                                            aria-label={
-                                                isSaved
-                                                    ? `Saved ${item.name}`
-                                                    : `Save ${item.name}`
-                                            }
-                                            className="flex items-center gap-1 text-[#8891A0] hover:text-[#83CAD8] transition duration-150 cursor-pointer py-0.5 px-1 rounded"
-                                        >
-                                            <Check
-                                                size={13}
-                                                aria-hidden="true"
-                                                className="text-[#83CAD8]"
-                                            />
+                                        {/* Target Body Pill & Real Mean Surface Temperature */}
+                                        <div className="flex flex-col items-end gap-1 shrink-0">
                                             <span
-                                                className={
-                                                    isSaved ? "text-[#83CAD8] font-medium" : ""
-                                                }
+                                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${pillClassName}`}
                                             >
-                                                {isSaved ? "Saved" : "Save"}
+                                                {pillLabel}
                                             </span>
-                                        </button>
+                                            <span className="font-mono text-[11px] text-[#83CAD8] font-medium">
+                                                {surfaceTemp}
+                                            </span>
+                                        </div>
                                     </div>
-                                </div>
-                            </article>
-                        );
-                    })
+
+                                    {/* Card Actions Footer: View on Map (stretched), Remove, Save */}
+                                    <div className="flex items-center justify-between border-t border-[#21242C] pt-2 mt-2 text-[11px]">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleViewOnMap(item);
+                                            }}
+                                            aria-label={`View on map: ${item.name}`}
+                                            className="card-primary-action flex items-center gap-1.5 text-[#8891A0] hover:text-[#F1EEE9] focus-visible:outline-none transition duration-150 cursor-pointer after:content-[''] after:absolute after:inset-0 after:rounded-xl"
+                                        >
+                                            <MapPin
+                                                size={12}
+                                                aria-hidden="true"
+                                                className="text-[#8891A0]"
+                                            />
+                                            <span>View on map</span>
+                                        </button>
+
+                                        {/* Isolated Remove & Save Controls */}
+                                        <div className="relative z-10 flex items-center gap-2.5">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDelete(itemKey);
+                                                }}
+                                                aria-label={`Remove ${item.name}`}
+                                                className="flex items-center gap-1 text-[#D04D39] hover:text-[#D04D39]/80 transition duration-150 cursor-pointer py-0.5 px-1 rounded"
+                                            >
+                                                <X size={12} aria-hidden="true" />
+                                                <span>Remove</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleSave(item);
+                                                }}
+                                                aria-label={
+                                                    isSaved
+                                                        ? `Saved ${item.name}`
+                                                        : `Save ${item.name}`
+                                                }
+                                                className="flex items-center gap-1 text-[#8891A0] hover:text-[#83CAD8] transition duration-150 cursor-pointer py-0.5 px-1 rounded"
+                                            >
+                                                <Check
+                                                    size={12}
+                                                    aria-hidden="true"
+                                                    className="text-[#83CAD8]"
+                                                />
+                                                <span
+                                                    className={
+                                                        isSaved ? "text-[#83CAD8] font-medium" : ""
+                                                    }
+                                                >
+                                                    {isSaved ? "Saved" : "Save"}
+                                                </span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </article>
+                            );
+                        })}
+                    </div>
                 ) : (
-                    /* Clean Empty State when no search history yet */
-                    <div className="text-center py-12 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs">
-                        <Clock3
-                            size={24}
-                            aria-hidden="true"
-                            className="mx-auto opacity-40 mb-2 text-[#8891A0]"
-                        />
-                        <p className="font-medium text-[#F1EEE9]">
-                            No recent searches yet.
-                        </p>
-                        <p className="text-[11px] text-[#8891A0] mt-1">
-                            Explore candidate planetary analog sites in the Search tab or
-                            click a location on the map.
+                    /* Compact Empty Message When No Recent Searches */
+                    <div className="text-center py-4 px-3 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs">
+                        <p className="font-medium text-[#F1EEE9]">No recent searches yet.</p>
+                        <p className="text-[11px] text-[#8891A0] mt-0.5">
+                            Click any pinned analog site below to view live telemetry on the map.
                         </p>
                     </div>
                 )}
+            </div>
+
+            {/* ============================================================== */}
+            {/* Bottom Section: Pinned Analog Sites Directory ({locData.length})*/}
+            {/* ============================================================== */}
+            <div className="flex-1 flex flex-col min-h-0 border-t border-[#21242C] pt-3">
+                <div className="flex items-center justify-between gap-2 mb-2 pr-10">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <MapPin size={14} aria-hidden="true" className="text-[#83CAD8] shrink-0" />
+                        <h3 className="font-semibold text-xs text-[#F1EEE9] truncate">
+                            Pinned Analog Sites ({locData.length})
+                        </h3>
+                    </div>
+
+                    {/* Quick Planetary Filter Pills (All / Moon / Mars) */}
+                    <div className="flex items-center gap-1 bg-[#181A21] border border-[#21242C] p-0.5 rounded-lg shrink-0">
+                        {[
+                            { id: "all", label: "All" },
+                            { id: "moon", label: "Moon" },
+                            { id: "mars", label: "Mars" },
+                        ].map((filter) => {
+                            const isSelected = pinnedFilter === filter.id;
+                            return (
+                                <button
+                                    key={filter.id}
+                                    type="button"
+                                    onClick={() => setPinnedFilter(filter.id)}
+                                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition cursor-pointer ${
+                                        isSelected
+                                            ? filter.id === "mars"
+                                                ? "bg-[#D67051] text-[#090D15] font-semibold"
+                                                : "bg-[#83CAD8] text-[#090D15] font-semibold"
+                                            : "text-[#8891A0] hover:text-[#F1EEE9]"
+                                    }`}
+                                >
+                                    {filter.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Scrollable List of Pinned Analog Sites */}
+                <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                    {filteredPinnedSites.map((location) => {
+                        const locKey = location._id || location.id || location.name;
+                        const { pillLabel, pillClassName } = getTargetBodyInfo(location);
+                        const recognition = getAnalogRecognitionStatus(location);
+                        const surfaceTemp = formatSurfaceTemp(location);
+
+                        return (
+                            <button
+                                key={locKey}
+                                type="button"
+                                onClick={() => handleViewOnMap(location)}
+                                className="w-full text-left bg-[#181A21] border border-[#21242C] hover:border-[#83CAD8]/60 rounded-xl p-2.5 flex items-center justify-between gap-2 cursor-pointer transition group shadow-sm"
+                            >
+                                <div className="min-w-0">
+                                    <p className="text-xs font-medium text-[#F1EEE9] group-hover:text-[#83CAD8] truncate transition">
+                                        {location.name}
+                                    </p>
+                                    <p className="text-[10px] text-[#8891A0] truncate mt-0.5">
+                                        {location.country}
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    <span
+                                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${recognition.badgeClass}`}
+                                    >
+                                        {recognition.label}
+                                    </span>
+                                    <span
+                                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${pillClassName}`}
+                                    >
+                                        {pillLabel}
+                                    </span>
+                                    <span className="font-mono text-[10px] text-[#83CAD8] font-medium">
+                                        {surfaceTemp}
+                                    </span>
+                                    <MapPin
+                                        size={12}
+                                        aria-hidden="true"
+                                        className="text-[#8891A0] group-hover:text-[#83CAD8] transition"
+                                    />
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* 5-Second Dark Undo Snackbar Banner */}
