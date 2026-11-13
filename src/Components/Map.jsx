@@ -19,7 +19,6 @@ import {
     Droplets,
     Sun,
     ExternalLink,
-    Globe,
 } from "lucide-react";
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
@@ -86,6 +85,15 @@ const globalDiscoveryIcon = L.divIcon({
     iconAnchor: [13, 13],
     popupAnchor: [0, -13],
 });
+
+/**
+ * Longitude offsets for rendering duplicate interactive markers across wrapped world copies.
+ * - `0`: Canonical Earth instance (primary [-180°, +180°] coordinates).
+ * - `-360`: Western wrapped Earth copy (across Pacific / Date Line westward).
+ * - `+360`: Eastern wrapped Earth copy (across Pacific / Date Line eastward).
+ * Ensures interactive markers and popups remain available whichever way the user pans.
+ */
+const WORLD_COPY_OFFSETS = [0, -360, 360];
 
 /**
  * Generates custom glowing SVG map marker icons styled in TerraMatch's deep-space palette:
@@ -221,8 +229,11 @@ const Map = ({ isSidebarOpen }) => {
     /** Dictionary mapping location IDs (and fallback name keys) to Leaflet Marker refs. */
     const markerRefs = useRef({});
 
-    /** Leaflet Marker ref for the active custom cyan telemetry probe pin. */
+    /** Leaflet Marker ref for the active custom cyan telemetry probe pin (primary copy). */
     const probeMarkerRef = useRef(null);
+
+    /** Leaflet Marker refs for active telemetry probe pins across world copies (-360, 0, +360). */
+    const probeMarkerRefs = useRef({});
 
     /** Tracks previous sidebar state so subtle desktop pan only runs on real toggles. */
     const prevSidebarOpenRef = useRef(isSidebarOpen);
@@ -286,19 +297,32 @@ const Map = ({ isSidebarOpen }) => {
     // ------------------------------------------------------------------------
     /**
      * Looks up a rendered Leaflet Marker instance for either a live telemetry
-     * target (`probeMarkerRef`) or a catalog location (`markerRefs.current`).
+     * target (`probeMarkerRef` / `probeMarkerRefs`) or a catalog location (`markerRefs.current`).
+     * Automatically matches the target longitude to the corresponding world copy
+     * (offset 0, -360, or +360) so popup windows open cleanly on the visible screen.
      */
     const resolveTargetMarker = useCallback((target) => {
         if (!target) return null;
-        if (target.telemetrySite && probeMarkerRef.current) {
-            return probeMarkerRef.current;
+
+        const targetLng = typeof target.longitude === "number" ? target.longitude : 0;
+        const targetOffset = targetLng > 180 ? 360 : targetLng < -180 ? -360 : 0;
+
+        if (target.telemetrySite) {
+            return probeMarkerRefs.current[targetOffset] || probeMarkerRef.current;
         }
-        if (target.locationId && markerRefs.current[target.locationId]) {
-            return markerRefs.current[target.locationId];
+
+        const candidateKeys = [
+            target.locationId,
+            target.id,
+            target.name ? `name:${target.name}` : null,
+        ].filter(Boolean);
+
+        for (const key of candidateKeys) {
+            const copyInstance = markerRefs.current[`${key}_copy_${targetOffset}`];
+            if (copyInstance) return copyInstance;
+            if (markerRefs.current[key]) return markerRefs.current[key];
         }
-        if (target.name && markerRefs.current[`name:${target.name}`]) {
-            return markerRefs.current[`name:${target.name}`];
-        }
+
         return null;
     }, []);
 
@@ -413,15 +437,20 @@ const Map = ({ isSidebarOpen }) => {
         };
     }, [mapTarget, mapTarget?.timestamp, loading, resolveTargetMarker]);
 
-    // Automatically open the custom cyan probe marker popup immediately when dropped
+    // Automatically open the custom cyan probe marker popup immediately when dropped on whichever world copy was probed
     useEffect(() => {
         if (!localProbe) return;
         const timer = setTimeout(() => {
-            if (
-                probeMarkerRef.current &&
-                typeof probeMarkerRef.current.openPopup === "function"
-            ) {
-                probeMarkerRef.current.openPopup();
+            const rawLng = localProbe.coordinates?.longitude ?? 0;
+            const normalizedLng = ((((rawLng + 180) % 360) + 360) % 360) - 180;
+            const targetOffset = Math.round((rawLng - normalizedLng) / 360) * 360;
+            const targetMarker =
+                probeMarkerRefs.current[targetOffset] ||
+                probeMarkerRefs.current[0] ||
+                probeMarkerRef.current;
+
+            if (targetMarker && typeof targetMarker.openPopup === "function") {
+                targetMarker.openPopup();
             }
         }, 60);
         return () => clearTimeout(timer);
@@ -520,9 +549,11 @@ const Map = ({ isSidebarOpen }) => {
     /**
      * Logs a clicked catalog map marker to centralized Recent Searches and flies
      * smoothly to that marker while ensuring its popup stays centered and open.
+     * Accepts the clicked longitude (which may include a +360 or -360 offset) so
+     * the camera flies directly to the clicked world copy without snapping across the map.
      */
     const handleMarkerClick = useCallback(
-        (loc) => {
+        (loc, clickedLongitude) => {
             if (!loc) return;
 
             // Record clicked marker in centralized Recent Searches (MongoDB + localStorage)
@@ -533,9 +564,14 @@ const Map = ({ isSidebarOpen }) => {
                 typeof loc?.coordinates?.latitude === "number" &&
                 typeof loc?.coordinates?.longitude === "number"
             ) {
+                const targetLng =
+                    typeof clickedLongitude === "number"
+                        ? clickedLongitude
+                        : loc.coordinates.longitude;
+
                 setMapTarget({
                     latitude: loc.coordinates.latitude,
-                    longitude: loc.coordinates.longitude,
+                    longitude: targetLng,
                     zoom: 11,
                     locationId: loc._id || loc.id,
                     name: loc.name,
@@ -559,18 +595,6 @@ const Map = ({ isSidebarOpen }) => {
             mapRef.current.zoomOut();
         }
     };
-
-    /**
-     * Resets the map viewport to the complete "Whole World" planetary framing.
-     * Smoothly flies the Leaflet camera back to equatorial center [20, 0] at
-     * fractional zoom 1.5 with animation, allowing judges and users to snap
-     * back to the full planet view in one click.
-     */
-    const handleResetToWholeWorld = useCallback(() => {
-        if (mapRef.current) {
-            mapRef.current.setView([20.0, 0.0], 1.5, { animate: true });
-        }
-    }, []);
 
     // Show loading spinner while initial planetary analog sites fetch completes
     if (loading) return <Loader />;
@@ -617,53 +641,31 @@ const Map = ({ isSidebarOpen }) => {
                 )}
             </div>
 
-            {/* Top-Right "Whole World" Global Overview Reset Button:
-                Allows judges and users to instantly snap back to the complete whole-world
-                satellite view ([20, 0] at fractional zoom 1.5) with smooth Leaflet animation.
-                Dynamically offsets horizontally when the right drawer sidebar opens/closes. */}
-            <div
-                className={`absolute top-3.5 z-20 flex items-center select-none transition-all duration-300 ${
-                    isSidebarOpen
-                        ? "lg:right-[25rem] right-4"
-                        : "right-32 sm:right-36"
-                }`}
-            >
-                <button
-                    type="button"
-                    onClick={handleResetToWholeWorld}
-                    className="flex items-center gap-1.5 min-h-9 px-3 py-1.5 rounded-xl bg-[#0B0E13]/95 backdrop-blur-md border border-[#21242C] text-[#F1EEE9] hover:text-[#83CAD8] hover:border-[#83CAD8]/60 hover:bg-[#1E2129] shadow-xl transition cursor-pointer text-xs font-semibold whitespace-nowrap"
-                    title="Reset to Whole World overview"
-                    aria-label="Reset to Whole World overview"
-                >
-                    <Globe size={14} className="text-[#83CAD8] shrink-0" aria-hidden="true" />
-                    <span>Whole World</span>
-                </button>
-            </div>
-
             {/* ============================================================== */}
-            {/* Leaflet Satellite Map Container: Whole World Framing & Zoom    */}
+            {/* Leaflet Satellite Map Container                                */}
             {/* ============================================================== */}
             {/*
-                1. Full World Framing & Fractional Zoom:
-                   - center={[20, 0]}: Balances Earth's landmasses in the center of the viewport.
-                   - zoom={1.5} & minZoom={1.5}: Fits the complete Earth into the viewport at once.
-                   - maxZoom={18}: Allows deep zoom down to rover-scale terrain imagery.
-                   - zoomSnap={0.25}: Enables fractional zoom increments so map fits perfectly on any display.
-                   - zoomDelta={0.5}: Controls smooth half-step zooming via wheel and buttons.
-                   - worldCopyJump={true}: Seamlessly synchronizes markers and panning across ±180° longitude.
-                   - maxBounds={[[-85, -360], [85, 360]]} & maxBoundsViscosity={1.0}: Prevents scrolling off
-                     polar regions into blank grey void while allowing smooth continuous east-west panning.
+                1. Single Full World Framing:
+                   - `center={[20, 0]}` & `zoom={2}`: Starts cleanly centered on the single world view.
+                   - `minZoom={2}`: Prevents zooming out too far into duplicate side-by-side continents.
+                   - `maxZoom={18}`: Allows deep zoom down to rover-scale terrain imagery.
+                   - `worldCopyJump={true}`: Seamlessly translates coordinates across the date line (±180°).
+
+                2. Free Horizontal Dragging & Infinite Longitude Pan:
+                   - `maxBounds={[[-85, -Infinity], [85, Infinity]]}`: Keeps the North/South poles
+                     strictly bounded between -85° and 85° so users never see grey void at the top or bottom,
+                     while allowing completely free left/right dragging and cursor zooming anywhere on the
+                     screen without ever getting stuck or snapping back on wide monitors.
+                   - `maxBoundsViscosity={1.0}`: Firmly locks polar bounds without rubber-banding into empty space.
             */}
             <MapContainer
                 center={defaultPosition}
-                zoom={1.5}
-                minZoom={1.5}
+                zoom={2}
+                minZoom={2}
                 maxZoom={18}
-                zoomSnap={0.25}
-                zoomDelta={0.5}
                 maxBounds={[
-                    [-85, -360],
-                    [85, 360],
+                    [-85, -Infinity],
+                    [85, Infinity],
                 ]}
                 maxBoundsViscosity={1.0}
                 worldCopyJump={true}
@@ -676,11 +678,10 @@ const Map = ({ isSidebarOpen }) => {
                 {/* High-Resolution Esri World Imagery Satellite Tile Layer        */}
                 {/* ============================================================== */}
                 {/*
-                    2. Seamless Global Satellite Tile Layer:
-                       - `noWrap={false}`: Enables continuous worldwide tile wrapping across screens.
-                       - No `bounds` prop: Ensures satellite imagery reaches screen edges edge-to-edge
-                         with zero grey "Map data not yet available" border tiles.
-                       - `keepBuffer={6}` & `updateWhenIdle={false}`: Pre-caches surrounding tiles for fast panning.
+                    - `noWrap={false}`: Enables continuous worldwide satellite tile wrapping.
+                    - No `bounds` prop: Ensures satellite imagery reaches screen edges edge-to-edge
+                      with zero grey "Map data not yet available" border tiles.
+                    - `keepBuffer={6}` & `updateWhenIdle={false}`: Pre-caches surrounding tiles for fast panning.
                 */}
                 <TileLayer
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -698,17 +699,24 @@ const Map = ({ isSidebarOpen }) => {
                     onProbeCoordinate={handleProbeCoordinate}
                 />
 
-                {/* Custom Cyan Telemetry Probe Pin & Live Scientific Popup */}
+                {/* Custom Cyan Telemetry Probe Pin & Live Scientific Popup (Rendered across world copies: 0, -360, +360) */}
                 {activeTelemetryPin &&
                     typeof activeTelemetryPin.coordinates?.latitude === "number" &&
-                    typeof activeTelemetryPin.coordinates?.longitude === "number" && (
+                    typeof activeTelemetryPin.coordinates?.longitude === "number" &&
+                    WORLD_COPY_OFFSETS.map((offset) => (
                         <Marker
+                            key={`probe-marker-${offset}`}
                             position={[
                                 activeTelemetryPin.coordinates.latitude,
-                                activeTelemetryPin.coordinates.longitude,
+                                activeTelemetryPin.coordinates.longitude + offset,
                             ]}
                             icon={telemetryProbeIcon}
-                            ref={probeMarkerRef}
+                            ref={(instance) => {
+                                probeMarkerRefs.current[offset] = instance;
+                                if (offset === 0) {
+                                    probeMarkerRef.current = instance;
+                                }
+                            }}
                             eventHandlers={{
                                 popupclose: handleDismissTelemetryPin,
                             }}
@@ -958,15 +966,15 @@ const Map = ({ isSidebarOpen }) => {
                                 </div>
                             </Popup>
                         </Marker>
-                    )}
+                    ))}
 
-                {/* Candidate Planetary Analog Site Markers */}
-                {dataToMap.map((loc) => {
+                {/* Candidate Planetary Analog Site Markers (Rendered across world copies: 0, -360, +360) */}
+                {dataToMap.flatMap((loc) => {
                     if (
                         typeof loc?.coordinates?.latitude !== "number" ||
                         typeof loc?.coordinates?.longitude !== "number"
                     ) {
-                        return null;
+                        return [];
                     }
 
                     const locId = loc._id || loc.id;
@@ -978,145 +986,158 @@ const Map = ({ isSidebarOpen }) => {
                     const analogCategory = getAnalogCategory(loc);
                     const roversTested = getRoversTested(loc);
 
-                    return (
-                        <Marker
-                            key={locId || loc.name}
-                            position={[
-                                loc.coordinates.latitude,
-                                loc.coordinates.longitude,
-                            ]}
-                            icon={
-                                isDiscoverySite
-                                    ? globalDiscoveryIcon
-                                    : createAnalogMarkerIcon(loc)
-                            }
-                            ref={(instance) => {
-                                // Store ref under all canonical keys for reliable popup lookup
-                                if (instance) {
-                                    if (locId) markerRefs.current[locId] = instance;
-                                    if (loc.id) markerRefs.current[loc.id] = instance;
-                                    if (loc.name) {
-                                        markerRefs.current[`name:${loc.name}`] =
-                                            instance;
-                                    }
-                                } else {
-                                    if (locId) delete markerRefs.current[locId];
-                                    if (loc.id) delete markerRefs.current[loc.id];
-                                    if (loc.name) {
-                                        delete markerRefs.current[`name:${loc.name}`];
-                                    }
+                    return WORLD_COPY_OFFSETS.map((offset) => {
+                        const markerKey = `${locId || loc.name}_copy_${offset}`;
+                        return (
+                            <Marker
+                                key={markerKey}
+                                position={[
+                                    loc.coordinates.latitude,
+                                    loc.coordinates.longitude + offset,
+                                ]}
+                                icon={
+                                    isDiscoverySite
+                                        ? globalDiscoveryIcon
+                                        : createAnalogMarkerIcon(loc)
                                 }
-                            }}
-                            eventHandlers={{
-                                click: () => handleMarkerClick(loc),
-                            }}
-                        >
-                            {/* Deep-Space Styled Scientific Analog Site Summary Popup */}
-                            <Popup
-                                className="terramatch-popup"
-                                closeButton={true}
-                                autoPan={true}
-                                autoPanPaddingTopLeft={[24, 80]}
-                                autoPanPaddingBottomRight={[24, 40]}
+                                ref={(instance) => {
+                                    // Store refs for canonical keys (primary instance at offset 0, plus offset-specific keys)
+                                    const baseKeys = [
+                                        locId,
+                                        loc.id,
+                                        loc.name ? `name:${loc.name}` : null,
+                                    ].filter(Boolean);
+
+                                    baseKeys.forEach((key) => {
+                                        const offsetKey = `${key}_copy_${offset}`;
+                                        if (instance) {
+                                            markerRefs.current[offsetKey] = instance;
+                                            if (offset === 0) {
+                                                markerRefs.current[key] = instance;
+                                            }
+                                        } else {
+                                            delete markerRefs.current[offsetKey];
+                                            if (offset === 0) {
+                                                delete markerRefs.current[key];
+                                            }
+                                        }
+                                    });
+                                }}
+                                eventHandlers={{
+                                    click: () =>
+                                        handleMarkerClick(
+                                            loc,
+                                            loc.coordinates.longitude + offset
+                                        ),
+                                }}
                             >
-                                <div className="p-1 pr-8 text-[#F1EEE9] min-w-52 max-w-68">
-                                    {/* Distinct Cyan/Gold Discovery Badge for Non-Catalog Earth Sites */}
-                                    {isDiscoverySite && (
-                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-[#83CAD8]/20 to-[#F59E0B]/20 border border-[#83CAD8]/50 text-[#83CAD8] text-[9px] font-bold tracking-wider uppercase mb-1.5">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
-                                            <span>SATELLITE DISCOVERY</span>
-                                        </span>
-                                    )}
-
-                                    <h4 className="font-bold text-sm text-[#F1EEE9] leading-tight">
-                                        {loc.name}
-                                    </h4>
-                                    <p className="text-xs text-[#8891A0] mb-1.5">
-                                        {loc.country}
-                                    </p>
-
-                                    {/* Color-Coded Target Match Badges (`MARS ANALOG` / `MOON ANALOG`) */}
-                                    <div className="flex flex-wrap items-center gap-1 mb-2">
-                                        {popupBadges.map((badge) => (
-                                            <span
-                                                key={badge.label}
-                                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${badge.className}`}
-                                            >
-                                                {badge.label}
-                                            </span>
-                                        ))}
-                                    </div>
-
-                                    {/* Real Scientific Telemetry & Mission History */}
-                                    <div className="space-y-1 text-[11px] text-[#8891A0] mb-2 border-t border-[#21242C] pt-1.5">
-                                        <p>
-                                            <span className="font-semibold text-[#F1EEE9]">
-                                                Surface Temp:
-                                            </span>{" "}
-                                            <span className="font-mono text-[#83CAD8] font-bold">
-                                                {surfaceTemp}
-                                            </span>
-                                        </p>
+                                {/* Deep-Space Styled Scientific Analog Site Summary Popup */}
+                                <Popup
+                                    className="terramatch-popup"
+                                    closeButton={true}
+                                    autoPan={true}
+                                    autoPanPaddingTopLeft={[24, 80]}
+                                    autoPanPaddingBottomRight={[24, 40]}
+                                >
+                                    <div className="p-1 pr-8 text-[#F1EEE9] min-w-52 max-w-68">
+                                        {/* Distinct Cyan/Gold Discovery Badge for Non-Catalog Earth Sites */}
                                         {isDiscoverySite && (
+                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-[#83CAD8]/20 to-[#F59E0B]/20 border border-[#83CAD8]/50 text-[#83CAD8] text-[9px] font-bold tracking-wider uppercase mb-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
+                                                <span>SATELLITE DISCOVERY</span>
+                                            </span>
+                                        )}
+
+                                        <h4 className="font-bold text-sm text-[#F1EEE9] leading-tight">
+                                            {loc.name}
+                                        </h4>
+                                        <p className="text-xs text-[#8891A0] mb-1.5">
+                                            {loc.country}
+                                        </p>
+
+                                        {/* Color-Coded Target Match Badges (`MARS ANALOG` / `MOON ANALOG`) */}
+                                        <div className="flex flex-wrap items-center gap-1 mb-2">
+                                            {popupBadges.map((badge) => (
+                                                <span
+                                                    key={badge.label}
+                                                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider ${badge.className}`}
+                                                >
+                                                    {badge.label}
+                                                </span>
+                                            ))}
+                                        </div>
+
+                                        {/* Real Scientific Telemetry & Mission History */}
+                                        <div className="space-y-1 text-[11px] text-[#8891A0] mb-2 border-t border-[#21242C] pt-1.5">
                                             <p>
                                                 <span className="font-semibold text-[#F1EEE9]">
-                                                    Elevation / RH:
+                                                    Surface Temp:
                                                 </span>{" "}
-                                                <span className="font-mono text-[#F59E0B]">
-                                                    {(
-                                                        loc.environment?.elevationMeters ?? 0
-                                                    ).toLocaleString()}{" "}
-                                                    m •{" "}
-                                                    {loc.environment?.humidityPercent ?? 0}%
+                                                <span className="font-mono text-[#83CAD8] font-bold">
+                                                    {surfaceTemp}
                                                 </span>
                                             </p>
-                                        )}
-                                        <p>
-                                            <span className="font-semibold text-[#F1EEE9]">
-                                                Climate &amp; Humidity:
-                                            </span>{" "}
-                                            <span className="capitalize">
-                                                {loc.environment?.climate ||
-                                                    "Hyper-arid"}
-                                            </span>
-                                        </p>
-                                        <p>
-                                            <span className="font-semibold text-[#F1EEE9]">
-                                                Primary Focus:
-                                            </span>{" "}
-                                            {analogCategory}
-                                        </p>
-                                        <p className="leading-snug">
-                                            <span className="font-semibold text-[#F1EEE9]">
+                                            {isDiscoverySite && (
+                                                <p>
+                                                    <span className="font-semibold text-[#F1EEE9]">
+                                                        Elevation / RH:
+                                                    </span>{" "}
+                                                    <span className="font-mono text-[#F59E0B]">
+                                                        {(
+                                                            loc.environment?.elevationMeters ?? 0
+                                                        ).toLocaleString()}{" "}
+                                                        m •{" "}
+                                                        {loc.environment?.humidityPercent ?? 0}%
+                                                    </span>
+                                                </p>
+                                            )}
+                                            <p>
+                                                <span className="font-semibold text-[#F1EEE9]">
+                                                    Climate &amp; Humidity:
+                                                </span>{" "}
+                                                <span className="capitalize">
+                                                    {loc.environment?.climate ||
+                                                        "Hyper-arid"}
+                                                </span>
+                                            </p>
+                                            <p>
+                                                <span className="font-semibold text-[#F1EEE9]">
+                                                    Primary Focus:
+                                                </span>{" "}
+                                                {analogCategory}
+                                            </p>
+                                            <p className="leading-snug">
+                                                <span className="font-semibold text-[#F1EEE9]">
+                                                    {isDiscoverySite
+                                                        ? "Telemetry Source:"
+                                                        : "Rovers/Missions Tested:"}
+                                                </span>{" "}
                                                 {isDiscoverySite
-                                                    ? "Telemetry Source:"
-                                                    : "Rovers/Missions Tested:"}
-                                            </span>{" "}
-                                            {isDiscoverySite
-                                                ? loc.dataSource || roversTested
-                                                : roversTested}
-                                        </p>
+                                                    ? loc.dataSource || roversTested
+                                                    : roversTested}
+                                            </p>
+                                        </div>
+
+                                        {/* Direct NASA Worldview True-Color Satellite Imagery Deep-Link */}
+                                        <a
+                                            href={getNasaWorldviewUrl(
+                                                loc.coordinates.latitude,
+                                                loc.coordinates.longitude
+                                            )}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="mb-2 w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-[#181A21] border border-[#21242C] hover:border-[#83CAD8] text-[#8891A0] hover:text-[#83CAD8] flex items-center justify-center gap-1.5 transition cursor-pointer"
+                                        >
+                                            <span>Open in NASA Worldview</span>
+                                            <ExternalLink size={12} aria-hidden="true" />
+                                        </a>
+
+                                        <Modal loc={loc} />
                                     </div>
-
-                                    {/* Direct NASA Worldview True-Color Satellite Imagery Deep-Link */}
-                                    <a
-                                        href={getNasaWorldviewUrl(
-                                            loc.coordinates.latitude,
-                                            loc.coordinates.longitude
-                                        )}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="mb-2 w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-[#181A21] border border-[#21242C] hover:border-[#83CAD8] text-[#8891A0] hover:text-[#83CAD8] flex items-center justify-center gap-1.5 transition cursor-pointer"
-                                    >
-                                        <span>Open in NASA Worldview</span>
-                                        <ExternalLink size={12} aria-hidden="true" />
-                                    </a>
-
-                                    <Modal loc={loc} />
-                                </div>
-                            </Popup>
-                        </Marker>
-                    );
+                                </Popup>
+                            </Marker>
+                        );
+                    });
                 })}
             </MapContainer>
 
