@@ -25,15 +25,7 @@ import {
     getTargetBodyInfo,
 } from "../utils/analogSpec";
 
-/**
- * ============================================================================
- * Constant: Planetary Target Reference Baselines (Official NASA PDS Archives)
- * ============================================================================
- * Real orbital baseline measurements compiled from TerraMatch's integrated
- * Moon PDS (`LRO LOLA`, `LRO Diviner`, `Chandrayaan-1 M3`) and Mars PDS
- * (`MGS MOLA`, `Mars ODE`) datasets so scientists can benchmark Earth analog
- * telemetry directly against actual Lunar and Martian surface conditions.
- */
+// Orbital telemetry baseline reference data from Lunar and Martian PDS archives
 const PLANETARY_TARGET_BASELINES = [
     {
         id: "moon-pds",
@@ -99,24 +91,11 @@ const PLANETARY_TARGET_BASELINES = [
     },
 ];
 
-/**
- * ============================================================================
- * Helper: Canonical Saved Location Key Resolver
- * ============================================================================
- * Extracts a consistent identifier from any saved location document regardless
- * of whether it originated from MongoDB (`_id`), JSON (`id`), or localStorage.
- */
+// Resolves unique identifier key for saved locations
 const getLocationKey = (loc) =>
     loc?._id || loc?.id || loc?.locationId || loc?.name || "";
 
-/**
- * ============================================================================
- * Helper: Scientific Profile & Dynamic Telemetry Extractor
- * ============================================================================
- * Transforms any saved planetary analog location document into real telemetry
- * values and normalized 0-100 radar chart axes without relying on simulated
- * similarity percentages.
- */
+// Normalizes analog location telemetry into scientific profile and radar metrics
 const getScientificProfile = (loc) => {
     if (!loc) {
         return {
@@ -259,35 +238,14 @@ const getScientificProfile = (loc) => {
     };
 };
 
-/**
- * ============================================================================
- * ComparePage Component
- * ============================================================================
- * Provides a side-by-side scientific comparison strictly across the user's
- * saved analog locations (`savedLoc` from centralized `useSaved()`):
- * - 0 Saved Locations: Renders a clean, centered empty state card guiding the
- *   user to `/search`.
- * - 1 Saved Location: Prompts the user to save at least 1 more site to compare
- *   against their currently bookmarked location.
- * - >= 2 Saved Locations: Displays Target Body Specification, Mean Temperature,
- *   Primary Analog Fidelity, 6-axis Radar Chart, and full Comparison Matrix
- *   strictly from `savedLoc` (or `?ids=`).
- * - Deep-space color tokens: Cyan (`#83CAD8`) for Location A, Terracotta (`#D67051`) for Location B.
- */
+// Side-by-side scientific comparison of saved planetary analog sites
 const ComparePage = () => {
-    // ------------------------------------------------------------------------
-    // 1. Hooks, Router & Global Subscriptions
-    // ------------------------------------------------------------------------
+    // Navigation, query parameters, and saved bookmarks
     const navigate = useNavigate();
-    // URL search parameters for loading pre-selected comparison pairs (`?ids=id1,id2`)
     const [searchParams, setSearchParams] = useSearchParams();
-    // Centralized saved locations hook (localStorage + MongoDB)
     const { savedLoc, loading: savedLoading } = useSaved();
 
-    // ------------------------------------------------------------------------
-    // 2. Saved-Only Candidate Locations Pool
-    // ------------------------------------------------------------------------
-    // Strictly deduplicates and exposes only the user's saved locations
+    // Deduplicates user saved locations pool
     const savedLocationsPool = useMemo(() => {
         if (!Array.isArray(savedLoc) || savedLoc.length === 0) return [];
         const pool = [];
@@ -305,15 +263,12 @@ const ComparePage = () => {
         return pool;
     }, [savedLoc]);
 
-    // ------------------------------------------------------------------------
-    // 3. Selection State Management & URL Parameter Synchronization
-    // ------------------------------------------------------------------------
+    // Pre-selected site IDs from URL search params
     const urlIds = useMemo(() => {
         const ids = searchParams.get("ids");
         return ids ? ids.split(",").filter(Boolean) : [];
     }, [searchParams]);
 
-    // Track user-chosen dropdown selection IDs for Location A and Location B
     const [selectedIdA, setSelectedIdA] = useState(() => urlIds[0] || "");
     const [selectedIdB, setSelectedIdB] = useState(() => urlIds[1] || "");
 
@@ -378,32 +333,25 @@ const ComparePage = () => {
         return getScientificProfile(found || savedLocationsPool[1]);
     }, [savedLocationsPool, activeIdB]);
 
-    /**
-     * Updates Location A selection and syncs URL query parameter `?ids=`.
-     */
+    // Updates Location A selection and syncs URL query parameter.
     const handleChangeA = (e) => {
         const newId = e.target.value;
         setSelectedIdA(newId);
         setSearchParams({ ids: `${newId},${activeIdB || ""}` });
     };
 
-    /**
-     * Updates Location B selection and syncs URL query parameter `?ids=`.
-     */
+    // Updates Location B selection and syncs URL query parameter.
     const handleChangeB = (e) => {
         const newId = e.target.value;
         setSelectedIdB(newId);
         setSearchParams({ ids: `${activeIdA || ""},${newId}` });
     };
 
-    // ------------------------------------------------------------------------
-    // 4. Radar Chart Geometry & Polar-to-Cartesian Coordinate Helpers
-    // ------------------------------------------------------------------------
+    // Radar chart dimensions and polar axes
     const radarCx = 180;
     const radarCy = 135;
     const radarRadius = 85;
 
-    // 6-axis polar coordinate dimensions for the correlation radar chart
     const axes = useMemo(
         () => [
             { key: "temperature", label: "Thermal", angle: -Math.PI / 2 },
@@ -428,9 +376,7 @@ const ComparePage = () => {
         []
     );
 
-    /**
-     * Converts a normalized metric score (0-100) into SVG Cartesian coordinates.
-     */
+    // Converts normalized metric score to Cartesian SVG coordinates
     const getCoordinates = useCallback(
         (axisIndex, normalizedVal) => {
             const angle = axes[axisIndex].angle;
@@ -443,7 +389,7 @@ const ComparePage = () => {
         [axes]
     );
 
-    // Location A: Solid Cyan Polygon (#83CAD8)
+    // Location A polygon points
     const polygonPointsA = useMemo(() => {
         return axes
             .map((axis, i) => {
@@ -454,7 +400,7 @@ const ComparePage = () => {
             .join(" ");
     }, [axes, locationA, getCoordinates]);
 
-    // Location B: Dashed Terracotta Polygon (#D67051)
+    // Location B polygon points
     const polygonPointsB = useMemo(() => {
         return axes
             .map((axis, i) => {
@@ -465,9 +411,7 @@ const ComparePage = () => {
             .join(" ");
     }, [axes, locationB, getCoordinates]);
 
-    // ------------------------------------------------------------------------
-    // 5. Scientific Contrast Summary Highlight
-    // ------------------------------------------------------------------------
+    // Determines colder location between selected pair
     const colderSite = useMemo(() => {
         return locationA.temperature <= locationB.temperature
             ? locationA
@@ -476,15 +420,10 @@ const ComparePage = () => {
 
     if (savedLoading) return <Loader />;
 
-    // ------------------------------------------------------------------------
-    // 6. Component Render Block (Empty States for 0 or 1 Saved Sites + Comparison)
-    // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full overflow-y-auto bg-[#07090E] text-[#F1EEE9] select-none px-4 sm:px-6 lg:px-12 py-8 pb-20">
             <div className="max-w-6xl mx-auto space-y-6">
-                {/* ========================================================== */}
-                {/* 1. Header Section: Title & Subtitle                        */}
-                {/* ========================================================== */}
+                {/* Header title and description */}
                 <div className="space-y-1">
                     <h1 className="text-xl sm:text-2xl font-bold text-[#F1EEE9] tracking-tight">
                         Compare Locations
@@ -494,9 +433,7 @@ const ComparePage = () => {
                     </p>
                 </div>
 
-                {/* ========================================================== */}
-                {/* 2. Empty States (0 Saved Sites or 1 Saved Site)            */}
-                {/* ========================================================== */}
+                {/* Empty states or comparison content */}
                 {savedLocationsPool.length === 0 ? (
                     /* Empty State: 0 Saved Locations */
                     <div className="text-center py-20 px-4 rounded-xl border border-dashed border-[#21242C] bg-[#0B0E13]/40 text-[#8891A0] text-xs my-8 max-w-md mx-auto space-y-4">
@@ -558,13 +495,9 @@ const ComparePage = () => {
                     </div>
                 ) : (
                     <>
-                        {/* ================================================== */}
-                        {/* 3. Top Split View: Saved Selectors vs. Radar Chart */}
-                        {/* ================================================== */}
+                        {/* Location selectors and correlation radar chart */}
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-                            {/* ---------------------------------------------- */}
-                            {/* Left Column: Location A & Location B Cards     */}
-                            {/* ---------------------------------------------- */}
+                            {/* Location A and Location B cards */}
                             <div className="lg:col-span-5 flex flex-col gap-4">
                                 {/* Location A Card (Cyan #83CAD8) */}
                                 <div className="bg-[#0B0E13] border border-[#21242C] rounded-xl p-4 flex flex-col justify-between">
@@ -835,9 +768,7 @@ const ComparePage = () => {
                                 </div>
                             </div>
 
-                            {/* ---------------------------------------------- */}
-                            {/* Right Column: Analog Profile Correlation Chart */}
-                            {/* ---------------------------------------------- */}
+                            {/* Analog profile correlation chart */}
                             <div className="lg:col-span-7 bg-[#0B0E13] border border-[#21242C] rounded-xl p-5 flex flex-col justify-between">
                                 {/* Header: Title and Scale Information */}
                                 <div className="flex items-center justify-between pb-3 border-b border-[#21242C]">
@@ -965,11 +896,7 @@ const ComparePage = () => {
                             </div>
                         </div>
 
-                        {/* ================================================== */}
-                        {/* 4. Planetary Target Reference Baselines (PDS)      */}
-                        {/* ================================================== */}
-                        {/* Compact Moon & Mars PDS baseline strip for benchmarking */}
-                        {/* Earth analog Location A and Location B surface metrics. */}
+                        {/* Planetary target reference baselines */}
                         <section
                             aria-label="Planetary Target Reference Baselines from PDS Archives"
                             className="bg-[#0B0E13] border border-[#21242C] rounded-xl p-4 shadow-md space-y-3"
@@ -1058,9 +985,7 @@ const ComparePage = () => {
                             </div>
                         </section>
 
-                        {/* ================================================== */}
-                        {/* 5. Scientific Parameter Comparison Matrix Table    */}
-                        {/* ================================================== */}
+                        {/* Scientific parameter comparison matrix table */}
                         <div className="bg-[#0B0E13] border border-[#21242C] rounded-xl overflow-hidden shadow-md">
                             <table className="w-full text-left text-xs">
                                 <thead>
@@ -1250,9 +1175,7 @@ const ComparePage = () => {
                             </table>
                         </div>
 
-                        {/* ================================================== */}
-                        {/* 6. Bottom Scientific Comparison Summary Banner     */}
-                        {/* ================================================== */}
+                        {/* Scientific comparison summary highlight */}
                         <div className="bg-[#0B0E13] border border-[#21242C] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
                             {/* Left: Scientific Highlight Narrative */}
                             <div className="flex items-center gap-3.5">

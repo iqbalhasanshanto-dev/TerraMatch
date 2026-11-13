@@ -1,13 +1,7 @@
 import { Outlet } from "react-router";
 import Navbar from "../Components/Navbar";
 
-/**
- * ============================================================================
- * MainLayout Component
- * ============================================================================
- * Application shell wrapping the top Navbar and routed views inside the
- * deep-space background void (`#07090E`).
- */
+// Application shell wrapping navbar and routed viewport
 const MainLayout = () => {
     return (
         <div className="h-screen w-full flex flex-col overflow-hidden bg-[#07090E] text-[#F1EEE9]">

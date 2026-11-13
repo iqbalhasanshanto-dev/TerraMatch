@@ -21,22 +21,9 @@ import {
     Database,
 } from "lucide-react";
 
-/**
- * ============================================================================
- * Modal Component (Candidate Analog Site Telemetry & Scientific Breakdown)
- * ============================================================================
- * Interactive popover modal triggered from Leaflet map marker popups, presenting
- * comprehensive scientific telemetry for the 2026 NASA Space Apps Challenge:
- * - Analog Recognition Status: Emerging Analog (#CEB882) vs. Established Analog
- * - 4-Dimension Scientific Fidelity Breakdown (Geology, Terrain, Climate, ISRU)
- * - "Why It Is a Strong Analog (What Matches)"
- * - "Where the Analogy Breaks Down (Earth's Limits)" evaluating Gravity, Atmosphere,
- *   Radiation, and Site-Specific Environmental Boundaries
- */
+// Interactive modal presenting scientific telemetry and fidelity analysis
 const Modal = ({ loc }) => {
-    // ------------------------------------------------------------------------
-    // 1. Scientific Analog Telemetry & Fidelity Derivations
-    // ------------------------------------------------------------------------
+    // Telemetry and fidelity derivations
     const { longSpecLabel, pillClassName, pillLabel } = getTargetBodyInfo(loc);
     const surfaceTemp = formatSurfaceTemp(loc);
     const analogCategory = getAnalogCategory(loc);
@@ -54,12 +41,9 @@ const Modal = ({ loc }) => {
         water_isru: Droplets,
     };
 
-    // ------------------------------------------------------------------------
-    // 2. Component Render Block
-    // ------------------------------------------------------------------------
     return (
         <div>
-            {/* Quick-Info Trigger Button (Embedded inside Leaflet marker popup) */}
+            {/* Quick-info trigger button */}
             <button
                 type="button"
                 className="w-full mt-2 py-1.5 px-3 rounded-lg bg-[#83CAD8] hover:opacity-90 text-[#090D15] text-xs font-semibold shadow-xs transition cursor-pointer"
@@ -70,17 +54,17 @@ const Modal = ({ loc }) => {
                 View Scientific Telemetry
             </button>
 
-            {/* Native HTML Dialog Modal with Deep-Space Tokens */}
+            {/* Native HTML dialog modal */}
             <dialog id={`modal-${loc._id}`} className="modal backdrop-blur-xs">
                 <div className="modal-box bg-[#090B10] border border-[#21242C] text-[#F1EEE9] shadow-2xl p-6 rounded-2xl max-w-2xl max-h-[90vh] overflow-y-auto select-none custom-scrollbar">
-                    {/* Header Row: Title, Country, Recognition Badge & Target Body Pill */}
+                    {/* Header: title, recognition, and badges */}
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-[#21242C] pb-4">
                         <div>
                             <div className="flex flex-wrap items-center gap-2">
                                 <h3 className="font-bold text-xl sm:text-2xl text-[#F1EEE9] tracking-tight">
                                     {loc.name}
                                 </h3>
-                                {/* Recognition Status Badge (Emerging vs Established) */}
+                                {/* Recognition status badge */}
                                 <span
                                     className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider ${recognition.badgeClass}`}
                                 >
@@ -104,14 +88,12 @@ const Modal = ({ loc }) => {
                         </div>
                     </div>
 
-                    {/* Scientific Overview Narrative */}
+                    {/* Scientific overview narrative */}
                     <p className="text-xs leading-relaxed text-[#8891A0] my-4">
                         {loc.description}
                     </p>
 
-                    {/* ====================================================== */}
-                    {/* 3. 4-Dimension Scientific Fidelity Breakdown           */}
-                    {/* ====================================================== */}
+                    {/* 4-Dimension scientific fidelity breakdown */}
                     <div className="my-4 p-4 bg-[#0B0E13] border border-[#21242C] rounded-xl space-y-3">
                         <div className="flex items-center justify-between border-b border-[#21242C] pb-2">
                             <div>
@@ -165,9 +147,7 @@ const Modal = ({ loc }) => {
                         </div>
                     </div>
 
-                    {/* ====================================================== */}
-                    {/* 4. Why It Is a Strong Analog (What Matches)            */}
-                    {/* ====================================================== */}
+                    {/* What matches analysis */}
                     <div className="my-4 p-4 bg-[#181A21] border border-[#21242C] rounded-xl space-y-2">
                         <div className="flex items-center gap-2 text-xs font-semibold text-[#F1EEE9] border-b border-[#21242C] pb-2">
                             <CheckCircle2 size={14} className="text-[#83CAD8]" />
@@ -185,9 +165,7 @@ const Modal = ({ loc }) => {
                         </ul>
                     </div>
 
-                    {/* ====================================================== */}
-                    {/* 5. Where the Analogy Breaks Down (Earth's Limits)      */}
-                    {/* ====================================================== */}
+                    {/* Planetary limits and constraints */}
                     <div className="my-4 p-4 bg-[#110E0C] border border-[#D67051]/30 rounded-xl space-y-3">
                         <div className="flex items-center gap-2 text-xs font-semibold text-[#D67051] border-b border-[#D67051]/20 pb-2">
                             <AlertTriangle size={14} className="text-[#D67051]" />
@@ -257,9 +235,7 @@ const Modal = ({ loc }) => {
                         </div>
                     </div>
 
-                    {/* ====================================================== */}
-                    {/* 6. Official Multi-Agency Planetary Data Provenance     */}
-                    {/* ====================================================== */}
+                    {/* Multi-agency planetary data provenance */}
                     <div className="my-4 p-4 bg-[#0B0E13] border border-[#21242C] rounded-xl space-y-3">
                         <div className="flex items-center justify-between border-b border-[#21242C] pb-2">
                             <div className="flex items-center gap-2">

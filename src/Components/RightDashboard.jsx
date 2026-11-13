@@ -6,59 +6,28 @@ import StateContext from "../States/StateContext";
 import Tweaks from "./Tweaks";
 import ShowRecentSearches from "./ShowRecentSearches";
 
-/**
- * ============================================================================
- * RightDashboard Component
- * ============================================================================
- * Orchestrates the full-bleed Leaflet satellite map and the GPU-accelerated
- * right-hand overlay drawer sidebar (`Tweaks` for `/search` or
- * `ShowRecentSearches` for `/`), preserving our deep-space color palette:
- * - Viewport Background: `#07090E`
- * - Drawer Surface: `#0B0E13` with `#21242C` border
- * - Zero Map Resize Lag / Black Gap Elimination:
- *   - The map container stays locked at `absolute inset-0 w-full h-full` at
- *     all times so toggling the sidebar never resizes the Leaflet canvas or
- *     creates an unrendered black gap along the left edge.
- *   - The `<aside>` drawer overlays the right edge and slides smoothly via
- *     GPU `transform` (`translate-x-0` when open, `translate-x-full` when closed).
- * - Mobile Optimization (< 1024px):
- *   - Sidebar starts collapsed by default so the full-screen map is visible,
- *     with a floating top-right trigger (`top-3.5 right-4`) to open it.
- *   - Selecting a site via `onSelectLocation` auto-collapses the mobile drawer,
- *     and tapping the dimmed backdrop or pressing Escape dismisses it cleanly.
- */
+// Layout coordinating satellite map with sliding right overlay drawer
 const RightDashboard = () => {
-    // ------------------------------------------------------------------------
-    // 1. Context Subscriptions, Route State & Responsive Drawer State
-    // ------------------------------------------------------------------------
+    // Context, route, and drawer state
     const { isSearch } = useContext(StateContext);
     const location = useLocation();
 
-    // Collapsed by default on mobile/tablet (< 1024px); expanded by default on desktop (>= 1024px)
+    // Collapsed by default on mobile (< 1024px), expanded on desktop
     const [isSidebarOpen, setIsSidebarOpen] = useState(() =>
         typeof window !== "undefined" ? window.innerWidth >= 1024 : true
     );
 
-    // Search mode is active either via StateContext toggle or `/search` route
+    // Active search route or state flag
     const isSearchActive = isSearch || location.pathname === "/search";
 
-    // ------------------------------------------------------------------------
-    // 2. Helper Callback: Auto-Close Drawer on Mobile Location Selection
-    // ------------------------------------------------------------------------
-    /**
-     * Passed to `<Tweaks />` and `<ShowRecentSearches />`. When a user taps any
-     * location card or "View on map" on mobile (< 1024px), automatically collapses
-     * the drawer so the animated map flyTo zoom and popup are immediately visible.
-     */
+    // Auto-closes drawer on mobile when a location is selected
     const handleSelectLocation = useCallback(() => {
         if (typeof window !== "undefined" && window.innerWidth < 1024) {
             setIsSidebarOpen(false);
         }
     }, []);
 
-    // ------------------------------------------------------------------------
-    // 3. Keyboard Dismissal Effect (Escape Key on Mobile Overlay Drawer)
-    // ------------------------------------------------------------------------
+    // Closes drawer on Escape key in mobile view
     useEffect(() => {
         if (!isSidebarOpen) return;
 
@@ -76,18 +45,13 @@ const RightDashboard = () => {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [isSidebarOpen]);
 
-    // ------------------------------------------------------------------------
-    // 4. Component Render Block
-    // ------------------------------------------------------------------------
     return (
         <div className="relative w-full h-full overflow-hidden bg-[#07090E] select-none">
-            {/* ============================================================== */}
-            {/* Full-Bleed Satellite Map Viewport (Locked 100% Underneath)     */}
-            {/* ============================================================== */}
+            {/* Full-bleed satellite map viewport */}
             <div className="absolute inset-0 w-full h-full">
                 <Map isSidebarOpen={isSidebarOpen} />
 
-                {/* Prominent Floating Top-Right Trigger when Drawer is Collapsed */}
+                {/* Floating drawer trigger when collapsed */}
                 {!isSidebarOpen && (
                     <button
                         type="button"
@@ -138,9 +102,7 @@ const RightDashboard = () => {
                 )}
             </div>
 
-            {/* ============================================================== */}
-            {/* Mobile Tap-Outside Dimmed Backdrop (Visible < 1024px when open) */}
-            {/* ============================================================== */}
+            {/* Mobile dimmed backdrop */}
             {isSidebarOpen && (
                 <div
                     aria-hidden="true"
@@ -149,9 +111,7 @@ const RightDashboard = () => {
                 />
             )}
 
-            {/* ============================================================== */}
-            {/* GPU-Animated Right Overlay Drawer Sidebar (`translate-x`)      */}
-            {/* ============================================================== */}
+            {/* Sliding overlay drawer */}
             <aside
                 id="dashboard-side-drawer"
                 aria-label={
@@ -164,7 +124,7 @@ const RightDashboard = () => {
                         : "translate-x-full pointer-events-none"
                 }`}
             >
-                {/* Standardized Top-Right Collapse Button inside Drawer */}
+                {/* Collapse button */}
                 <button
                     type="button"
                     onClick={() => setIsSidebarOpen(false)}
@@ -177,7 +137,7 @@ const RightDashboard = () => {
                     <ChevronRight size={15} aria-hidden="true" />
                 </button>
 
-                {/* Sidebar Content Container: Search Filters ("Tweaks") or Recent History */}
+                {/* Sidebar content container */}
                 <div className="w-full h-full flex flex-col pt-1">
                     {isSearchActive ? (
                         <Tweaks onSelectLocation={handleSelectLocation} />

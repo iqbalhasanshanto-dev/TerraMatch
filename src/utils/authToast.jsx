@@ -1,26 +1,16 @@
 import { toast } from "react-toastify";
 
-/**
- * ============================================================================
- * Authentication Prompt Toast Helper (`showSignInPromptToast`)
- * ============================================================================
- * Displays a non-intrusive dark notification in the bottom-left toast area
- * whenever an unauthenticated guest attempts to save or compare an analog site.
- * Includes an interactive cyan `"Sign in →"` CTA button that closes the toast
- * and navigates directly to `/login`.
- *
- * @param {Function} [navigate] - React Router `navigate` function from the caller.
- */
+// Displays toast prompting guest users to sign in.
 export const showSignInPromptToast = (navigate) => {
     toast(
         ({ closeToast }) => (
             <div className="flex items-center justify-between gap-2 w-full">
-                {/* Informative guest prompt message */}
+                {/* Guest prompt message */}
                 <span className="text-xs text-[#F1EEE9] leading-snug">
                     Please sign in to save and compare analog locations.
                 </span>
 
-                {/* Interactive cyan CTA saving the current path and navigating to the Login portal */}
+                {/* Sign in button navigating to login */}
                 <button
                     type="button"
                     onClick={(e) => {

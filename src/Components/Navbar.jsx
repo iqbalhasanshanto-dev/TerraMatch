@@ -1,6 +1,3 @@
-// ----------------------------------------------------------------------------
-// External Dependencies & UI Icons
-// ----------------------------------------------------------------------------
 import { useState, useContext, useRef, useEffect, useCallback, useMemo } from "react";
 import {
     LayoutDashboard,
@@ -13,83 +10,38 @@ import {
     X,
 } from "lucide-react";
 import { Link, NavLink, useLocation } from "react-router";
-
-// ----------------------------------------------------------------------------
-// Internal State, Hooks & Child Components
-// ----------------------------------------------------------------------------
 import StateContext from "../States/StateContext";
 import useAuth from "../Hooks/useAuth";
 import Profile from "./Profile";
 import Logo from "./Logo";
 
-/**
- * ============================================================================
- * Navbar Component
- * ============================================================================
- * Renders the primary top navigation header for the TerraMatch platform,
- * preserving the custom deep-space color palette:
- * - Surface & Border: `#0B0E13` background with `#21242C` bottom border.
- * - Desktop Active Tab: Bright cyan (`#83CAD8`) semibold label, subtly elevated
- *   and scaled icon, and a glowing bottom underline indicator bar flush with
- *   the bottom border of the navbar.
- * - Desktop Inactive Tabs: Muted slate (`#8891A0`) text and icon transitioning
- *   to warm off-white (`#F1EEE9`) with a subtle upward icon lift on hover.
- * - Mobile Drawer (< xl): Preserves the collapsible dropdown menu with boxed
- *   active highlights for touch-friendly vertical tapping.
- * - Authentication Area:
- *   - Logged in (`user` truthy): Renders the authenticated `<Profile />` menu.
- *   - Logged out (`!user`): Renders only a crisp cyan `"Sign in"` CTA button
- *     linking to `/login`.
- */
+// Top navigation bar with sliding underline indicator and mobile drawer
 const Navbar = () => {
-    // ------------------------------------------------------------------------
-    // 1. Hooks, Context Subscriptions & Local UI State
-    // ------------------------------------------------------------------------
-    // Current Firebase authenticated user object (null when signed out)
+    // Context, auth, and routing hooks
     const { user } = useAuth();
-
-    // Global search mode toggle and filter setter shared between the navbar and RightDashboard
     const { isSearch, setIsSearch, setFilteredLoc } = useContext(StateContext);
-
-    // Current router location used to synchronize active navigation styling and redirect state
     const location = useLocation();
 
-    // Controls open/closed visibility of the collapsible mobile navigation drawer (< xl viewports)
+    // Mobile menu toggle and tab boundary measurement refs
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-    /** Ref container for desktop <nav> element to measure tab boundaries. */
     const navRef = useRef(null);
-
-    /** Map of tab DOM element references keyed by item path for measuring width and position. */
     const tabRefs = useRef(new Map());
 
-    /** Dynamic position & width state for the single shared sliding cyan underline bar. */
+    // Dynamic position and width of the sliding cyan underline bar
     const [indicatorStyle, setIndicatorStyle] = useState({
         left: 0,
         width: 0,
         opacity: 0,
     });
 
-    // ------------------------------------------------------------------------
-    // 2. Derived Navigation State & Pre-Login Return Path
-    // ------------------------------------------------------------------------
-    // Search mode is active either via StateContext flag or when visiting `/search` directly
+    // Derived active search state and return path after login
     const isSearchActive = isSearch || location.pathname === "/search";
-
-    // Full path + query string to return the user to after completing sign-in
     const postLoginReturnPath =
         location.pathname !== "/login"
             ? `${location.pathname}${location.search}`
             : "/";
 
-    // ------------------------------------------------------------------------
-    // 3. Navigation Click Handler Functions
-    // ------------------------------------------------------------------------
-    /**
-     * Persists the user's current route in `sessionStorage` right before
-     * navigating to `/login` so both popup and full-page redirect OAuth flows
-     * return them to the exact page they started from.
-     */
+    // Saves current route to sessionStorage before navigating to login
     const handleSignInClick = () => {
         if (location.pathname !== "/login" && typeof window !== "undefined") {
             window.sessionStorage.setItem(
@@ -100,36 +52,26 @@ const Navbar = () => {
         setMobileMenuOpen(false);
     };
 
-    /**
-     * Activates search/filter sidebar mode and closes the mobile navigation drawer.
-     */
+    // Switches to search mode and closes mobile drawer
     const handleSearchClick = () => {
         setIsSearch(true);
         setMobileMenuOpen(false);
     };
 
-    /**
-     * Restores default dashboard mode (Recent Searches), clears active search
-     * filter so all pins display on the map, and closes the mobile menu.
-     */
+    // Restores default dashboard mode and clears search filters
     const handleDashboardClick = () => {
         setIsSearch(false);
         setFilteredLoc?.(null);
         setMobileMenuOpen(false);
     };
 
-    /**
-     * Resets search mode flag for non-map routes and closes the mobile menu.
-     */
+    // Resets search mode for standard routes
     const handleGenericNavClick = () => {
         setIsSearch(false);
         setMobileMenuOpen(false);
     };
 
-    // ------------------------------------------------------------------------
-    // 4. Primary Navigation Tab Configuration
-    // ------------------------------------------------------------------------
-    // Centralized route definitions shared between desktop underline tabs and mobile drawer
+    // Navigation tab definitions
     const navItems = useMemo(
         () => [
             {
@@ -174,16 +116,7 @@ const Navbar = () => {
         []
     );
 
-    // ------------------------------------------------------------------------
-    // 5. Helper Function & Effect: Sliding Underline Indicator Measurement
-    // ------------------------------------------------------------------------
-    /**
-     * Determines whether a navigation item matches the active route or search state.
-     * Ensures `/search` and `/` highlight independently even when sharing `RightDashboard`.
-     *
-     * @param {Object} item - Navigation configuration entry from `navItems`
-     * @returns {boolean} True when the tab should display active styling
-     */
+    // Checks whether a given tab matches the active route or search state
     const isTabActive = useCallback((item) => {
         if (isSearchActive) {
             return item.path === "/search";
@@ -200,10 +133,7 @@ const Navbar = () => {
         return location.pathname === item.path;
     }, [isSearchActive, location.pathname]);
 
-    /**
-     * Measures the active tab's `offsetLeft` and `offsetWidth` to animate the
-     * shared sliding cyan indicator bar across the desktop navbar.
-     */
+    // Measures active tab offset and width to animate underline indicator
     const updateIndicator = useCallback(() => {
         const activeItem = navItems.find((item) => isTabActive(item));
         if (activeItem && tabRefs.current.has(activeItem.path)) {
@@ -220,23 +150,18 @@ const Navbar = () => {
         setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }));
     }, [isTabActive, navItems]);
 
-    // Recalculate sliding indicator position on route transitions or window resize
+    // Recalculates indicator position on route change or window resize
     useEffect(() => {
         updateIndicator();
         window.addEventListener("resize", updateIndicator);
         return () => window.removeEventListener("resize", updateIndicator);
     }, [updateIndicator]);
 
-    // ------------------------------------------------------------------------
-    // 6. Component Render Block
-    // ------------------------------------------------------------------------
     return (
         <header className="w-full bg-[#0B0E13] border-b border-[#21242C] px-4 sm:px-6 h-14 flex items-center justify-between relative z-2000 select-none">
-            {/* ==============================================================
-                Left Branding & Mobile Hamburger Trigger Block
-               ============================================================== */}
+            {/* Left branding and mobile toggle */}
             <div className="flex items-center gap-3">
-                {/* Mobile Navigation Menu Toggle Button (Visible below xl breakpoint) */}
+                {/* Mobile menu toggle button */}
                 <button
                     type="button"
                     onClick={() => setMobileMenuOpen((prev) => !prev)}
@@ -252,7 +177,7 @@ const Navbar = () => {
                     )}
                 </button>
 
-                {/* Top-Left Brand Home Link with Custom TerraMatch Logo */}
+                {/* Brand home link */}
                 <Link
                     to="/"
                     onClick={handleDashboardClick}
@@ -262,20 +187,14 @@ const Navbar = () => {
                 </Link>
             </div>
 
-            {/* ==============================================================
-                Center Navigation Tabs (Desktop Viewports >= xl)
-                Spans full header height (`h-full` inside `h-14`) with a single
-                shared sliding cyan indicator bar that glides between tabs.
-               ============================================================== */}
+            {/* Desktop navigation tabs with sliding underline indicator */}
             <nav
                 ref={navRef}
                 aria-label="Primary"
                 className="hidden xl:flex items-center gap-7 h-full relative"
             >
                 {navItems.map((item) => {
-                    // Determine whether this tab represents the current view or search mode
                     const active = isTabActive(item);
-                    // Resolve the Lucide icon component assigned to this route
                     const IconComponent = item.icon;
 
                     return (
@@ -298,7 +217,6 @@ const Navbar = () => {
                                     : "text-[#8891A0] hover:text-[#F1EEE9]"
                             }`}
                         >
-                            {/* Tab Icon: Pops upward & scales when active; lifts subtly on hover */}
                             <IconComponent
                                 size={15}
                                 aria-hidden="true"
@@ -308,14 +226,12 @@ const Navbar = () => {
                                         : "text-[#8891A0]/70 group-hover:text-[#F1EEE9] group-hover:-translate-y-0.5 transition-all duration-200"
                                 }`}
                             />
-
-                            {/* Tab Label */}
                             <span>{item.label}</span>
                         </NavLink>
                     );
                 })}
 
-                {/* Single Shared Sliding Cyan Underline Indicator Bar */}
+                {/* Sliding cyan underline indicator */}
                 {indicatorStyle.opacity > 0 && (
                     <span
                         className="absolute bottom-0 h-[3px] bg-[#83CAD8] rounded-t-full shadow-[0_-2px_8px_rgba(131,202,216,0.55)] transition-all duration-300 ease-out pointer-events-none"
@@ -328,15 +244,11 @@ const Navbar = () => {
                 )}
             </nav>
 
-            {/* ==============================================================
-                Right Action Section: Authenticated Profile or Sign-In CTA
-               ============================================================== */}
+            {/* User profile menu or sign-in CTA */}
             <div className="flex items-center gap-3 sm:gap-4">
                 {user ? (
-                    /* Authenticated user dropdown and account controls */
                     <Profile />
                 ) : (
-                    /* Guest state: Clean Sign in button preserving the current route for post-login return */
                     <Link
                         to="/login"
                         state={{ from: postLoginReturnPath }}
@@ -348,9 +260,7 @@ const Navbar = () => {
                 )}
             </div>
 
-            {/* ==============================================================
-                Mobile Collapsible Navigation Dropdown Panel (Viewports < xl)
-               ============================================================== */}
+            {/* Mobile navigation drawer */}
             {mobileMenuOpen && (
                 <nav
                     id="mobile-navigation-menu"
@@ -358,9 +268,7 @@ const Navbar = () => {
                     className="absolute top-14 left-0 w-full bg-[#0B0E13] border-b border-[#21242C] shadow-2xl xl:hidden p-3 flex flex-col gap-1 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
                 >
                     {navItems.map((item) => {
-                        // Compute active state per mobile drawer item
                         const active = isTabActive(item);
-                        // Resolve the Lucide icon component for the drawer link
                         const IconComponent = item.icon;
 
                         return (
@@ -379,7 +287,6 @@ const Navbar = () => {
                                         : "text-[#8891A0] hover:text-[#F1EEE9] hover:bg-[#1E2129]"
                                 }`}
                             >
-                                {/* Mobile Drawer Tab Icon */}
                                 <IconComponent
                                     size={16}
                                     aria-hidden="true"
@@ -387,7 +294,6 @@ const Navbar = () => {
                                         active ? "text-[#83CAD8]" : "text-[#8891A0]"
                                     }
                                 />
-                                {/* Mobile Drawer Tab Label */}
                                 <span>{item.label}</span>
                             </NavLink>
                         );

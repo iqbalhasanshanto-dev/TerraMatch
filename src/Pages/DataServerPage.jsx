@@ -12,20 +12,10 @@ import {
 import { API_BASE_URL } from "../utils/api";
 import { toast } from "react-toastify";
 
-// ============================================================================
-// 1. Constants, Authoritative Planetary Archives & LocalStorage Helpers
-// ============================================================================
-
-/**
- * LocalStorage key used to persist user-added custom data sources so custom
- * archives remain available on static Netlify deployments when the backend is offline.
- */
+// LocalStorage key for persisting custom data sources.
 const CUSTOM_DATA_SOURCES_STORAGE_KEY = "terramatch_custom_data_sources";
 
-/**
- * Legacy placeholder archive IDs from earlier prototype versions that should
- * be superseded by the 10 official NASA Earthdata / Moon PDS / Mars PDS datasets.
- */
+// Legacy archive IDs superseded by official datasets.
 const LEGACY_PLACEHOLDER_IDS = new Set([
     "hirise-crism",
     "srtm-elevation",
@@ -35,18 +25,9 @@ const LEGACY_PLACEHOLDER_IDS = new Set([
     "usgs-astrogeology",
 ]);
 
-/**
- * The 11 official 2026 NASA Space Apps Challenge resources plus authoritative
- * NASA Earthdata, Moon PDS, and Mars PDS planetary archives.
- * Used both as the authoritative catalog definition and as the automatic static
- * fallback whenever `GET /data-sources` is unreachable on Netlify.
- * Each dataset defines real scientific parameters measured, spatial resolutions,
- * agency attribution, and official archive portal links.
- */
+// Official Space Apps Challenge resources and authoritative planetary archives.
 const DEFAULT_PLANETARY_ARCHIVES = [
-    // ------------------------------------------------------------------------
-    // 1. NASA Earthdata Search & Worldview (Challenge Resources #1 & #2)
-    // ------------------------------------------------------------------------
+    // NASA Earthdata Search & Worldview
     {
         id: "nasadem",
         name: "NASA Earthdata Search (NASADEM Elevation DEM)",
@@ -153,9 +134,7 @@ const DEFAULT_PLANETARY_ARCHIVES = [
             "Atmospherically corrected multispectral surface reflectance and albedo characteristics across barren regolith, basaltic flows, and dune fields.",
     },
 
-    // ------------------------------------------------------------------------
-    // 2. NASA Planetary Data System (PDS) Moon & Mars (Challenge Resources #3, #4, #5, #6)
-    // ------------------------------------------------------------------------
+    // NASA Planetary Data System (PDS) Moon & Mars
     {
         id: "nasa-pds",
         name: "NASA Planetary Data System (PDS — Moon & Mars Archive)",
@@ -260,9 +239,7 @@ const DEFAULT_PLANETARY_ARCHIVES = [
             "Integrated spatial search engine cross-referencing MRO HiRISE, CRISM, CTX, Mars Express, and Viking data for Martian landing site analysis.",
     },
 
-    // ------------------------------------------------------------------------
-    // 3. CSA RADARSAT Constellation & Open Archives (Challenge Resources #7, #8, #9)
-    // ------------------------------------------------------------------------
+    // CSA RADARSAT Constellation & Open Archives
     {
         id: "csa-rcm",
         name: "CSA RADARSAT Constellation Mission (RCM — C-Band SAR)",
@@ -315,9 +292,7 @@ const DEFAULT_PLANETARY_ARCHIVES = [
             "Official CSA Python and QGIS tutorial series for processing radar backscatter, polarimetry, and surface roughness across Earth analog testbeds.",
     },
 
-    // ------------------------------------------------------------------------
-    // 4. ESA Copernicus Data Space & Open Science Catalog (Challenge Resource #10)
-    // ------------------------------------------------------------------------
+    // ESA Copernicus Data Space & Open Science Catalog
     {
         id: "esa-copernicus",
         name: "ESA Copernicus Data Space & Open Science Catalog",
@@ -336,9 +311,7 @@ const DEFAULT_PLANETARY_ARCHIVES = [
             "European Copernicus Earth observation ecosystem delivering open Sentinel-1 SAR backscatter and Sentinel-2 13-band multispectral mineral spectroscopy.",
     },
 
-    // ------------------------------------------------------------------------
-    // 5. JAXA G-Portal (ALOS PALSAR & GCOM-C) (Challenge Resource #11)
-    // ------------------------------------------------------------------------
+    // JAXA G-Portal (ALOS PALSAR & GCOM-C)
     {
         id: "jaxa-gportal",
         name: "JAXA G-Portal (ALOS PALSAR L-Band Radar & GCOM-C Cryosphere)",
@@ -358,17 +331,10 @@ const DEFAULT_PLANETARY_ARCHIVES = [
     },
 ];
 
-/**
- * Set of built-in official archive IDs used to distinguish canonical NASA/PDS
- * datasets from custom researcher-added sources.
- */
+// Set of built-in official archive IDs.
 const DEFAULT_ARCHIVE_IDS = new Set(DEFAULT_PLANETARY_ARCHIVES.map((item) => item.id));
 
-/**
- * Safely reads user-created custom planetary archives from `localStorage`.
- *
- * @returns {Array<Object>} List of custom data sources persisted locally.
- */
+// Reads custom planetary archives from localStorage.
 const readCustomSourcesFromStorage = () => {
     if (typeof window === "undefined") return [];
     try {
@@ -382,11 +348,7 @@ const readCustomSourcesFromStorage = () => {
     }
 };
 
-/**
- * Safely serializes and persists custom planetary archives to `localStorage`.
- *
- * @param {Array<Object>} sources - Custom data source records to persist.
- */
+// Serializes and persists custom planetary archives to localStorage.
 const writeCustomSourcesToStorage = (sources) => {
     if (typeof window === "undefined") return;
     try {
@@ -399,14 +361,7 @@ const writeCustomSourcesToStorage = (sources) => {
     }
 };
 
-/**
- * Reconciles backend MongoDB records with the authoritative 10 official datasets
- * so any legacy placeholder items or missing scientific parameters/resolutions
- * are cleanly normalized while preserving user-added custom archives.
- *
- * @param {Array<Object>} serverRecords - Records fetched from MongoDB API.
- * @returns {Array<Object>} Normalized list of planetary archives.
- */
+// Reconciles server records with official datasets and normalizes properties.
 const reconcileOfficialCatalog = (serverRecords) => {
     const officialById = new Map(
         DEFAULT_PLANETARY_ARCHIVES.map((item) => [item.id, item])
@@ -424,7 +379,7 @@ const reconcileOfficialCatalog = (serverRecords) => {
             (item) => item?.id === official.id
         );
         if (!match) return official;
-        // Enforce authoritative scientific parameters, agency badges, and portal links
+        // Enforce authoritative scientific parameters and links
         return {
             ...official,
             ...match,
@@ -443,14 +398,7 @@ const reconcileOfficialCatalog = (serverRecords) => {
     return [...officialFromServer, ...customFromServer];
 };
 
-/**
- * Deduplicates and merges primary planetary archive sources with fallback or
- * custom localStorage sources by ID or name.
- *
- * @param {Array<Object>} primaryList - Authoritative or server datasets.
- * @param {Array<Object>} secondaryList - Locally persisted or fallback datasets.
- * @returns {Array<Object>} Merged deduplicated array.
- */
+// Merges primary archive sources with fallback or local sources without duplicates.
 const mergeDatasets = (primaryList, secondaryList) => {
     const merged = [];
     const seen = new Set();
@@ -471,69 +419,25 @@ const mergeDatasets = (primaryList, secondaryList) => {
     return merged;
 };
 
-/**
- * ============================================================================
- * DataServerPage Component
- * ============================================================================
- * Clean Open Planetary & Earth Data Archives Directory for the NASA Space Apps
- * Challenge ("Identify Earth Locations that Analog the Permanent Moon Base
- * Locations and Mars"):
- * - Displays verified planetary archives from NASA, ESA, ISRO, and USGS.
- * - Shows real Scientific Parameters Measured and Spatial Resolutions on each card.
- * - Provides direct "Open Official Archive ↗" deep-links to official archives.
- * - Supports adding custom data sources (NASA, ESA, ISRO, JAXA, USGS, local STAC/COG).
- * - Deep-space palette design tokens:
- *   - Page Background: `#07090E` with starlight typography `#F1EEE9`
- *   - Card Surfaces: `#0B0E13` with border `#21242C` and hover `#83CAD8`/50
- *   - Category Filters: `#1A1D23` with `#F1EEE9`
- *   - Integrated Footer: `#0B0E13` with primary action button `#83CAD8`
- */
+// Planetary and Earth data archives directory component.
 const DataServerPage = () => {
-    // ------------------------------------------------------------------------
-    // 1. Planetary Datasets Collection State (MongoDB + Static Fallback)
-    // ------------------------------------------------------------------------
-    /** Active dataset list hydrated from MongoDB or default archives + localStorage. */
+    // Planetary datasets collection state
     const [datasets, setDatasets] = useState([]);
-
-    /** Loading indicator for initial database/fallback hydration. */
     const [loadingDatasets, setLoadingDatasets] = useState(true);
 
-    // ------------------------------------------------------------------------
-    // 2. Filter, Search & Custom Ingestion Modal State Variables
-    // ------------------------------------------------------------------------
-    /** Active planetary category filter ("all", "moon", "mars", "earth"). */
+    // Filter, search, and custom ingestion modal state
     const [activeCategory, setActiveCategory] = useState("all");
-
-    /** Active space agency filter ("all", "nasa", "csa", "esa", "jaxa"). */
     const [activeAgency, setActiveAgency] = useState("all");
-
-    /** Free-text search query matching dataset name, provider, body, or data types. */
     const [searchQuery, setSearchQuery] = useState("");
-
-    /** Ingestion modal open/close toggle state for adding custom sources. */
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
-    /** Controlled form input for custom dataset name. */
     const [customSourceName, setCustomSourceName] = useState("");
-
-    /** Controlled form input for agency or institutional provider. */
     const [customProvider, setCustomProvider] = useState("");
-
-    /** Controlled form input for target planetary body ("Moon", "Mars", "Earth"). */
     const [customTargetBody, setCustomTargetBody] = useState("Mars");
-
-    /** Controlled form input for scientific parameter measured. */
     const [customParameter, setCustomParameter] = useState("");
-
-    /** Controlled form input for spatial resolution. */
     const [customResolution, setCustomResolution] = useState("");
-
-    /** Controlled form input for STAC/COG or archive portal URL. */
     const [customEndpoint, setCustomEndpoint] = useState("");
 
-    // ------------------------------------------------------------------------
-    // 3. Data Fetching Effects (GET /data-sources with Automatic Fallback)
-    // ------------------------------------------------------------------------
+    // Fetches data sources from API with fallback to local defaults
     useEffect(() => {
         let isMounted = true;
         const localCustomSources = readCustomSourcesFromStorage();
@@ -549,18 +453,18 @@ const DataServerPage = () => {
             .then((data) => {
                 if (!isMounted) return;
                 if (Array.isArray(data) && data.length > 0) {
-                    // Reconcile official 2026 Space Apps datasets and merge local custom sources
+                    // Reconcile official datasets and merge custom sources
                     const reconciled = reconcileOfficialCatalog(data);
                     setDatasets(mergeDatasets(reconciled, localCustomSources));
                 } else {
-                    // Empty server response: serve official defaults + local custom sources
+                    // Fall back to default archives and local custom sources
                     setDatasets(
                         mergeDatasets(localCustomSources, DEFAULT_PLANETARY_ARCHIVES)
                     );
                 }
             })
             .catch((err) => {
-                // Backend unreachable (e.g. static host): serve official defaults + local custom sources
+                // Fall back to static defaults if backend is unreachable
                 console.debug(
                     "Using static planetary archives fallback:",
                     err?.message || err
@@ -580,10 +484,7 @@ const DataServerPage = () => {
         };
     }, []);
 
-    // ------------------------------------------------------------------------
-    // 4. Agency & Target Planetary Body Filter Definitions
-    // ------------------------------------------------------------------------
-    /** Agency filter pill definitions covering official 2026 Space Apps Challenge partners */
+    // Agency and planetary body filter pill definitions
     const agencyPills = [
         { id: "all", label: "All Sources" },
         { id: "nasa", label: "NASA (Earth, Moon & Mars)" },
@@ -592,7 +493,6 @@ const DataServerPage = () => {
         { id: "jaxa", label: "JAXA (G-Portal)" },
     ];
 
-    /** Target planetary body category filter pills */
     const categoryPills = [
         { id: "all", label: "All Bodies" },
         { id: "moon", label: "Moon Archives" },
@@ -600,17 +500,14 @@ const DataServerPage = () => {
         { id: "earth", label: "Earth Remote Sensing" },
     ];
 
-    // ------------------------------------------------------------------------
-    // 5. Dataset Filtering Logic
-    // ------------------------------------------------------------------------
-    /** Computes filtered datasets list based on active category, agency, and text query. */
+    // Filter datasets by target body, agency, and search query
     const filteredDatasets = useMemo(() => {
         return datasets.filter((item) => {
             const body = (item.targetBody || "").toLowerCase();
             const category = (item.category || "").toLowerCase();
             const itemAgency = (item.agency || item.provider || "").toLowerCase();
 
-            // 1. Target planetary body category filter
+            // Filter by target planetary body
             if (activeCategory === "moon") {
                 if (category !== "moon" && !body.includes("moon")) return false;
             } else if (activeCategory === "mars") {
@@ -619,7 +516,7 @@ const DataServerPage = () => {
                 if (category !== "earth" && !body.includes("earth")) return false;
             }
 
-            // 2. Official Agency filter (NASA, CSA, ESA, JAXA)
+            // Filter by space agency
             if (activeAgency === "nasa") {
                 if (!itemAgency.includes("nasa")) return false;
             } else if (activeAgency === "csa") {
@@ -630,7 +527,7 @@ const DataServerPage = () => {
                 if (!itemAgency.includes("jaxa") && !itemAgency.includes("japan")) return false;
             }
 
-            // 3. Free-text search query matching name, provider, agency, parameter, or types
+            // Filter by search query
             if (searchQuery.trim()) {
                 const query = searchQuery.trim().toLowerCase();
                 const nameMatch = (item.name || "").toLowerCase().includes(query);
@@ -659,14 +556,7 @@ const DataServerPage = () => {
         });
     }, [datasets, activeCategory, activeAgency, searchQuery]);
 
-    // ------------------------------------------------------------------------
-    // 6. Custom Source Ingestion Handler (LocalStorage + MongoDB Background)
-    // ------------------------------------------------------------------------
-    /**
-     * Registers a new user-connected planetary archive to state and `localStorage`,
-     * and attempts to persist it to MongoDB via `POST /data-sources`.
-     * Supports datasets from NASA, ESA, ISRO, JAXA, USGS, or custom local sources.
-     */
+    // Registers a new user-connected planetary archive
     const handleAddCustomSource = async (e) => {
         e.preventDefault();
         if (!customSourceName.trim()) {
@@ -701,7 +591,7 @@ const DataServerPage = () => {
 
         let createdDoc = { ...newSourcePayload, _id: localId };
 
-        // Attempt remote MongoDB persistence when backend is accessible
+        // Attempt backend persistence when accessible
         try {
             const response = await fetch(`${API_BASE_URL}/data-sources`, {
                 method: "POST",
@@ -724,14 +614,14 @@ const DataServerPage = () => {
             console.debug("Backend data-sources POST skipped:", err?.message || err);
         }
 
-        // Persist custom source to localStorage and update active state immediately
+        // Persist custom source to localStorage and update state
         const existingCustom = readCustomSourcesFromStorage();
         writeCustomSourcesToStorage([createdDoc, ...existingCustom]);
         setDatasets((prev) => [createdDoc, ...prev]);
 
         toast.success(`Custom dataset "${customSourceName}" added to archives!`);
 
-        // Close modal and reset form fields
+        // Close modal and reset form
         setIsAddModalOpen(false);
         setCustomSourceName("");
         setCustomProvider("");
@@ -740,25 +630,16 @@ const DataServerPage = () => {
         setCustomEndpoint("");
     };
 
-    // ------------------------------------------------------------------------
-    // 7. Custom Source Deletion Handler (LocalStorage + Quiet DELETE Sync)
-    // ------------------------------------------------------------------------
-    /**
-     * Removes a user-added custom source from state and `localStorage`, and
-     * dispatches a quiet `DELETE /data-sources/:id` request to MongoDB.
-     *
-     * @param {string} datasetId - ID of the dataset to remove.
-     * @param {string} datasetName - Display name for confirmation toast.
-     */
+    // Removes a user-added custom archive from state and storage
     const handleDeleteSource = (datasetId, datasetName) => {
         if (!datasetId) return;
 
-        // Remove from React state immediately
+        // Remove from state immediately
         setDatasets((prev) =>
             prev.filter((d) => (d._id || d.id) !== datasetId)
         );
 
-        // Remove from localStorage custom data sources cache
+        // Remove from localStorage
         const updatedCustom = readCustomSourcesFromStorage().filter(
             (d) => (d._id || d.id) !== datasetId
         );
@@ -766,7 +647,7 @@ const DataServerPage = () => {
 
         toast.info(`Removed archive "${datasetName}".`);
 
-        // Quietly synchronize deletion with backend if online
+        // Sync deletion with backend if online
         fetch(`${API_BASE_URL}/data-sources/${encodeURIComponent(datasetId)}`, {
             method: "DELETE",
             headers: {
@@ -775,15 +656,10 @@ const DataServerPage = () => {
         }).catch(() => {});
     };
 
-    // ------------------------------------------------------------------------
-    // 8. Component Render Block
-    // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full overflow-y-auto bg-[#07090E] text-[#F1EEE9] select-none px-4 sm:px-6 lg:px-12 py-8 pb-16">
             <div className="max-w-7xl mx-auto space-y-6">
-                {/* ========================================================== */}
-                {/* 1. Header Section: Title, Mission Scope & Add Source CTA   */}
-                {/* ========================================================== */}
+                {/* Header section and add source CTA */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#21242C] pb-5">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 text-xs font-semibold text-[#83CAD8] uppercase tracking-wider mb-0.5">
@@ -798,7 +674,7 @@ const DataServerPage = () => {
                         </p>
                     </div>
 
-                    {/* Quick Action: Ingest Custom Source Trigger */}
+                    {/* Quick action: Ingest custom source */}
                     <div className="flex items-center gap-3">
                         <button
                             type="button"
@@ -811,9 +687,7 @@ const DataServerPage = () => {
                     </div>
                 </div>
 
-                {/* ========================================================== */}
-                {/* 2. Filter Toolbar: Agency & Category Pills + Search Input  */}
-                {/* ========================================================== */}
+                {/* Filter toolbar: Agency and category pills with search input */}
                 <div className="space-y-3 pt-1">
                     {/* Top Row: Agency Pills (NASA, CSA, ESA, JAXA) & Search Input */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -888,9 +762,7 @@ const DataServerPage = () => {
                     </div>
                 </div>
 
-                {/* ========================================================== */}
-                {/* 3. Dataset Directory Cards Grid                            */}
-                {/* ========================================================== */}
+                {/* Dataset directory cards grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4.5 pt-2">
                     {loadingDatasets ? (
                         <div className="col-span-full text-center py-16 text-[#8891A0] text-xs">
@@ -1025,15 +897,13 @@ const DataServerPage = () => {
                     )}
                 </div>
 
-                {/* ========================================================== */}
-                {/* 4. Open Planetary & Earth Datasets Integrated Footer Block */}
-                {/* ========================================================== */}
+                {/* Open planetary and earth datasets footer summary */}
                 <aside
                     aria-label="Planetary telemetry archives overview"
                     className="w-full mt-8 bg-[#0B0E13] border border-[#21242C] rounded-xl px-5 sm:px-6 py-5 shadow-md flex flex-col gap-4"
                 >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        {/* Left: Open Planetary Datasets Summary */}
+                        {/* Summary description */}
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-lg bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#83CAD8] shrink-0">
                                 <Database size={16} />
@@ -1048,7 +918,7 @@ const DataServerPage = () => {
                             </div>
                         </div>
 
-                        {/* Right Action: Ingest Custom Source Trigger */}
+                        {/* Ingest custom source CTA */}
                         <div className="flex items-center justify-end shrink-0">
                             <button
                                 type="button"
@@ -1061,7 +931,7 @@ const DataServerPage = () => {
                         </div>
                     </div>
 
-                    {/* Official Non-U.S. Government Partner Attribution Notice */}
+                    {/* Partner attribution notice */}
                     <div className="border-t border-[#21242C] pt-3 text-[11px] text-[#8891A0] leading-relaxed">
                         <p>
                             <strong className="text-[#F1EEE9]">Official 2026 NASA Space Apps Challenge Partner Notice:</strong>{" "}
@@ -1074,9 +944,7 @@ const DataServerPage = () => {
                 </aside>
             </div>
 
-            {/* ============================================================== */}
-            {/* 5. Custom Source Ingestion Modal                               */}
-            {/* ============================================================== */}
+            {/* Custom source ingestion modal */}
             {isAddModalOpen && (
                 <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
                     <div className="w-full max-w-md bg-[#090B10] border border-[#21242C] rounded-2xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 text-[#F1EEE9]">

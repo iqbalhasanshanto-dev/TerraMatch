@@ -5,14 +5,11 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// ============================================================================
-// 1. Environment & Path Resolution Setup
-// ============================================================================
-// Resolve directory paths for ES modules to locate local JSON seeds and env files
+// Environment and path setup.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Automatically load environment variables from server/.env if supported by runtime
+// Load environment variables from server/.env if supported
 if (typeof process.loadEnvFile === 'function') {
   try {
     process.loadEnvFile(path.resolve(__dirname, '.env'));
@@ -20,24 +17,20 @@ if (typeof process.loadEnvFile === 'function') {
     try {
       process.loadEnvFile();
     } catch {
-      // Fallback to existing environment variables if .env file is omitted
+      // Fallback to environment variables
     }
   }
 }
 
-// Initialize Express application instance
+// Initialize Express application
 const app = express();
-// Default port 3000 or custom port from environment
 const port = process.env.PORT || 3000;
 
-// Enable Cross-Origin Resource Sharing (CORS) for all client requests
 app.use(cors());
-// Parse incoming JSON payloads with body-parser
 app.use(express.json());
 
-// MongoDB connection string loaded strictly from server/.env
+// MongoDB connection string
 const mongoUri = process.env.MONGODB_URI;
-// Target database name in MongoDB Atlas
 const dbName = process.env.DB_NAME || "TerraMatch";
 
 if (!mongoUri) {
@@ -45,27 +38,16 @@ if (!mongoUri) {
   process.exit(1);
 }
 
-// MongoClient client instance with connection pooling
 const client = new MongoClient(mongoUri);
 
-// ============================================================================
-// 2. Global Database & Collection References
-// ============================================================================
-// Database instance handle
+// Database and collection references.
 let db;
-// 1. Location Collection: 50 base planetary analog locations
 let modelCollection;
-// 2. RecentSearches Collection: user search and exploration history
 let recentSearches;
-// 3. Saved Collection: user bookmarked candidate analog locations
 let savedLocs;
-// 4. DataSources Collection: curated planetary mission archives & DEM sources
 let dataSourcesCollection;
 
-// ============================================================================
-// 3. Curated Planetary Mission Archives (Official 10-Dataset Seed Catalog)
-// ============================================================================
-// Legacy placeholder seed IDs superseded by the official NASA Earthdata & PDS catalog
+// Official 2026 challenge planetary dataset catalog.
 const LEGACY_DATA_SOURCE_IDS = [
   "hirise-crism",
   "srtm-elevation",
@@ -75,12 +57,9 @@ const LEGACY_DATA_SOURCE_IDS = [
   "usgs-astrogeology",
 ];
 
-// The official 2026 NASA Space Apps Challenge planetary resources plus NASA Earthdata & PDS archives
-// used for initial MongoDB seeding and catalog synchronization
+// Initial dataset seeds for catalog synchronization.
 const INITIAL_PLANETARY_ARCHIVES = [
-  // --------------------------------------------------------------------------
-  // 1. NASA Earthdata Search & Worldview (Challenge Resources #1 & #2)
-  // --------------------------------------------------------------------------
+  // NASA Earthdata & Worldview datasets.
   {
     id: "nasadem",
     name: "NASA Earthdata Search (NASADEM Elevation DEM)",
@@ -178,9 +157,7 @@ const INITIAL_PLANETARY_ARCHIVES = [
     created_at: new Date()
   },
 
-  // --------------------------------------------------------------------------
-  // 2. NASA Planetary Data System (PDS) Moon & Mars (Challenge Resources #3, #4, #5, #6)
-  // --------------------------------------------------------------------------
+  // NASA Planetary Data System (PDS) Moon & Mars datasets.
   {
     id: "nasa-pds",
     name: "NASA Planetary Data System (PDS — Moon & Mars Archive)",
@@ -278,9 +255,7 @@ const INITIAL_PLANETARY_ARCHIVES = [
     created_at: new Date()
   },
 
-  // --------------------------------------------------------------------------
-  // 3. CSA RADARSAT Constellation & Open Archives (Challenge Resources #7, #8, #9)
-  // --------------------------------------------------------------------------
+  // CSA RADARSAT constellation datasets.
   {
     id: "csa-rcm",
     name: "CSA RADARSAT Constellation Mission (RCM — C-Band SAR)",
@@ -330,9 +305,7 @@ const INITIAL_PLANETARY_ARCHIVES = [
     created_at: new Date()
   },
 
-  // --------------------------------------------------------------------------
-  // 4. ESA Copernicus Data Space & Open Science Catalog (Challenge Resource #10)
-  // --------------------------------------------------------------------------
+  // ESA Copernicus datasets.
   {
     id: "esa-copernicus",
     name: "ESA Copernicus Data Space & Open Science Catalog",
@@ -350,9 +323,7 @@ const INITIAL_PLANETARY_ARCHIVES = [
     created_at: new Date()
   },
 
-  // --------------------------------------------------------------------------
-  // 5. JAXA G-Portal (ALOS PALSAR & GCOM-C) (Challenge Resource #11)
-  // --------------------------------------------------------------------------
+  // JAXA G-Portal datasets.
   {
     id: "jaxa-gportal",
     name: "JAXA G-Portal (ALOS PALSAR L-Band Radar & GCOM-C Cryosphere)",
@@ -371,9 +342,7 @@ const INITIAL_PLANETARY_ARCHIVES = [
   }
 ];
 
-// ============================================================================
-// 4. Database Connection & Auto-Seeding Handler
-// ============================================================================
+// Connects to MongoDB Atlas and initializes collections.
 export async function connectToMongoDB() {
   try {
     await client.connect();
@@ -389,11 +358,7 @@ export async function connectToMongoDB() {
 
     console.log(`Connected successfully to MongoDB Database: "${dbName}"`);
 
-    // ------------------------------------------------------------------------
-    // Shared Helper & Auto-Seeding Collection 1: Location Collection (50 sites)
-    // ------------------------------------------------------------------------
-    // Resolves candidate paths to public/analogLocations.json, clears any stale
-    // Location documents, and inserts the enriched scientific dataset.
+    // Auto-seeds Location collection from analogLocations.json.
     async function reseedLocationCollection() {
       // Candidate filesystem paths covering local dev, cwd, and built dist assets
       const candidatePaths = [
@@ -448,12 +413,7 @@ export async function connectToMongoDB() {
       console.log(`'Location' collection active with ${locationCount} enriched documents.`);
     }
 
-    // ------------------------------------------------------------------------
-    // Auto-Seeding Collection 2: DataSources Collection (10 official archives)
-    // ------------------------------------------------------------------------
-    // Detect empty collection, legacy placeholder seed items, or missing portalUrl
-    // fields so existing MongoDB instances upgrade cleanly to the 10 official
-    // NASA Earthdata / Moon PDS / Mars PDS datasets without erasing custom sources.
+    // Auto-seeds DataSources collection with 10 official planetary datasets.
     const dataSourcesCount = await dataSourcesCollection.countDocuments();
     const hasLegacySeedDocs =
       dataSourcesCount > 0 &&
@@ -514,11 +474,7 @@ const toMongoId = (id) => {
   }
 };
 
-// ============================================================================
-// 5. API Routes: Locations Collection
-// ============================================================================
-
-// GET /location - Fetch all candidate planetary analog locations
+// Location routes.
 app.get('/location', async (req, res) => {
   try {
     const result = await modelCollection.find().toArray();
@@ -568,11 +524,7 @@ app.post('/location/reseed', async (req, res) => {
   }
 });
 
-// ============================================================================
-// 6. API Routes: Recent Searches Collection
-// ============================================================================
-
-// POST /recent-searches - Record or update a recent search item (prevents duplicate entries)
+// Recent searches routes.
 app.post('/recent-searches', async (req, res) => {
   try {
     // Strip incoming _id from request body to prevent immutable field or duplicate key error
@@ -665,11 +617,7 @@ app.delete('/recent-searches/user/:email', async (req, res) => {
   }
 });
 
-// ============================================================================
-// 7. API Routes: Saved Locations Collection
-// ============================================================================
-
-// POST /savedLocs - Save or update a candidate analog location for a user
+// Saved locations routes.
 app.post('/savedLocs', async (req, res) => {
   try {
     // Strip incoming _id from request body to prevent immutable field or duplicate key error
@@ -746,11 +694,7 @@ app.delete('/savedLocs/:id', async (req, res) => {
   }
 });
 
-// ============================================================================
-// 8. API Routes: DataSources Collection (Planetary Datasets)
-// ============================================================================
-
-// GET /data-sources - Fetch all planetary datasets and mission archives from MongoDB
+// Data sources routes.
 app.get('/data-sources', async (req, res) => {
   try {
     const result = await dataSourcesCollection.find().toArray();
@@ -824,9 +768,7 @@ app.delete('/data-sources/:id', async (req, res) => {
   }
 });
 
-// ============================================================================
-// 9. Root & Health Check Endpoints
-// ============================================================================
+// Root & health check endpoints.
 app.get('/', (req, res) => {
   res.send({
     status: "ok",
@@ -843,9 +785,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// ============================================================================
-// 10. Server Initialization Routine
-// ============================================================================
+// Starts the server after connecting to MongoDB.
 async function startServer() {
   try {
     // Connect to database and seed baseline collections

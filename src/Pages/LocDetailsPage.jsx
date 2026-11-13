@@ -34,23 +34,9 @@ import {
     getTargetBodyInfo,
 } from "../utils/analogSpec";
 
-/**
- * ============================================================================
- * LocDetailsPage Component (Planetary Analog Comprehensive Specification)
- * ============================================================================
- * Displays exhaustive planetary analog characterization for the 2026 NASA Space
- * Apps Challenge ("Identify Earth Locations that Analog the Permanent Moon Base
- * Locations and Mars"):
- * - Analog Recognition Classifier: Established Analog vs. Emerging / Under-Studied
- * - 4-Dimension Scientific Fidelity Breakdown (Geology, Terrain, Climate, ISRU)
- * - Why It Is a Strong Analog (What Matches)
- * - Where the Analogy Breaks Down (Earth's Limits: Gravity, Atmosphere, Radiation)
- * - Real mean surface temperature, rover campaign logs, and geographic coordinates
- */
+// Planetary analog candidate details and multi-dimensional fidelity analysis.
 const LocDetailsPage = () => {
-    // ------------------------------------------------------------------------
-    // 1. Route Parameters, Navigation & Data Hooks
-    // ------------------------------------------------------------------------
+    // Route parameters, analog dataset, and saved sites hooks
     const { _id } = useParams();
     const { locData, loading } = useLocations();
     const { savedLoc, saveLocation } = useSaved();
@@ -86,9 +72,7 @@ const LocDetailsPage = () => {
 
     if (loading) return <Loader />;
 
-    // ------------------------------------------------------------------------
-    // 2. Not-Found Guard Fallback
-    // ------------------------------------------------------------------------
+    // Not-found guard fallback
     if (!neededLocation) {
         return (
             <div className="min-h-screen bg-[#07090E] text-[#F1EEE9]">
@@ -118,9 +102,7 @@ const LocDetailsPage = () => {
         );
     }
 
-    // ------------------------------------------------------------------------
-    // 3. Derived Scientific Specifications, Recognition & Fidelity Analysis
-    // ------------------------------------------------------------------------
+    // Derived scientific specifications, recognition status, and fidelity metrics
     const { longSpecLabel, pillLabel, pillClassName } =
         getTargetBodyInfo(neededLocation);
     const surfaceTemp = formatSurfaceTemp(neededLocation);
@@ -131,17 +113,11 @@ const LocDetailsPage = () => {
     const fidelity = getScientificFidelityAnalysis(neededLocation);
     const agencyDatasets = getAgencyDatasetProvenance(neededLocation);
 
-    /**
-     * Persists this location via `StateProvider.saveLocation` immediately
-     * for both authenticated users and guests without requiring login.
-     */
+    // Persists location to saved collection
     const handleSave = () => {
         saveLocation?.(neededLocation);
     };
 
-    // ------------------------------------------------------------------------
-    // 4. Component Render Block
-    // ------------------------------------------------------------------------
     return (
         <div className="min-h-screen bg-[#07090E] text-[#F1EEE9] select-none">
             <Container>
@@ -155,9 +131,7 @@ const LocDetailsPage = () => {
                         <span>Back to Map</span>
                     </Link>
 
-                    {/* ====================================================== */}
-                    {/* 1. Hero Header Card                                    */}
-                    {/* ====================================================== */}
+                    {/* Hero header card */}
                     <div className="border border-[#21242C] rounded-2xl p-6 bg-[#0B0E13] shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <div className="flex flex-wrap items-center gap-2.5">
@@ -257,9 +231,7 @@ const LocDetailsPage = () => {
                         </p>
                     </div>
 
-                    {/* ====================================================== */}
-                    {/* 2. Multi-Dimensional Planetary Fidelity Analysis       */}
-                    {/* ====================================================== */}
+                    {/* Multi-dimensional fidelity breakdown */}
                     <div className="border border-[#21242C] rounded-xl p-6 bg-[#0B0E13] space-y-4 shadow-md">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#21242C] pb-3">
                             <div>
@@ -330,9 +302,7 @@ const LocDetailsPage = () => {
                         </div>
                     </div>
 
-                    {/* ====================================================== */}
-                    {/* 3. Where the Analogy Breaks Down (Earth's Limits)      */}
-                    {/* ====================================================== */}
+                    {/* Terrestrial boundary conditions and limits */}
                     <div className="border border-[#D67051]/30 rounded-xl p-6 bg-[#100D0B] space-y-4 shadow-md">
                         <div className="border-b border-[#D67051]/20 pb-3">
                             <div className="flex items-center gap-2 text-sm font-bold text-[#D67051]">
@@ -376,9 +346,7 @@ const LocDetailsPage = () => {
                         </div>
                     </div>
 
-                    {/* ====================================================== */}
-                    {/* 4. Planetary Analog Specification & Rover Test History */}
-                    {/* ====================================================== */}
+                    {/* Planetary analog specs and rover test history */}
                     <div className="border border-[#21242C] rounded-xl p-5 bg-[#0B0E13] space-y-4">
                         <h2 className="text-sm font-semibold text-[#F1EEE9] border-b border-[#21242C] pb-2.5">
                             Planetary Analog Specification &amp; Rover Test History
@@ -431,9 +399,7 @@ const LocDetailsPage = () => {
                         </div>
                     </div>
 
-                    {/* ====================================================== */}
-                    {/* 5. Official Multi-Agency Planetary Science Provenance  */}
-                    {/* ====================================================== */}
+                    {/* Official multi-agency science provenance */}
                     <div className="border border-[#21242C] rounded-xl p-6 bg-[#0B0E13] space-y-4 shadow-md">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#21242C] pb-3">
                             <div className="flex items-center gap-2.5">
@@ -501,9 +467,7 @@ const LocDetailsPage = () => {
                         </div>
                     </div>
 
-                    {/* ====================================================== */}
-                    {/* 6. Environmental & Terrain Breakdown                   */}
-                    {/* ====================================================== */}
+                    {/* Environmental conditions and terrain features */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         {/* Environment Metrics */}
                         <div className="border border-[#21242C] rounded-xl p-5 bg-[#0B0E13] space-y-3">

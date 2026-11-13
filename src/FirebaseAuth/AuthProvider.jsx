@@ -7,56 +7,20 @@ import {
     signOut,
 } from "firebase/auth";
 import { toast } from "react-toastify";
-// Note: Matched file casing with Firebase.ini.js to prevent Linux/Vite case-sensitivity build errors
 import { auth } from "./Firebase.ini";
 
-// ============================================================================
-// Google OAuth Provider Configuration (Popup-Only)
-// ============================================================================
-
-/**
- * Shared GoogleAuthProvider instance configured to always prompt for account
- * selection so multi-account users can explicitly choose their Google profile.
- * Uses popup-only authentication (`signInWithPopup`) because cross-origin
- * redirect storage is blocked by third-party cookie restrictions in Chrome.
- */
+// Google OAuth provider instance configured with account selector
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
 
-// ============================================================================
-// AuthProvider Context Component
-// ============================================================================
-
-/**
- * AuthProvider component that provides authentication state and methods
- * across the entire application using React Context.
- */
+// Authentication context provider component
 const AuthProvider = ({ children }) => {
-    // ------------------------------------------------------------------------
-    // 1. Authentication Availability & React State
-    // ------------------------------------------------------------------------
-    /** True when real Firebase Auth credentials are active (not the fallback stub). */
+    // Auth configuration check and state
     const isAuthAvailable = Boolean(auth && !auth.isFallback);
-    /** Currently signed-in Firebase User object, or `null` when unauthenticated. */
     const [user, setUser] = useState(null);
-    /** Tracks pending auth initialization or sign-in/out actions. */
     const [loading, setLoading] = useState(isAuthAvailable);
 
-    // ------------------------------------------------------------------------
-    // 2. Authentication Action Helpers
-    // ------------------------------------------------------------------------
-    /**
-     * Signs the user in with Google OAuth using `signInWithPopup` exclusively.
-     * Invokes `signInWithPopup(auth, googleProvider)` synchronously inside the
-     * user click call stack (without any `async/await` delay) so browsers allow
-     * the popup window, and immediately hydrates `user` upon resolution.
-     *
-     * Redirect-based fallback (`signInWithRedirect`) is intentionally omitted
-     * because cross-origin redirect storage is blocked by third-party cookie
-     * restrictions in modern browsers.
-     *
-     * @returns {Promise<import("firebase/auth").UserCredential | null>}
-     */
+    // Initiates Google sign-in via popup
     const signInGoogle = () => {
         if (!isAuthAvailable) {
             console.warn("Firebase Auth is not available or unconfigured.");
@@ -68,14 +32,11 @@ const AuthProvider = ({ children }) => {
             );
         }
 
-        // Invoke signInWithPopup synchronously inside the click handler stack
-        // before any async gap or state update so browsers do not block it.
         const popupPromise = signInWithPopup(auth, googleProvider);
         setLoading(true);
 
         return popupPromise
             .then((result) => {
-                // Immediately hydrate `user` without waiting for the next auth observer tick
                 if (result?.user) {
                     setUser(result.user);
                 }
@@ -83,20 +44,17 @@ const AuthProvider = ({ children }) => {
                 return result;
             })
             .catch((error) => {
-                // If Firebase actually completed auth before reporting popup closure, use that user
                 if (auth?.currentUser) {
                     setUser(auth.currentUser);
                     setLoading(false);
                     return { user: auth.currentUser };
                 }
 
-                // Ignore duplicate-click cancellations quietly while the active flow proceeds
                 if (error?.code === "auth/cancelled-popup-request") {
                     setLoading(false);
                     return null;
                 }
 
-                // Do not surface an error toast when the user intentionally closes the popup
                 if (error?.code === "auth/popup-closed-by-user") {
                     setLoading(false);
                     throw error;
@@ -131,11 +89,7 @@ const AuthProvider = ({ children }) => {
             });
     };
 
-    /**
-     * Signs out the currently authenticated user and resets local auth loading state.
-     *
-     * @returns {Promise<void>}
-     */
+    // Signs out active user
     const logOut = () => {
         setLoading(true);
         if (!isAuthAvailable) {
@@ -148,20 +102,15 @@ const AuthProvider = ({ children }) => {
         });
     };
 
-    // ------------------------------------------------------------------------
-    // 3. Mount Effect: Auth State Subscription
-    // ------------------------------------------------------------------------
+    // Subscribes to Firebase auth state changes
     useEffect(() => {
         if (!isAuthAvailable) {
             return;
         }
 
-        /** Guard flag preventing state updates after component unmount. */
         let isMounted = true;
-        /** Unsubscribe callback returned by `onAuthStateChanged`. */
         let unSubscribe;
 
-        // Subscribe to persistent Firebase authentication state changes
         try {
             unSubscribe = onAuthStateChanged(
                 auth,
@@ -194,10 +143,7 @@ const AuthProvider = ({ children }) => {
         };
     }, [isAuthAvailable]);
 
-    // ------------------------------------------------------------------------
-    // 4. Context Value & Provider Render
-    // ------------------------------------------------------------------------
-    /** Public authentication context payload consumed via `useAuth()`. */
+    // Auth context payload
     const authInfo = {
         signInGoogle,
         user,

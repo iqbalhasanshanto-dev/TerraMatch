@@ -20,27 +20,9 @@ import {
     getTargetBodyInfo,
 } from "../utils/analogSpec";
 
-/**
- * ============================================================================
- * ShowRecentSearches Component
- * ============================================================================
- * Displays the dynamic Recent Searches history inside the right drawer:
- * - Reads user-scoped or guest `recentSearched`, `setRecentSearched`,
- *   `recordRecentSearch`, `deleteRecentSearch`, and `clearRecentSearches` from
- *   `StateContext` (`terramatch_recent_searches_${userEmail || "guest"}`).
- * - Allows immediate testing for competition judges without logging in first.
- * - Displays an accurate live `"X Saved"` badge count from `useSaved()`.
- * - Makes the entire recent location card clickable to promote it to the top of
- *   Recent Searches, fly/zoom the map to its coordinates, open its marker popup,
- *   and auto-collapse the mobile drawer (`onSelectLocation`).
- * - Keeps `"Remove"` and `"Save"` buttons isolated with `e.stopPropagation()`.
- * - Preserves the 5-second optimistic deletion + dark Undo snackbar banner.
- */
+// Recent searches history drawer with pinned planetary catalog and undo support
 const ShowRecentSearches = ({ onSelectLocation }) => {
-    // ------------------------------------------------------------------------
-    // 1. Context Subscriptions & Data Hooks
-    // ------------------------------------------------------------------------
-    /** Centralized Recent Searches state & backend/scoped-storage actions + Map target setter. */
+    // Context subscriptions, saved locations, and catalog data
     const {
         recentSearched,
         setRecentSearched,
@@ -50,28 +32,18 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
         setMapTarget,
     } = useContext(StateContext);
 
-    /** Centralized saved bookmarks hook for badge count, Saved indicators, and saving. */
     const { savedLoc, saveLocation } = useSaved();
-
-    /** 50 pinned planetary analog sites catalog from useLocations. */
     const { locData = [] } = useLocations();
 
-    /** Active planetary target body filter for the pinned analog sites catalog ("all", "moon", "mars"). */
+    // Pinned catalog filter and collapse states
     const [pinnedFilter, setPinnedFilter] = useState("all");
-
-    /** Toggles expansion / collapse of the Pinned Analog Sites catalog section. */
     const [isCatalogOpen, setIsCatalogOpen] = useState(true);
 
-    // ------------------------------------------------------------------------
-    // 2. Optimistic Delete & 5-Second Undo Timer State Variables
-    // ------------------------------------------------------------------------
-    /** Holds pending single-item or clear-all deletion state while undo banner is active. */
+    // Optimistic deletion and undo timer refs
     const [pendingDeletion, setPendingDeletion] = useState(null);
-
-    /** Reference to active timeout committing the deletion after 5 seconds. */
     const deletionTimerRef = useRef(null);
 
-    // Clear active timeout cleanly on unmount to prevent stale timer callbacks
+    // Cleanup timer on unmount
     useEffect(() => {
         return () => {
             if (deletionTimerRef.current) {
@@ -80,16 +52,11 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
         };
     }, []);
 
-    // ------------------------------------------------------------------------
-    // 3. Derived Lists, Identifiers & Filtered Pinned Sites
-    // ------------------------------------------------------------------------
-    /** List of recent searches available for all users (including guests). */
+    // Derived search history and saved count
     const displayedSearches = recentSearched || [];
-
-    /** Reflects the user's or guest's live saved count. */
     const savedCount = savedLoc?.length || 0;
 
-    /** Filters the 50 catalog sites by selected target planetary body (All, Moon, or Mars). */
+    // Filters pinned analog sites by selected planetary body
     const filteredPinnedSites = useMemo(() => {
         if (!Array.isArray(locData)) return [];
         if (pinnedFilter === "all") return locData;
@@ -101,7 +68,7 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
         });
     }, [locData, pinnedFilter]);
 
-    /** Fast lookup set of saved IDs / names so saved recent items display `"Saved"`. */
+    // Fast lookup set of saved location keys
     const savedLocationIds = useMemo(() => {
         const set = new Set();
         if (savedLoc && savedLoc.length > 0) {
@@ -115,34 +82,17 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
         return set;
     }, [savedLoc]);
 
-    /**
-     * Resolves a stable unique key for matching items in local/MongoDB history.
-     *
-     * @param {Object} item - Location item object.
-     * @returns {string} Unique identifier string.
-     */
+    // Resolves unique identifier key for recent search items
     const getRecentItemKey = (item) =>
         item?._id || item?.locationId || item?.id || item?.name;
 
-    // ------------------------------------------------------------------------
-    // 4. Card / Map Selection Handler
-    // ------------------------------------------------------------------------
-    /**
-     * Triggered when clicking anywhere on a recent search card or "View on map":
-     * 1. Promotes the clicked site to the top of Recent Searches.
-     * 2. Pans/zooms Leaflet map smoothly to the site's coordinates and opens its popup.
-     * 3. Auto-collapses the sidebar drawer on mobile viewports (< 1024px).
-     *
-     * @param {Object} loc - Selected planetary analog location.
-     */
+    // Focuses map on selected site and closes mobile drawer
     const handleViewOnMap = useCallback(
         (loc) => {
             if (!loc) return;
 
-            // Re-record selection so it moves to the top of Recent Searches
             recordRecentSearch?.(loc);
 
-            // Fly map camera to target coordinates with timestamp for repeatable clicks
             if (
                 typeof loc?.coordinates?.latitude === "number" &&
                 typeof loc?.coordinates?.longitude === "number"
@@ -157,34 +107,18 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
                 });
             }
 
-            // Collapse mobile drawer immediately so user sees the animated zoom & popup
             onSelectLocation?.(loc);
         },
         [recordRecentSearch, setMapTarget, onSelectLocation]
     );
 
-    // ------------------------------------------------------------------------
-    // 5. Bookmark / Save Location Handler (Immediate for Everyone)
-    // ------------------------------------------------------------------------
-    /**
-     * Saves a recent search location via centralized `saveLocation` immediately
-     * for both signed-in users and guests without requiring login friction.
-     *
-     * @param {Object} locationToSave - Candidate analog location to bookmark.
-     */
+    // Saves location bookmark
     const handleSave = (locationToSave) => {
         if (!locationToSave) return;
         saveLocation?.(locationToSave);
     };
 
-    // ------------------------------------------------------------------------
-    // 6. Backend Deletion Commit Helpers (Delegated to StateProvider)
-    // ------------------------------------------------------------------------
-    /**
-     * Commits permanent deletion of a single item via StateProvider.
-     *
-     * @param {Object} itemToDelete - Item being permanently deleted.
-     */
+    // Commits deletion of a single item
     const commitBackendDelete = (itemToDelete) => {
         const idToDelete =
             itemToDelete?._id || itemToDelete?.locationId || itemToDelete?.id;
@@ -193,23 +127,13 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
         }
     };
 
-    /**
-     * Commits permanent clear-all wipe via StateProvider.
-     */
+    // Commits clear-all action
     const commitBackendClearAll = () => {
         clearRecentSearches?.();
     };
 
-    // ------------------------------------------------------------------------
-    // 7. Optimistic Removal & 5-Second Undo Snackbar Handlers
-    // ------------------------------------------------------------------------
-    /**
-     * Optimistically removes a single recent search item and starts a 5s undo timer.
-     *
-     * @param {string} itemKey - Key of the item being removed.
-     */
+    // Optimistically deletes a single item with 5-second undo window
     const handleDelete = (itemKey) => {
-        // Flush any earlier pending deletion before starting a new undo countdown
         if (pendingDeletion) {
             if (deletionTimerRef.current) clearTimeout(deletionTimerRef.current);
             if (pendingDeletion.isBatch) {
@@ -224,12 +148,10 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
         );
         if (!itemToDelete) return;
 
-        // Immediately remove from centralized state (and localStorage via StateProvider)
         setRecentSearched((prev) =>
             prev.filter((item) => getRecentItemKey(item) !== itemKey)
         );
 
-        // Schedule permanent deletion after the 5-second undo window expires
         deletionTimerRef.current = setTimeout(() => {
             commitBackendDelete(itemToDelete);
             setPendingDeletion(null);
@@ -241,13 +163,10 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
         });
     };
 
-    /**
-     * Optimistically clears all recent searches and opens the 5s undo banner.
-     */
+    // Optimistically clears all searches with 5-second undo window
     const handleDeleteAll = () => {
         if (displayedSearches.length === 0) return;
 
-        // Flush any earlier pending deletion first
         if (pendingDeletion) {
             if (deletionTimerRef.current) clearTimeout(deletionTimerRef.current);
             if (pendingDeletion.isBatch) {
@@ -258,11 +177,8 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
         }
 
         const backupItems = [...displayedSearches];
-
-        // Clear centralized state (automatically mirrored to localStorage)
         setRecentSearched([]);
 
-        // Schedule bulk wipe after 5 seconds
         deletionTimerRef.current = setTimeout(() => {
             commitBackendClearAll();
             setPendingDeletion(null);
@@ -274,9 +190,7 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
         });
     };
 
-    /**
-     * Cancels the pending delete and restores removed item(s) immediately.
-     */
+    // Restores pending deleted item(s)
     const handleUndo = () => {
         if (!pendingDeletion) return;
 
@@ -296,14 +210,9 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
         setPendingDeletion(null);
     };
 
-    // ------------------------------------------------------------------------
-    // 8. Component Render Block: Split Dashboard Sidebar (Recent + Pinned)
-    // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full flex flex-col text-[#F1EEE9] select-none relative">
-            {/* ============================================================== */}
-            {/* Top Section: Recent Searches History                           */}
-            {/* ============================================================== */}
+            {/* Recent searches history section */}
             <div
                 className={`flex flex-col min-h-0 mb-3 ${
                     isCatalogOpen ? "flex-1" : "flex-1"
@@ -466,9 +375,7 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
                 )}
             </div>
 
-            {/* ============================================================== */}
-            {/* Bottom Section: Pinned Analog Sites Directory ({locData.length})*/}
-            {/* ============================================================== */}
+            {/* Pinned analog sites directory */}
             <div
                 className={`flex flex-col min-h-0 border-t border-[#21242C] pt-3 transition-all duration-200 ${
                     isCatalogOpen ? "flex-1" : "shrink-0"

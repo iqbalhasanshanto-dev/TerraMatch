@@ -1,65 +1,18 @@
-/**
- * ============================================================================
- * Global Live Earth Telemetry Discovery Engine (`earthTelemetryApi.js`)
- * ============================================================================
- * Connects TerraMatch to official keyless planetary Earth observation APIs:
- * 1. NASA POWER Climatology / Point API (`power.larc.nasa.gov`) — real satellite
- *    climatology averages for:
- *    - `T2M` (Surface Temperature °C — analogous to MODIS LST)
- *    - `RH2M` (Relative Humidity % — analogous to SMAP Soil Moisture)
- *    - `PRECTOTCORR` (Precipitation mm/day — analogous to GPM IMERG)
- *    - `ALLSKY_SFC_SW_DWN` (Solar Irradiance kWh/m²/day — analogous to MODIS MOD09)
- * 2. Open-Meteo Elevation API (`api.open-meteo.com/v1/elevation`) — fast
- *    NASADEM / SRTM digital elevation model (DEM) elevation lookup.
- * 3. Open-Meteo Forecast API (`api.open-meteo.com/v1/forecast`) — graceful
- *    fallback meteorological source whenever NASA POWER times out or fails.
- * 4. OpenStreetMap Nominatim (`nominatim.openstreetmap.org`) — forward place
- *    search and reverse geocoding for human-readable site & country labels.
- *
- * Synthesizes complete TerraMatch analog profile objects tagged with
- * `dataSource: "NASA POWER + NASADEM/SRTM"` so any Earth coordinate or place
- * can be inspected on the map, saved to a scientist's profile, and compared
- * side-by-side in `ComparePage.jsx`.
- */
+// Global Live Earth Telemetry Discovery Engine using NASA POWER, Open-Meteo, and Nominatim.
 
-// ============================================================================
-// 1. Public API Endpoint & Telemetry Timeout Constants
-// ============================================================================
-
-/** Base URL for OpenStreetMap Nominatim geocoding & reverse-geocoding API. */
+// Public API endpoints and telemetry constants
 const NOMINATIM_BASE_URL = "https://nominatim.openstreetmap.org";
-
-/** Base URL for NASA POWER Temporal Climatology Point API (keyless, CORS-enabled). */
 const NASA_POWER_CLIMATOLOGY_URL =
     "https://power.larc.nasa.gov/api/temporal/climatology/point";
-
-/** Comma-separated NASA POWER parameters mapped to TerraMatch Earthdata analogs. */
 const NASA_POWER_PARAMETERS = "T2M,RH2M,PRECTOTCORR,ALLSKY_SFC_SW_DWN";
-
-/** Base URL for Open-Meteo fast NASADEM / SRTM elevation lookup API. */
 const OPEN_METEO_ELEVATION_URL = "https://api.open-meteo.com/v1/elevation";
-
-/** Base URL for Open-Meteo real-time forecast API (graceful fallback if NASA POWER times out). */
 const OPEN_METEO_FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
-
-/** Maximum wait time (ms) for NASA POWER before gracefully falling back to Open-Meteo Forecast. */
 const NASA_POWER_TIMEOUT_MS = 7000;
-
-/** Canonical missing/fill sentinel used by NASA POWER API payloads. */
 const NASA_POWER_FILL_SENTINEL = -900;
-
-/** Canonical dataset attribution tag attached to every single-point Earth telemetry probe. */
 const TELEMETRY_DATA_SOURCE_TAG = "NASA POWER + NASADEM/SRTM";
-
-/** Canonical dataset attribution tag attached to Whole-Earth Batch Scan discoveries. */
 const WHOLE_EARTH_SCAN_DATA_SOURCE = "Whole-Earth Satellite Scan (NASADEM + Open-Meteo)";
 
-/**
- * Curated 45-point Global Remote Earth Exploration Grid spanning all 7 continents.
- * Every site is intentionally distinct from the 50 pre-listed NASA catalog sites
- * in `analogLocations.json`, enabling scientists to discover unexplored Earth
- * analogs matching custom Moon ("Grey Zone") or Mars Highland criteria.
- */
+// Curated 45-point Global Exploration Grid across 7 continents
 export const GLOBAL_EXPLORATION_GRID = [
     // --- Arctic & North America ---
     {
@@ -391,10 +344,7 @@ export const GLOBAL_EXPLORATION_GRID = [
     },
 ];
 
-/**
- * Shared terrain keyword mapping used when filtering Whole-Earth Scan discoveries
- * against the user's selected Terrain & Geology filter pill.
- */
+// Keyword mapping for terrain and geology filtering
 const SCAN_TERRAIN_KEYWORDS = {
     "Volcanic Basalt": [
         "volcanic",
@@ -457,10 +407,7 @@ const SCAN_TERRAIN_KEYWORDS = {
     ],
 };
 
-/**
- * Shared aridity & moisture keyword mapping used when filtering Whole-Earth Scan
- * discoveries against the user's selected Aridity & Moisture Regime pill.
- */
+// Keyword mapping for aridity and moisture regime filtering
 const SCAN_HUMIDITY_KEYWORDS = {
     "Hyper-Arid": ["hyper-arid", "extremely dry", "very dry"],
     "Very dry": ["hyper-arid", "extremely dry", "very dry"],
@@ -478,53 +425,25 @@ const SCAN_HUMIDITY_KEYWORDS = {
     Hydrothermal: ["hydrothermal", "geothermal", "fumarol", "spring", "humid"],
 };
 
-// ============================================================================
-// 2. Coordinate, Numeric & Timeout Normalization Helpers
-// ============================================================================
-
-/**
- * Wraps any longitude value (including Leaflet antimeridian wrap-arounds like
- * `210°` or `-200°`) into the canonical `[-180, 180]` geographic range.
- *
- * @param {number} lon - Raw longitude in decimal degrees.
- * @returns {number} Normalized longitude within `[-180, 180]`.
- */
+// Wraps longitude into canonical [-180, 180] geographic range.
 const normalizeLongitude = (lon) => {
     const wrapped = (((lon + 180) % 360) + 360) % 360 - 180;
     return Number(wrapped.toFixed(4));
 };
 
-/**
- * Clamps and rounds latitude to 4 decimal places within `[-90, 90]`.
- *
- * @param {number} lat - Raw latitude in decimal degrees.
- * @returns {number} Clamped latitude within `[-90, 90]`.
- */
+// Clamps and rounds latitude within [-90, 90].
 const normalizeLatitude = (lat) => {
     const clamped = Math.max(-90, Math.min(90, lat));
     return Number(clamped.toFixed(4));
 };
 
-/**
- * Safely coerces a numeric telemetry field or falls back to a default value.
- *
- * @param {unknown} value - Candidate numeric value from an API payload.
- * @param {number} fallback - Safe fallback if `value` is null, NaN, or non-finite.
- * @returns {number} Finite number or `fallback`.
- */
+// Safely coerces a numeric value or returns fallback.
 const toFiniteNumber = (value, fallback) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-/**
- * Extracts the annual (`ANN`) mean from a NASA POWER parameter map, filtering
- * out NASA POWER's `-999` fill values and averaging valid monthly readings
- * (`JAN`–`DEC`) when `ANN` is unavailable.
- *
- * @param {Record<string, number> | undefined} paramSeries - NASA POWER monthly/annual dictionary.
- * @returns {number | null} Valid finite parameter value or `null` if missing.
- */
+// Extracts annual mean from NASA POWER parameter series with monthly fallback.
 const extractNasaPowerAnnualValue = (paramSeries) => {
     if (!paramSeries || typeof paramSeries !== "object") {
         return null;
@@ -549,14 +468,7 @@ const extractNasaPowerAnnualValue = (paramSeries) => {
     return sum / monthlyValues.length;
 };
 
-/**
- * Creates a combined `AbortController` that aborts either after `timeoutMs`
- * elapses or immediately when the caller's optional `externalSignal` aborts.
- *
- * @param {number} timeoutMs - Timeout duration in milliseconds.
- * @param {AbortSignal} [externalSignal] - Optional caller AbortSignal.
- * @returns {{ signal: AbortSignal, cleanup: () => void, didTimeout: () => boolean }}
- */
+// Creates AbortController with timeout and external signal propagation.
 const createTimeoutController = (timeoutMs, externalSignal) => {
     const controller = new AbortController();
     let timedOut = false;
@@ -592,19 +504,7 @@ const createTimeoutController = (timeoutMs, externalSignal) => {
     };
 };
 
-// ============================================================================
-// 3. External Satellite & DEM API Fetch Helpers
-// ============================================================================
-
-/**
- * Fetches fast NASADEM / SRTM elevation (meters above sea level) for a single
- * Earth coordinate from the Open-Meteo Elevation API.
- *
- * @param {number} lat - Normalized decimal latitude.
- * @param {number} lon - Normalized decimal longitude.
- * @param {AbortSignal} [signal] - Optional AbortSignal for request cancellation.
- * @returns {Promise<number | null>} Elevation in meters, or `null` if unavailable.
- */
+// Fetches elevation in meters from Open-Meteo NASADEM/SRTM API.
 const fetchOpenMeteoElevation = async (lat, lon, signal) => {
     const elevationUrl = `${OPEN_METEO_ELEVATION_URL}?latitude=${lat}&longitude=${lon}`;
 
@@ -627,24 +527,7 @@ const fetchOpenMeteoElevation = async (lat, lon, signal) => {
     return Number.isFinite(parsed) ? Math.round(parsed) : null;
 };
 
-/**
- * Fetches real NASA satellite climatology averages from the NASA POWER
- * Climatology/Point API for `T2M`, `RH2M`, `PRECTOTCORR`, and `ALLSKY_SFC_SW_DWN`.
- * Applies a strict timeout guard so slow responses fall back cleanly.
- *
- * @param {number} lat - Normalized decimal latitude.
- * @param {number} lon - Normalized decimal longitude.
- * @param {AbortSignal} [signal] - Optional caller AbortSignal for cancellation.
- * @returns {Promise<{
- *   temperatureC: number,
- *   humidityPercent: number,
- *   precipitationMmDay: number,
- *   solarIrradianceKwh: number,
- *   solarRadiationWm2: number,
- *   geometryElevationMeters: number | null,
- *   observedAt: string
- * }>}
- */
+// Fetches climatology parameters from NASA POWER API.
 const fetchNasaPowerClimatology = async (lat, lon, signal) => {
     const nasaPowerUrl = `${NASA_POWER_CLIMATOLOGY_URL}?parameters=${NASA_POWER_PARAMETERS}&community=RE&longitude=${lon}&latitude=${lat}&format=JSON`;
     const timeoutGuard = createTimeoutController(NASA_POWER_TIMEOUT_MS, signal);
@@ -708,23 +591,7 @@ const fetchNasaPowerClimatology = async (lat, lon, signal) => {
     }
 };
 
-/**
- * Graceful fallback meteorological fetch using Open-Meteo Forecast API whenever
- * NASA POWER Climatology times out or returns an error.
- *
- * @param {number} lat - Normalized decimal latitude.
- * @param {number} lon - Normalized decimal longitude.
- * @param {AbortSignal} [signal] - Optional AbortSignal for request cancellation.
- * @returns {Promise<{
- *   elevationMeters: number,
- *   temperatureC: number,
- *   humidityPercent: number,
- *   precipitationMmDay: number,
- *   solarIrradianceKwh: number,
- *   solarRadiationWm2: number,
- *   observedAt: string
- * }>}
- */
+// Fallback meteorological fetch from Open-Meteo Forecast API.
 const fetchOpenMeteoForecastFallback = async (lat, lon, signal) => {
     // Note: We omit `&elevation=nan` because Open-Meteo returns NASADEM/SRTM elevation by default
     const forecastUrl = `${OPEN_METEO_FORECAST_URL}?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,shortwave_radiation`;
@@ -756,25 +623,7 @@ const fetchOpenMeteoForecastFallback = async (lat, lon, signal) => {
     };
 };
 
-/**
- * Coordinates concurrent telemetry acquisition from NASA POWER Climatology/Point
- * API and Open-Meteo NASADEM/SRTM Elevation API, falling back gracefully to
- * Open-Meteo Forecast if NASA POWER times out or fails.
- *
- * @param {number} lat - Normalized decimal latitude.
- * @param {number} lon - Normalized decimal longitude.
- * @param {AbortSignal} [signal] - Optional AbortSignal for request cancellation.
- * @returns {Promise<{
- *   elevationMeters: number,
- *   temperatureC: number,
- *   humidityPercent: number,
- *   precipitationMmDay: number,
- *   solarIrradianceKwh: number,
- *   solarRadiationWm2: number,
- *   observedAt: string,
- *   usedFallback: boolean
- * }>}
- */
+// Coordinates parallel telemetry fetch with fallback handling.
 const fetchSatellitePointTelemetry = async (lat, lon, signal) => {
     // Run NASA POWER climatology and Open-Meteo NASADEM/SRTM elevation queries in parallel
     const [nasaPowerSettled, elevationSettled] = await Promise.allSettled([
@@ -818,16 +667,7 @@ const fetchSatellitePointTelemetry = async (lat, lon, signal) => {
     };
 };
 
-/**
- * Extracts a concise human-readable site name and country/region label from a
- * Nominatim search or reverse-geocoding record.
- *
- * @param {Object | null} nominatimRecord - Raw Nominatim place object.
- * @param {number} lat - Latitude for fallback sector naming.
- * @param {number} lon - Longitude for fallback sector naming.
- * @param {string} [customName] - Optional scientist-provided override label.
- * @returns {{ name: string, country: string }}
- */
+// Extracts site and country labels from Nominatim response.
 const extractPlaceLabels = (nominatimRecord, lat, lon, customName) => {
     const address = nominatimRecord?.address || {};
 
@@ -868,25 +708,7 @@ const extractPlaceLabels = (nominatimRecord, lat, lon, customName) => {
     };
 };
 
-// ============================================================================
-// 4. Planetary Analog Profile Synthesis Engine
-// ============================================================================
-
-/**
- * Evaluates NASA POWER & NASADEM/SRTM telemetry parameters (temperature,
- * relative humidity, precipitation, latitude, elevation, and solar irradiance)
- * to classify Moon/Mars analog suitability, testing category, climate
- * descriptor, mineralogy, and terrain tags.
- *
- * @param {Object} params - Environmental measurements for the Earth coordinate.
- * @param {number} params.latitude - Decimal latitude.
- * @param {number} params.elevationMeters - NASADEM/SRTM elevation above sea level (m).
- * @param {number} params.temperatureC - NASA POWER `T2M` surface temperature (°C).
- * @param {number} params.humidityPercent - NASA POWER `RH2M` relative humidity (%).
- * @param {number} params.precipitationMmDay - NASA POWER `PRECTOTCORR` precipitation (mm/day).
- * @param {number} params.solarIrradianceKwh - NASA POWER `ALLSKY_SFC_SW_DWN` irradiance (kWh/m²/day).
- * @returns {Object} Derived planetary analog classification metadata.
- */
+// Classifies telemetry into analog target, category, climate, and terrain tags.
 const classifyTelemetryAnalog = ({
     latitude,
     elevationMeters,
@@ -1016,23 +838,7 @@ const classifyTelemetryAnalog = ({
     };
 };
 
-/**
- * Synthesizes a complete TerraMatch location object combining Nominatim or
- * Global Exploration Grid metadata, satellite climatology/meteorology,
- * NASADEM/SRTM elevation, and planetary analog tags.
- *
- * @param {Object} args - Input telemetry and place metadata.
- * @param {number} args.latitude - Normalized decimal latitude.
- * @param {number} args.longitude - Normalized decimal longitude.
- * @param {string} args.name - Resolved place or feature name.
- * @param {string} args.country - Resolved country or region label.
- * @param {Object} args.telemetry - Combined telemetry payload.
- * @param {string} [args.geologyHint] - Regional mineralogy hint for Whole-Earth Grid sites.
- * @param {boolean} [args.isGlobalDiscovery] - Flags non-NASA Whole-Earth Scan discoveries.
- * @param {string} [args.dataSource] - Dataset provenance label.
- * @param {string} [args.roversTested] - Campaign or scan provenance note.
- * @returns {Object} Full TerraMatch analog profile object ready for Map, Save, and Compare.
- */
+// Synthesizes analog profile object from telemetry and geocoding metadata.
 const buildAnalogProfileFromTelemetry = ({
     latitude,
     longitude,
@@ -1117,27 +923,14 @@ const buildAnalogProfileFromTelemetry = ({
     };
 };
 
-// ============================================================================
-// 5. Exported Discovery Functions
-// ============================================================================
-
-/**
- * Searches OpenStreetMap Nominatim for up to 5 real-world Earth locations
- * matching `query`, enriches every candidate concurrently with NASA POWER
- * climatology (`T2M`, `RH2M`, `PRECTOTCORR`, `ALLSKY_SFC_SW_DWN`) and
- * Open-Meteo NASADEM/SRTM elevation, and returns synthesized analog profiles.
- *
- * @param {string} query - Free-text geographic place or landform query.
- * @param {AbortSignal} [signal] - Optional AbortSignal for canceling stale requests.
- * @returns {Promise<Array<Object>>} Array of synthesized Earth telemetry analog sites.
- */
+// Searches OpenStreetMap Nominatim and enriches candidates with satellite telemetry.
 export const searchGlobalEarthLocation = async (query, signal) => {
     const trimmedQuery = (query || "").trim();
     if (!trimmedQuery) {
         return [];
     }
 
-    // Step 1: Forward-geocode up to 5 global Earth matches via OpenStreetMap Nominatim
+    // Forward-geocode up to 5 matches via Nominatim
     const nominatimUrl = `${NOMINATIM_BASE_URL}/search?format=json&q=${encodeURIComponent(
         trimmedQuery
     )}&limit=5&addressdetails=1`;
@@ -1158,7 +951,7 @@ export const searchGlobalEarthLocation = async (query, signal) => {
         return [];
     }
 
-    // Step 2: Hydrate all returned places concurrently with NASA POWER + NASADEM/SRTM telemetry
+    // Hydrate matches concurrently with satellite telemetry
     const enrichedResults = await Promise.all(
         places.map(async (place) => {
             const latitude = normalizeLatitude(Number(place.lat));
@@ -1187,7 +980,7 @@ export const searchGlobalEarthLocation = async (query, signal) => {
                 if (error?.name === "AbortError") {
                     throw error;
                 }
-                // Graceful per-item fallback if both NASA POWER and Open-Meteo fail for one point
+                // Graceful fallback if point query fails
                 return buildAnalogProfileFromTelemetry({
                     latitude,
                     longitude,
@@ -1211,19 +1004,7 @@ export const searchGlobalEarthLocation = async (query, signal) => {
     return enrichedResults.filter(Boolean);
 };
 
-/**
- * Probes any arbitrary Earth coordinate `(lat, lon)` by reverse-geocoding its
- * region/feature name via OpenStreetMap Nominatim while concurrently fetching
- * NASA POWER climatology (`T2M`, `RH2M`, `PRECTOTCORR`, `ALLSKY_SFC_SW_DWN`)
- * and Open-Meteo NASADEM/SRTM elevation, then synthesizes a complete
- * TerraMatch analog site profile tagged with `dataSource: "NASA POWER + NASADEM/SRTM"`.
- *
- * @param {number} lat - Target latitude in decimal degrees.
- * @param {number} lon - Target longitude in decimal degrees.
- * @param {string} [customName] - Optional scientist-provided override name.
- * @param {AbortSignal} [signal] - Optional AbortSignal for cancellation.
- * @returns {Promise<Object>} Synthesized TerraMatch analog profile object.
- */
+// Probes arbitrary Earth coordinate and synthesizes analog profile.
 export const analyzeCoordinateTelemetry = async (
     lat,
     lon,
@@ -1239,7 +1020,7 @@ export const analyzeCoordinateTelemetry = async (
 
     const reverseUrl = `${NOMINATIM_BASE_URL}/reverse?format=json&lat=${latitude}&lon=${longitude}`;
 
-    // Execute Nominatim reverse geocode and NASA POWER + NASADEM/SRTM telemetry concurrently
+    // Execute reverse geocoding and satellite telemetry concurrently
     const [reverseSettled, telemetry] = await Promise.all([
         fetch(reverseUrl, {
             headers: { Accept: "application/json" },
@@ -1269,18 +1050,7 @@ export const analyzeCoordinateTelemetry = async (
     });
 };
 
-// ============================================================================
-// 6. Batch Whole-Earth Discovery Scanner (`scanWholeEarthAnalogs`)
-// ============================================================================
-
-/**
- * Evaluates a synthesized Whole-Earth Grid analog profile against the scientist's
- * active environmental & mission filter criteria.
- *
- * @param {Object} profile - Synthesized TerraMatch analog profile from `GLOBAL_EXPLORATION_GRID`.
- * @param {Object} criteria - Active search filters from `Tweaks.jsx`.
- * @returns {boolean} `true` if the non-NASA Earth candidate satisfies all criteria.
- */
+// Evaluates candidate analog profile against active filter criteria.
 const matchesWholeEarthCriteria = (profile, criteria = {}) => {
     const {
         searchQuery = "",
@@ -1293,7 +1063,7 @@ const matchesWholeEarthCriteria = (profile, criteria = {}) => {
         minElevation = 0,
     } = criteria;
 
-    // 1. Optional text filter across site name, country, category, or mineralogy
+    // Filter by text search query
     const trimmedQuery = (searchQuery || "").trim().toLowerCase();
     if (trimmedQuery) {
         const textCorpus = [
@@ -1310,7 +1080,7 @@ const matchesWholeEarthCriteria = (profile, criteria = {}) => {
         }
     }
 
-    // 2. Target Planetary Body ("moon" or "mars")
+    // Filter by target planetary body
     if (targetBody && targetBody !== "Any") {
         const matchesBody = profile.analogType?.some(
             (type) => type.toLowerCase() === targetBody.toLowerCase()
@@ -1320,7 +1090,7 @@ const matchesWholeEarthCriteria = (profile, criteria = {}) => {
         }
     }
 
-    // 3. Terrain & Geology filter pill
+    // Filter by terrain and geology
     if (terrain && terrain !== "Any") {
         const keywords = SCAN_TERRAIN_KEYWORDS[terrain] || [terrain.toLowerCase()];
         const geologyCorpus = [
@@ -1337,7 +1107,7 @@ const matchesWholeEarthCriteria = (profile, criteria = {}) => {
         }
     }
 
-    // 4. Aridity & Moisture Regime filter pill (supports "Hyper-Arid", "Very dry", etc.)
+    // Filter by aridity and moisture regime
     if (humidity && humidity !== "Any") {
         const keywords = SCAN_HUMIDITY_KEYWORDS[humidity] || [humidity.toLowerCase()];
         const moistureCorpus = [
@@ -1350,7 +1120,6 @@ const matchesWholeEarthCriteria = (profile, criteria = {}) => {
             .toLowerCase();
 
         const matchesKeyword = keywords.some((kw) => moistureCorpus.includes(kw));
-        // Also evaluate numeric RH% directly when scanning dry/hyper-arid thresholds
         const rh = profile.telemetry?.humidityPercent ?? 50;
         const matchesDryNumeric =
             (humidity === "Hyper-Arid" || humidity === "Very dry") && rh < 45;
@@ -1361,7 +1130,7 @@ const matchesWholeEarthCriteria = (profile, criteria = {}) => {
         }
     }
 
-    // 5. Surface Temperature Tier & Numeric Bounds (-60°C to 50°C)
+    // Filter by temperature tier and bounds
     const tempVal =
         typeof profile.telemetry?.temperatureC === "number"
             ? profile.telemetry.temperatureC
@@ -1392,7 +1161,7 @@ const matchesWholeEarthCriteria = (profile, criteria = {}) => {
         return false;
     }
 
-    // 6. Minimum Elevation cutoff (m)
+    // Filter by minimum elevation cutoff
     const elevationMeters = profile.environment?.elevationMeters ?? 0;
     if (minElevation > 0 && elevationMeters < minElevation) {
         return false;
@@ -1401,41 +1170,12 @@ const matchesWholeEarthCriteria = (profile, criteria = {}) => {
     return true;
 };
 
-/**
- * Number of coordinate points queried per batch HTTP request to Open-Meteo.
- *
- * WHY CHUNK INTO BATCHES OF 15?
- * 1. URL Length Limits: Building a single URL with 45+ coordinates (each containing
- *    floating-point latitudes and longitudes) creates an excessively long query string
- *    that can exceed browser or proxy URL character limits and trigger HTTP 414 / HTTP 400.
- * 2. API Stability: Open-Meteo processes multi-location queries efficiently in smaller
- *    parallel batches. Querying in chunks of 15 ensures each batch stays well within
- *    recommended bounds without overloading a single request.
- * 3. Concurrency: Fetching the chunks in parallel via Promise.all(...) keeps total latency
- *    minimal (~equal to a single request) while eliminating payload dropouts or HTTP 400 errors.
- */
+// Batch chunk size for parallel multi-coordinate requests.
 const WHOLE_EARTH_BATCH_CHUNK_SIZE = 15;
 
-/**
- * Scans the entire 45-point `GLOBAL_EXPLORATION_GRID` in parallel batches of 15
- * coordinates via Open-Meteo API requests (`latitude=...&longitude=...`), synthesizes
- * full TerraMatch analog profiles with real NASADEM/SRTM elevation, temperature,
- * relative humidity, precipitation, and solar radiation, and filters them against
- * the scientist's environmental criteria.
- *
- * @param {Object} [criteria={}] - Mission and environmental search criteria.
- * @param {AbortSignal} [signal] - Optional AbortSignal for request cancellation.
- * @returns {Promise<Array<Object>>} Matching non-NASA Earth discovery profiles.
- */
+// Scans global exploration grid in parallel batches and filters results.
 export const scanWholeEarthAnalogs = async (criteria = {}, signal) => {
-    // ------------------------------------------------------------------------
-    // 1. Chunk Global Grid into Batches of 15 Coordinates
-    // ------------------------------------------------------------------------
-    // WHY WE CHUNK:
-    // Querying all 45+ exploration sites in a single query string results in a very
-    // long URL that is prone to HTTP 400 Bad Request or server timeouts.
-    // Slicing the grid into smaller chunks of 15 allows us to dispatch manageable,
-    // lightweight requests concurrently.
+    // Chunk grid into batches of 15 coordinates
     const gridChunks = [];
     for (
         let i = 0;
@@ -1447,12 +1187,9 @@ export const scanWholeEarthAnalogs = async (criteria = {}, signal) => {
         );
     }
 
-    // ------------------------------------------------------------------------
-    // 2. Fetch All Chunks Concurrently via Promise.all
-    // ------------------------------------------------------------------------
+    // Fetch chunks concurrently
     const chunkResponses = await Promise.all(
         gridChunks.map(async (chunk, chunkIndex) => {
-            // Build comma-separated latitude & longitude vectors for this chunk
             const lats = chunk
                 .map((pt) => normalizeLatitude(pt.lat))
                 .join(",");
@@ -1460,16 +1197,6 @@ export const scanWholeEarthAnalogs = async (criteria = {}, signal) => {
                 .map((pt) => normalizeLongitude(pt.lon))
                 .join(",");
 
-            // WHY &elevation=nan WAS REMOVED:
-            // In Open-Meteo, the `elevation` query parameter is an optional manual
-            // altitude override. By default, Open-Meteo automatically uses high-resolution
-            // 90m NASADEM / SRTM data and returns the correct `elevation` (in meters)
-            // for EVERY coordinate in the output JSON.
-            // When querying multiple coordinates, passing `&elevation=nan` as a single scalar
-            // value triggers an HTTP 400 Bad Request from Open-Meteo because the server
-            // cannot match a single NaN to an array of coordinate pairs.
-            // Omitting `elevation` completely allows Open-Meteo to provide authentic,
-            // automated DEM elevations without errors.
             const batchUrl = `${OPEN_METEO_FORECAST_URL}?latitude=${lats}&longitude=${lons}&current=temperature_2m,relative_humidity_2m,precipitation,shortwave_radiation`;
 
             const response = await fetch(batchUrl, {
@@ -1484,22 +1211,14 @@ export const scanWholeEarthAnalogs = async (criteria = {}, signal) => {
             }
 
             const rawPayload = await response.json();
-            // Open-Meteo returns an array of response objects for multi-coordinate queries,
-            // or a single object if only one coordinate was queried.
             return Array.isArray(rawPayload) ? rawPayload : [rawPayload];
         })
     );
 
-    // ------------------------------------------------------------------------
-    // 3. Flatten Parallel Results
-    // ------------------------------------------------------------------------
-    // Promise.all guarantees result ordering matching `gridChunks`, so flattening
-    // yields a clean array strictly aligned 1:1 with `GLOBAL_EXPLORATION_GRID`.
+    // Flatten parallel responses
     const entries = chunkResponses.flat();
 
-    // ------------------------------------------------------------------------
-    // 4. Synthesize Analog Profiles from Live Satellite Telemetry
-    // ------------------------------------------------------------------------
+    // Synthesize analog profiles from telemetry
     const synthesizedSites = GLOBAL_EXPLORATION_GRID.map((gridPoint, index) => {
         const entry = entries[index] || {};
         const current = entry?.current || {};
@@ -1538,9 +1257,7 @@ export const scanWholeEarthAnalogs = async (criteria = {}, signal) => {
         });
     });
 
-    // ------------------------------------------------------------------------
-    // 5. Filter Candidates Against Scientist Criteria
-    // ------------------------------------------------------------------------
+    // Filter candidates against criteria
     return synthesizedSites.filter((site) =>
         matchesWholeEarthCriteria(site, criteria)
     );

@@ -1,15 +1,8 @@
 import { UserCheck } from "lucide-react";
 
-/**
- * ============================================================================
- * Team Members Data Structure
- * ============================================================================
- * Official roster of the 6 core contributors leading TerraMatch engineering,
- * planetary research, backend systems, UX architecture, and narrative design.
- */
+// Core contributors leading TerraMatch research and engineering
 const TEAM_MEMBERS = [
     {
-        // 1. Team Lead & Frontend Developer
         id: "iqbal-hasan",
         name: "Md. Iqbal Hasan",
         role: "Team Lead & Frontend Developer",
@@ -17,7 +10,6 @@ const TEAM_MEMBERS = [
         specialty: "Platform Architecture & Interactive Map Systems",
     },
     {
-        // 2. Backend Developer
         id: "tajbin-ovie",
         name: "Md Tajbin Ahmed Ovie",
         role: "Backend Developer",
@@ -25,7 +17,6 @@ const TEAM_MEMBERS = [
         specialty: "API Engineering & MongoDB Atlas Integration",
     },
     {
-        // 3. UI/UX Developer
         id: "abdullah-mahmood",
         name: "Mohd Abdullah Al Mahmood",
         role: "UI/UX Developer",
@@ -33,7 +24,6 @@ const TEAM_MEMBERS = [
         specialty: "Deep-Space Interface Design & User Experience",
     },
     {
-        // 4. Research Lead
         id: "jihan-joty",
         name: "Mst. Jihan Jimi Joty",
         role: "Research Lead",
@@ -41,7 +31,6 @@ const TEAM_MEMBERS = [
         specialty: "Planetary Analog Data & Scientific Evaluation",
     },
     {
-        // 5. Story Teller
         id: "nusrat-sumiya",
         name: "Nusrat Jahan Sumiya",
         role: "Story Teller",
@@ -49,7 +38,6 @@ const TEAM_MEMBERS = [
         specialty: "Mission Narrative & Scientific Communication",
     },
     {
-        // 6. Scope Keeper
         id: "asmaul-islam",
         name: "Md. Asmaul Islam",
         role: "Scope Keeper",
@@ -58,25 +46,12 @@ const TEAM_MEMBERS = [
     },
 ];
 
-/**
- * ============================================================================
- * AboutPage Component
- * ============================================================================
- * Presents background on the TerraMatch Planetary Analog Platform,
- * core mission objectives, and the research team responsible for development.
- * Styled in the custom deep-space aesthetic:
- * - Background: `#07090E` with starlight text `#F1EEE9`
- * - Card Surfaces: `#0B0E13` (Card) with border `#21242C`
- * - Team Avatars: `#1A1D23` with `#21242C` border and `#83CAD8` initials
- * - Muted Descriptions: `#8891A0`
- */
+// About page presenting platform mission and contributor roster
 const AboutPage = () => {
     return (
         <div className="w-full h-full overflow-y-auto bg-[#07090E] text-[#F1EEE9] select-none px-4 sm:px-6 lg:px-12 py-10 pb-24">
             <div className="max-w-6xl mx-auto space-y-8">
-                {/* ========================================================== */}
-                {/* 1. Header Section: Title & Subtitle                        */}
-                {/* ========================================================== */}
+                {/* Header title and subtitle */}
                 <div className="space-y-1.5 border-b border-[#21242C] pb-5">
                     <h1 className="text-3xl font-bold text-[#F1EEE9] tracking-tight">
                         About TerraMatch
@@ -86,9 +61,7 @@ const AboutPage = () => {
                     </p>
                 </div>
 
-                {/* ========================================================== */}
-                {/* 2. Project Overview Section                                */}
-                {/* ========================================================== */}
+                {/* Project overview section */}
                 <section
                     aria-labelledby="project-overview-title"
                     className="bg-[#0B0E13] border border-[#21242C] rounded-2xl p-6 sm:p-8 space-y-4 shadow-xl"
@@ -124,9 +97,7 @@ const AboutPage = () => {
                     </div>
                 </section>
 
-                {/* ========================================================== */}
-                {/* 3. Our Team Section                                        */}
-                {/* ========================================================== */}
+                {/* Contributor team section */}
                 <section aria-labelledby="our-team-title" className="space-y-4 pt-2">
                     <div className="flex items-center justify-between">
                         <h2
@@ -140,19 +111,17 @@ const AboutPage = () => {
                         </span>
                     </div>
 
-                    {/* 3-Column Team Members Grid */}
+                    {/* Team grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4.5">
                         {TEAM_MEMBERS.map((member) => (
                             <div
                                 key={member.id}
                                 className="bg-[#0B0E13] border border-[#21242C] rounded-xl p-4 flex items-center gap-4 hover:border-[#83CAD8]/50 transition-all duration-150 shadow-md group"
                             >
-                                {/* Circular Avatar with Initials in Cyan #83CAD8 */}
                                 <div className="w-14 h-14 rounded-full bg-[#1A1D23] border border-[#21242C] flex items-center justify-center text-[#83CAD8] font-semibold text-sm shrink-0 group-hover:border-[#83CAD8] transition">
                                     {member.initials}
                                 </div>
 
-                                {/* Member Information Block */}
                                 <div className="min-w-0 flex-1">
                                     <h3 className="text-sm font-semibold text-[#F1EEE9] truncate leading-tight group-hover:text-white transition">
                                         {member.name}
@@ -169,9 +138,7 @@ const AboutPage = () => {
                     </div>
                 </section>
 
-                {/* ========================================================== */}
-                {/* 4. Institutional Collaboration Footnote                    */}
-                {/* ========================================================== */}
+                {/* Footnote */}
                 <div className="border-t border-[#21242C] pt-6 text-center text-xs text-[#8891A0] space-y-1">
                     <p className="flex items-center justify-center gap-1.5 text-[#8891A0]">
                         <UserCheck size={14} className="text-[#83CAD8]" />

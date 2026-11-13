@@ -12,12 +12,7 @@ import {
     getTargetBodyInfo,
 } from "../utils/analogSpec";
 
-/**
- * ============================================================================
- * Relative Timestamp Formatter Helper
- * ============================================================================
- * Formats ISO date strings into human-readable relative time descriptions.
- */
+// Formats ISO date strings into relative time labels.
 const formatRelativeTime = (dateVal) => {
     if (!dateVal) return "Saved recently";
     const then = new Date(dateVal).getTime();
@@ -30,45 +25,21 @@ const formatRelativeTime = (dateVal) => {
     return `Saved ${diffDays} days ago`;
 };
 
-/**
- * ============================================================================
- * SavedPage Component
- * ============================================================================
- * Bookmarked planetary analog sites directory connected 100% to MongoDB:
- * - Starts with a clean slate (0 saved locations for fresh users)
- * - Renders ONLY real user saved locations fetched via GET /savedLocs/:email
- * - Selected for compare starts as an empty array []
- * - Clean empty state with direct link to "/search" when no bookmarks exist
- * - Target body filter pills ("all", "moon", "mars") and sorting criteria
- * - 5-Second optimistic removal with Dark Undo snackbar banner
- * - Floating side-by-side comparison action bar when >= 2 sites are selected
- */
+// Bookmarked planetary analog sites directory.
 const SavedPage = () => {
-    // ------------------------------------------------------------------------
-    // 1. Data Hooks & Backend Integration
-    // ------------------------------------------------------------------------
-    // Real saved locations array, state updater, and loading status from MongoDB
+    // Saved locations collection and loading state
     const { savedLoc, setSavedLoc, loading } = useSaved();
 
-    // ------------------------------------------------------------------------
-    // 2. Filter, Sort & Compare Selection State Variables
-    // ------------------------------------------------------------------------
-    // Planetary body target filter: "all", "moon", or "mars"
+    // Filter, sort, and comparison selection state
     const [targetFilter, setTargetFilter] = useState("all");
-    // Sorting order: "newest", "oldest", "score", or "name"
     const [sortOrder, setSortOrder] = useState("newest");
-    // Comparison selection list initialized to empty array (no hardcoded demo IDs)
     const [selectedForCompare, setSelectedForCompare] = useState([]);
 
-    // ------------------------------------------------------------------------
-    // 3. Optimistic Deletion & 5-Second Undo State Management
-    // ------------------------------------------------------------------------
-    // Tracks currently deleted item staged for permanent MongoDB deletion
+    // Optimistic deletion and undo state
     const [pendingDeletion, setPendingDeletion] = useState(null);
-    // Timeout ref for scheduling backend deletion commit
     const deletionTimerRef = useRef(null);
 
-    // Clean up active deletion timer when component unmounts
+    // Clean up active deletion timer on unmount
     useEffect(() => {
         return () => {
             if (deletionTimerRef.current) {
@@ -77,15 +48,12 @@ const SavedPage = () => {
         };
     }, []);
 
-    // ------------------------------------------------------------------------
-    // 4. Data Pool & Filtering/Sorting Calculation
-    // ------------------------------------------------------------------------
-    // Data pool derived strictly from real user saved locations in MongoDB
+    // Data pool derived from saved locations
     const activeLocationsPool = useMemo(() => {
         return savedLoc || [];
     }, [savedLoc]);
 
-    // Computed filtered and sorted locations list based on user controls
+    // Computed filtered and sorted locations list
     const displayedItems = useMemo(() => {
         const filtered = activeLocationsPool.filter((item) => {
             if (targetFilter === "moon") {
@@ -121,10 +89,7 @@ const SavedPage = () => {
         });
     }, [activeLocationsPool, targetFilter, sortOrder]);
 
-    // ------------------------------------------------------------------------
-    // 5. Comparison Checkbox Handlers
-    // ------------------------------------------------------------------------
-    // Toggles selection of a location for side-by-side comparison
+    // Toggles location selection for side-by-side comparison
     const toggleCompare = (locId) => {
         setSelectedForCompare((prev) =>
             prev.includes(locId)
@@ -138,10 +103,7 @@ const SavedPage = () => {
         setSelectedForCompare([]);
     };
 
-    // ------------------------------------------------------------------------
-    // 6. Optimistic Deletion & Backend Commit Routines
-    // ------------------------------------------------------------------------
-    // Permanently removes a saved location document from MongoDB
+    // Permanently removes saved location document from backend
     const commitBackendDelete = (itemToDelete) => {
         const idToDelete = itemToDelete?._id || itemToDelete?.id || itemToDelete?.locationId;
         if (idToDelete) {
@@ -156,7 +118,7 @@ const SavedPage = () => {
 
     // Staged deletion handler triggered when user clicks trash button
     const handleDelete = (theId) => {
-        // If an item deletion is already in progress, finalize it immediately
+        // Finalize existing pending deletion before scheduling a new one
         if (pendingDeletion) {
             if (deletionTimerRef.current) clearTimeout(deletionTimerRef.current);
             commitBackendDelete(pendingDeletion.item);
@@ -217,15 +179,10 @@ const SavedPage = () => {
     // Render loading animation while initial MongoDB request is in-flight
     if (loading) return <Loader />;
 
-    // ------------------------------------------------------------------------
-    // 7. Render
-    // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full overflow-y-auto bg-[#07090E] text-[#F1EEE9] select-none px-4 sm:px-6 lg:px-12 py-8 pb-32">
             <div className="max-w-7xl mx-auto space-y-6">
-                {/* ========================================================== */}
-                {/* 1. Header Section: Title & Subtitle                        */}
-                {/* ========================================================== */}
+                {/* Header title and subtitle */}
                 <div className="space-y-1">
                     <h1 className="text-xl sm:text-2xl font-bold text-[#F1EEE9] tracking-tight">
                         Saved Locations
@@ -235,9 +192,7 @@ const SavedPage = () => {
                     </p>
                 </div>
 
-                {/* ========================================================== */}
-                {/* 2. Controls Toolbar: Target Filter Pills & Sort Dropdown   */}
-                {/* ========================================================== */}
+                {/* Controls toolbar: filter pills and sort dropdown */}
                 {activeLocationsPool.length > 0 && (
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
                         {/* Left: Planetary Body Filter Pills (All Targets, Moon, Mars) */}
@@ -313,11 +268,8 @@ const SavedPage = () => {
                     </div>
                 )}
 
-                {/* ========================================================== */}
-                {/* 3. Location Cards Grid / Clean Empty States                */}
-                {/* ========================================================== */}
+                {/* Location cards grid and empty states */}
                 {activeLocationsPool.length === 0 ? (
-                    /* Clean Slate Empty State when user has 0 saved locations */
                     <div className="text-center py-20 px-4 rounded-xl border border-dashed border-[#21242C] text-[#8891A0] text-xs my-8 max-w-md mx-auto space-y-4">
                         <Bookmark size={36} className="mx-auto opacity-40 text-[#83CAD8]" />
                         <div className="space-y-1.5">
@@ -456,9 +408,7 @@ const SavedPage = () => {
                 )}
             </div>
 
-            {/* ========================================================== */}
-            {/* 4. Bottom-Left Dark Undo Snackbar Banner (bg-[#090B10])    */}
-            {/* ========================================================== */}
+            {/* Undo deletion banner */}
             {pendingDeletion && (
                 <div className="fixed bottom-6 left-6 z-50 bg-[#090B10]/95 backdrop-blur-md border border-[#21242C] text-[#F1EEE9] rounded-xl px-4 py-3 shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-3 duration-150">
                     <span className="text-xs text-[#8891A0]">
@@ -475,9 +425,7 @@ const SavedPage = () => {
                 </div>
             )}
 
-            {/* ========================================================== */}
-            {/* 5. Floating Bottom Comparison Action Bar (bg-[#090B10])    */}
-            {/* ========================================================== */}
+            {/* Floating comparison action bar */}
             {selectedForCompare.length >= 2 && (
                 <aside
                     aria-label="Side-by-side comparison bar"

@@ -5,18 +5,9 @@
   themes: dark --default, night, black;
 }
 
-/**
- * ============================================================================
- * TerraMatch Deep-Space Color System Tokens & Theme Mapping
- * ============================================================================
- * Defines the comprehensive design tokens for the TerraMatch planetary analog
- * exploration platform across core surfaces, navigation, typography,
- * telemetry indicators, and scientific multi-body chart layers.
- */
+/* Deep-space color system tokens. */
 :root {
-  /* ------------------------------------------------------------------------
-   * 1. Core Surfaces & Containers
-   * ------------------------------------------------------------------------ */
+  /* Core surfaces & containers */
   --background: #07090E;                 /* Deep space void viewport background */
   --foreground: #F1EEE9;                 /* High-legibility starlight text */
   --card: #0B0E13;                       /* Primary card & drawer background */
@@ -24,9 +15,7 @@
   --popover: #090B10;                    /* Floating menus, dropdowns & snackbars */
   --popover-foreground: #F1EEE9;         /* Popover typography */
 
-  /* ------------------------------------------------------------------------
-   * 2. Brand & Semantic Tints
-   * ------------------------------------------------------------------------ */
+  /* Brand & semantic tints */
   --primary: #83CAD8;                    /* Cyan telemetry / primary accent */
   --primary-foreground: #090D15;         /* Crisp dark slate text on primary */
   --secondary: #1A1D23;                  /* Secondary surface / active pills */
@@ -38,25 +27,19 @@
   --destructive: #D04D39;                /* Crimson warning / removal actions */
   --destructive-foreground: #FFFFFF;     /* White text on destructive buttons */
 
-  /* ------------------------------------------------------------------------
-   * 3. Borders & Input Controls
-   * ------------------------------------------------------------------------ */
+  /* Borders & input controls */
   --border: #21242C;                     /* Subtle dark panel borders */
   --input: #272C34;                      /* Text inputs & form control borders */
   --ring: #83CAD8;                       /* Focus ring indicator */
 
-  /* ------------------------------------------------------------------------
-   * 4. Multi-Axis Scientific Chart Metrics
-   * ------------------------------------------------------------------------ */
+  /* Multi-axis scientific chart metrics */
   --chart-1: #83CAD8;                    /* Chart 1: Cyan / Location A primary layer */
   --chart-2: #D67051;                    /* Chart 2: Terracotta / Mars & Location B */
   --chart-3: #CEB882;                    /* Chart 3: Warm sand / Lunar gold metric */
   --chart-4: #6C859D;                    /* Chart 4: Steel blue topographic metric */
   --chart-5: #C57791;                    /* Chart 5: Rose mineral spectroscopy */
 
-  /* ------------------------------------------------------------------------
-   * 5. Drawer & Sidebar Specific Tokens
-   * ------------------------------------------------------------------------ */
+  /* Drawer & sidebar tokens */
   --sidebar: #0B0E13;                    /* Sidebar background */
   --sidebar-foreground: #F1EEE9;         /* Sidebar text */
   --sidebar-primary: #83CAD8;            /* Active sidebar indicators */
@@ -67,13 +50,7 @@
   --sidebar-ring: #83CAD8;               /* Sidebar focus ring */
 }
 
-/**
- * ============================================================================
- * Tailwind CSS v4 Theme Registration
- * ============================================================================
- * Registers the CSS variables above with the Tailwind CSS v4 engine so utility
- * classes like `bg-card`, `text-primary`, and `border-border` map seamlessly.
- */
+/* Tailwind CSS v4 theme registration. */
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -109,11 +86,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/**
- * ============================================================================
- * Global Document Base Styles
- * ============================================================================
- */
+/* Global document base styles. */
 body {
   font-family: "Inter", sans-serif;
   font-optical-sizing: auto;
@@ -122,11 +95,7 @@ body {
   color: #F1EEE9;
 }
 
-/**
- * ============================================================================
- * Leaflet Satellite Map Deep-Space Theming
- * ============================================================================
- */
+/* Leaflet map dark styling. */
 .leaflet-container {
   background-color: #07090E !important;
 }
@@ -166,7 +135,7 @@ body {
   text-decoration: underline;
 }
 
-/* Custom Leaflet Dark Popup */
+/* Leaflet dark popup wrapper. */
 .leaflet-popup-content-wrapper {
   background: #090B10 !important;
   color: #F1EEE9 !important;
@@ -180,7 +149,7 @@ body {
   border: 1px solid #21242C !important;
 }
 
-/* Custom Leaflet Dark Popup Close Button Alignment & Crisp Red Icon */
+/* Leaflet popup close button. */
 .leaflet-container a.leaflet-popup-close-button {
   top: 14px !important;
   right: 14px !important;
@@ -206,11 +175,7 @@ body {
   border-color: #EF4444 !important;
 }
 
-/**
- * ============================================================================
- * Custom Deep-Space Scrollbar
- * ============================================================================
- */
+/* Custom dark scrollbar. */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -246,11 +211,7 @@ body {
   background: #272C34;
 }
 
-/* ============================================================================
- * Netlify Deploy-Preview & Identity Overlay Suppression
- * Ensures injected Netlify badge drawers, iframes, and floating identity
- * widgets do not obscure map controls, attribution, or interactive panels.
- * ============================================================================ */
+/* Suppress Netlify deploy preview overlays. */
 div[data-netlify-deploy-drawer],
 [data-netlify-deploy-drawer],
 iframe[src*="netlify"],

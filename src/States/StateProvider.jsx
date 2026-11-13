@@ -11,48 +11,19 @@ import {
     getTargetBodyInfo,
 } from "../utils/analogSpec";
 
-// ============================================================================
-// 1. Constants & Scoped LocalStorage Persistence Helpers (User & Guest)
-// ============================================================================
-
-/**
- * Legacy un-scoped recent-searches key that previously leaked history across
- * user sign-outs on shared devices. Removed immediately on application startup.
- */
+// LocalStorage persistence helpers for user and guest sessions
 const LEGACY_RECENT_STORAGE_KEY = "terramatch_recent_searches";
-
-/**
- * Maximum number of recent analog search records retained per user / guest session.
- */
 const MAX_RECENT_SEARCHES = 25;
 
-/**
- * Builds the user-scoped or guest localStorage key for recent searches.
- * Evaluates to `terramatch_recent_searches_${userEmail || "guest"}`.
- * This guarantees competition judges and unauthenticated guests can immediately
- * test search history and bookmarks in guest mode without logging into Google.
- *
- * @param {string | null | undefined} email - Authenticated user email or null/undefined.
- * @returns {string} Scoped storage key.
- */
+// Builds scoped storage key for recent searches.
 const getRecentStorageKey = (email) =>
     `terramatch_recent_searches_${email || "guest"}`;
 
-/**
- * Builds the user-scoped or guest localStorage key for saved analog sites.
- * Evaluates to `terramatch_saved_locations_${userEmail || "guest"}`.
- * Allows immediate saving and comparison for both signed-in users and guests.
- *
- * @param {string | null | undefined} email - Authenticated user email or null/undefined.
- * @returns {string} Scoped storage key.
- */
+// Builds scoped storage key for saved locations.
 const getSavedStorageKey = (email) =>
     `terramatch_saved_locations_${email || "guest"}`;
 
-/**
- * Removes legacy un-scoped localStorage entries on startup so any
- * leftover legacy device history is wiped cleanly without affecting guest storage.
- */
+// Removes legacy un-scoped localStorage keys on startup.
 const cleanupLegacyUnscopedStorage = () => {
     if (typeof window === "undefined") return;
     try {
@@ -65,13 +36,7 @@ const cleanupLegacyUnscopedStorage = () => {
 // Execute legacy cleanup immediately on module initialization
 cleanupLegacyUnscopedStorage();
 
-/**
- * Safely reads and parses user-scoped or guest recent search entries from `localStorage`.
- * Uses `terramatch_recent_searches_${email || "guest"}`.
- *
- * @param {string | null | undefined} email - Authenticated user email or null/undefined for guest.
- * @returns {Array<Object>} Parsed recent search records.
- */
+// Reads scoped recent searches from localStorage.
 const readRecentFromStorage = (email) => {
     if (typeof window === "undefined") return [];
     const storageKey = getRecentStorageKey(email);
@@ -88,13 +53,7 @@ const readRecentFromStorage = (email) => {
     }
 };
 
-/**
- * Safely serializes and persists user-scoped or guest recent search entries to `localStorage`.
- * Uses `terramatch_recent_searches_${email || "guest"}`.
- *
- * @param {string | null | undefined} email - Authenticated user email or null/undefined for guest.
- * @param {Array<Object>} items - Recent search entries to store.
- */
+// Writes scoped recent searches to localStorage.
 const writeRecentToStorage = (email, items) => {
     if (typeof window === "undefined") return;
     const storageKey = getRecentStorageKey(email);
@@ -109,13 +68,7 @@ const writeRecentToStorage = (email, items) => {
     }
 };
 
-/**
- * Safely reads and parses user-scoped or guest saved locations from `localStorage`.
- * Uses `terramatch_saved_locations_${email || "guest"}`.
- *
- * @param {string | null | undefined} email - Authenticated user email or null/undefined for guest.
- * @returns {Array<Object>} Parsed saved analog sites.
- */
+// Reads scoped saved locations from localStorage.
 const readSavedFromStorage = (email) => {
     if (typeof window === "undefined") return [];
     const storageKey = getSavedStorageKey(email);
@@ -132,13 +85,7 @@ const readSavedFromStorage = (email) => {
     }
 };
 
-/**
- * Safely serializes and persists user-scoped or guest saved locations to `localStorage`.
- * Uses `terramatch_saved_locations_${email || "guest"}`.
- *
- * @param {string | null | undefined} email - Authenticated user email or null/undefined for guest.
- * @param {Array<Object>} items - Saved location entries to store.
- */
+// Writes scoped saved locations to localStorage.
 const writeSavedToStorage = (email, items) => {
     if (typeof window === "undefined") return;
     const storageKey = getSavedStorageKey(email);
@@ -153,27 +100,11 @@ const writeSavedToStorage = (email, items) => {
     }
 };
 
-// ============================================================================
-// 2. Record Normalization & Deduplication Helpers
-// ============================================================================
-
-/**
- * Resolves a stable canonical identifier for deduplicating location records.
- *
- * @param {Object} loc - Planetary analog location object.
- * @returns {string} Canonical identifier string.
- */
+// Resolves stable identifier for deduplicating location records.
 const resolveLocationKey = (loc) =>
     loc?.locationId || loc?._id || loc?.id || loc?.name || "";
 
-/**
- * Merges server-fetched saved locations with locally cached items without
- * creating duplicates, preserving server records first and offline items second.
- *
- * @param {Array<Object>} serverItems - Records returned by MongoDB API.
- * @param {Array<Object>} localItems - Records cached in user-scoped localStorage.
- * @returns {Array<Object>} Deduplicated merged array.
- */
+// Merges server-fetched and local saved locations without duplicates.
 const mergeSavedLocations = (serverItems, localItems) => {
     const merged = [];
     const seenKeys = new Set();
@@ -194,15 +125,7 @@ const mergeSavedLocations = (serverItems, localItems) => {
     return merged;
 };
 
-/**
- * Normalizes a candidate analog location object into a consistent recent-search
- * or saved-location record with canonical `locationId`, real scientific fields,
- * and timestamps scoped to `ownerKey` (`userEmail` or `"guest"`).
- *
- * @param {Object} loc - Raw catalog or live Earth telemetry location object.
- * @param {string} ownerKey - Authenticated user email or "guest".
- * @returns {Object} Normalized location entry.
- */
+// Normalizes location object with canonical fields and timestamps.
 const normalizeLocationEntry = (loc, ownerKey) => {
     const canonicalLocationId = loc.locationId || loc._id || loc.id || loc.name;
     const nowIso = new Date().toISOString();
@@ -231,52 +154,18 @@ const normalizeLocationEntry = (loc, ownerKey) => {
     };
 };
 
-/**
- * ============================================================================
- * StateProvider Component
- * ============================================================================
- * Centralizes global application UI, search history, and saved location state:
- * - `isSearch` / `setIsSearch`: Controls active mode (Recent Searches vs. Search Filters).
- * - `filteredLoc` / `setFilteredLoc`: Active filtered planetary analog candidates.
- * - `mapTarget` / `setMapTarget`: Active coordinate target triggering smooth Leaflet flyTo + popup.
- * - `recentSearched` / `setRecentSearched` / `recordRecentSearch`:
- *   User-scoped or guest Recent Searches (`terramatch_recent_searches_${userEmail || "guest"}`
- *   + MongoDB sync when authenticated). Allows instant guest testing!
- * - `savedLoc` / `setSavedLoc` / `saveLocation` / `removeSavedLocation` / `refetchSaved`:
- *   User-scoped or guest Saved Locations (`terramatch_saved_locations_${userEmail || "guest"}`
- *   + MongoDB sync when authenticated). Allows immediate saving and comparison for all!
- */
+// Global state provider for navigation, search history, and saved locations.
 const StateProvider = ({ children }) => {
-    // ------------------------------------------------------------------------
-    // 1. Authentication Context Subscription
-    // ------------------------------------------------------------------------
-    /** Current Firebase user object (`null` when signed out). */
+    // Current Firebase authentication context
     const { user } = useAuth();
-
-    /** Authenticated user's email address, or `null` when browsing as a guest. */
     const userEmail = user?.email || null;
 
-    // ------------------------------------------------------------------------
-    // 2. Global Navigation, Filter & Map Camera State Variables
-    // ------------------------------------------------------------------------
-    /** Controls whether the Search & Filter panel ("Tweaks") is displayed in the sidebar. */
+    // Navigation, filter, and map camera state
     const [isSearch, setIsSearch] = useState(false);
-
-    /** Filtered list of candidate analog sites synchronized between Tweaks and Map (`null` on initial dashboard overview). */
     const [filteredLoc, setFilteredLoc] = useState(null);
-
-    /** Target viewport coordinates & marker metadata for animated Leaflet flyTo + popup open. */
     const [mapTarget, setMapTarget] = useState(null);
 
-    // ------------------------------------------------------------------------
-    // 3. User-Scoped & Guest Recent Searches State
-    // ------------------------------------------------------------------------
-    /**
-     * Owner-tagged recent searches container `{ owner, items }`.
-     * Tagging state with `owner` guarantees immediate isolation on sign-out or
-     * account switching without stale cross-user history flashes, while allowing
-     * guest sessions to persist under `"guest"`.
-     */
+    // User-scoped and guest recent searches state
     const [recentState, setRecentState] = useState(() => {
         const initialOwner = userEmail || "guest";
         return {
@@ -285,14 +174,9 @@ const StateProvider = ({ children }) => {
         };
     });
 
-    /** Indicates whether a background MongoDB recent-searches sync request is running. */
     const [recentLoading, setRecentLoading] = useState(false);
 
-    /**
-     * Derived recent searches array:
-     * - Scoped to `terramatch_recent_searches_guest` when browsing as a guest.
-     * - Scoped to `terramatch_recent_searches_${userEmail}` when signed in.
-     */
+    // Derived recent searches array scoped by session
     const recentSearched = useMemo(() => {
         const ownerKey = userEmail || "guest";
         if (recentState.owner === ownerKey) {
@@ -301,10 +185,7 @@ const StateProvider = ({ children }) => {
         return readRecentFromStorage(userEmail);
     }, [recentState, userEmail]);
 
-    /**
-     * React-style state setter for `recentSearched` that persists updates
-     * under the appropriate storage key (`userEmail` or `"guest"`).
-     */
+    // Updates recent searches state and persists to scoped storage
     const setRecentSearched = useCallback(
         (updaterOrArray) => {
             const ownerKey = userEmail || "guest";
@@ -328,14 +209,7 @@ const StateProvider = ({ children }) => {
         [userEmail]
     );
 
-    // ------------------------------------------------------------------------
-    // 4. User-Scoped & Guest Saved Locations State
-    // ------------------------------------------------------------------------
-    /**
-     * Owner-tagged saved locations container `{ owner, items }`.
-     * Scoped to `userEmail` for signed-in accounts or `"guest"` for guests,
-     * ensuring immediate testing for NASA Space Apps Challenge judges.
-     */
+    // User-scoped and guest saved locations state
     const [savedState, setSavedState] = useState(() => {
         const initialOwner = userEmail || "guest";
         return {
@@ -344,17 +218,10 @@ const StateProvider = ({ children }) => {
         };
     });
 
-    /** Indicates whether a MongoDB saved-locations sync request is in progress. */
     const [savedLoading, setSavedLoading] = useState(false);
-
-    /** Holds the most recent saved-locations fetch error if any. */
     const [savedError, setSavedError] = useState(null);
 
-    /**
-     * Derived saved locations array:
-     * - Scoped to `terramatch_saved_locations_guest` when browsing as a guest.
-     * - Scoped to `terramatch_saved_locations_${userEmail}` when signed in.
-     */
+    // Derived saved locations array scoped by session
     const savedLoc = useMemo(() => {
         const ownerKey = userEmail || "guest";
         if (savedState.owner === ownerKey) {
@@ -363,10 +230,7 @@ const StateProvider = ({ children }) => {
         return readSavedFromStorage(userEmail);
     }, [savedState, userEmail]);
 
-    /**
-     * React-style state setter for `savedLoc` that persists updates
-     * under the appropriate storage key (`userEmail` or `"guest"`).
-     */
+    // Updates saved locations state and persists to scoped storage
     const setSavedLoc = useCallback(
         (updaterOrArray) => {
             const ownerKey = userEmail || "guest";
@@ -390,14 +254,7 @@ const StateProvider = ({ children }) => {
         [userEmail]
     );
 
-    // ------------------------------------------------------------------------
-    // 5. Saved Locations MongoDB Merge & Background Sync
-    // ------------------------------------------------------------------------
-    /**
-     * Fetches the authenticated user's saved locations from MongoDB and merges
-     * them with the user's scoped `localStorage` cache. In guest mode, loads
-     * immediately from `localStorage` (`terramatch_saved_locations_guest`).
-     */
+    // Fetches and merges saved locations from backend and local storage
     const refetchSaved = useCallback(async () => {
         const localCached = readSavedFromStorage(userEmail);
         if (!userEmail) {
@@ -472,14 +329,7 @@ const StateProvider = ({ children }) => {
         };
     }, [userEmail]);
 
-    // ------------------------------------------------------------------------
-    // 6. Shared Actions: Save & Remove Saved Locations (All Users & Guests)
-    // ------------------------------------------------------------------------
-    /**
-     * Persists a location to the user's or guest's `savedLoc` state and
-     * scoped `localStorage`, displays a confirmation toast, and quietly syncs
-     * with `POST /savedLocs` if authenticated. Allows immediate saving for guests!
-     */
+    // Persists location to saved collection with backend synchronization
     const saveLocation = useCallback(
         (loc) => {
             if (!loc || !loc.name) return;
@@ -502,7 +352,7 @@ const StateProvider = ({ children }) => {
 
             toast.success("Location saved to your profile!");
 
-            // If authenticated, sync with MongoDB backend quietly in the background
+            // Sync with backend if authenticated
             if (userEmail) {
                 const { _id, ...cleanPayload } = entry;
                 void _id;
@@ -524,10 +374,7 @@ const StateProvider = ({ children }) => {
         [userEmail, setSavedLoc]
     );
 
-    /**
-     * Removes a saved location by ID or name from state and scoped `localStorage`,
-     * and dispatches `DELETE /savedLocs/:id` if authenticated.
-     */
+    // Removes saved location from state and backend
     const removeSavedLocation = useCallback(
         (idToRemove) => {
             if (!idToRemove) return;
@@ -554,14 +401,7 @@ const StateProvider = ({ children }) => {
         [userEmail, setSavedLoc]
     );
 
-    // ------------------------------------------------------------------------
-    // 7. Recent Searches Scoped LocalStorage & MongoDB Sync
-    // ------------------------------------------------------------------------
-    /**
-     * Fetches the authenticated user's persisted recent searches from MongoDB
-     * and mirrors them to `terramatch_recent_searches_${userEmail}`.
-     * In guest mode, loads from `terramatch_recent_searches_guest`.
-     */
+    // Fetches and syncs recent searches from backend and localStorage
     const refetchRecent = useCallback(async () => {
         const localCached = readRecentFromStorage(userEmail);
         if (!userEmail) {
@@ -594,12 +434,11 @@ const StateProvider = ({ children }) => {
         }
     }, [userEmail]);
 
-    // Synchronize recent searches from user-scoped / guest localStorage + MongoDB on auth change
+    // Synchronize recent searches on auth change
     useEffect(() => {
         const localCached = readRecentFromStorage(userEmail);
 
         if (!userEmail) {
-            // Guest mode: update recentState to guest storage cleanly on microtask queue
             queueMicrotask(() => {
                 setRecentState({ owner: "guest", items: localCached });
             });
@@ -635,13 +474,7 @@ const StateProvider = ({ children }) => {
         };
     }, [userEmail]);
 
-    /**
-     * Records a clicked or searched planetary analog site at the top of Recent Searches.
-     * Works for both authenticated users and guests:
-     * 1. Deduplicates by `locationId` or `name` and prepends in React state.
-     * 2. Mirrors to `terramatch_recent_searches_${userEmail || "guest"}` in `localStorage`.
-     * 3. Syncs with `POST ${API_BASE_URL}/recent-searches` when authenticated.
-     */
+    // Prepends candidate site to recent searches with backend synchronization
     const recordRecentSearch = useCallback(
         async (loc) => {
             if (!loc || !loc.name) return;
@@ -662,7 +495,7 @@ const StateProvider = ({ children }) => {
             // If authenticated, sync with MongoDB backend
             if (userEmail) {
                 try {
-                    // Omit internal `_id` so MongoDB upsert never throws immutable-field errors
+                    // Omit internal `_id` to prevent immutable field errors
                     const { _id, ...cleanPayload } = entry;
                     void _id;
 
@@ -686,10 +519,7 @@ const StateProvider = ({ children }) => {
         [userEmail, setRecentSearched]
     );
 
-    /**
-     * Deletes a single recent search record from MongoDB by ID or `locationId`
-     * when authenticated. Local state & scoped localStorage stay synchronized.
-     */
+    // Deletes single recent search record from backend
     const deleteRecentSearch = useCallback(
         async (idToDelete) => {
             if (!userEmail || !idToDelete) return;
@@ -711,10 +541,7 @@ const StateProvider = ({ children }) => {
         [userEmail]
     );
 
-    /**
-     * Clears all persisted recent search documents for the authenticated user
-     * in MongoDB via `DELETE /recent-searches/user/:email`.
-     */
+    // Clears all recent searches for user in backend
     const clearRecentSearches = useCallback(async () => {
         if (!userEmail) return;
 
@@ -733,9 +560,7 @@ const StateProvider = ({ children }) => {
         }
     }, [userEmail]);
 
-    // ------------------------------------------------------------------------
-    // 8. Memoized Context Value & Provider Render Block
-    // ------------------------------------------------------------------------
+    // Memoized context value
     const stateInfo = useMemo(
         () => ({
             isSearch,

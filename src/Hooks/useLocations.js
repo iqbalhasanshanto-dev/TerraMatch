@@ -2,11 +2,7 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "../utils/api";
 
-/**
- * Custom Hook: useLocations
- * Fetches all candidate planetary analog locations from the database,
- * with automatic fallback to static analogLocations.json when backend is offline.
- */
+// Fetches planetary analog catalog with fallback to local static dataset
 const useLocations = () => {
     const [locData, setLocData] = useState([]);
     const [loading, setLoading] = useState(true);

@@ -4,43 +4,16 @@ import { toast } from "react-toastify";
 import { useLocation, useNavigate } from "react-router";
 import Logo from "../Components/Logo";
 
-/**
- * ============================================================================
- * Login Component
- * ============================================================================
- * Enlarged, clean Google OAuth sign-in portal styled with TerraMatch's
- * custom deep-space color palette:
- * - Page Background: `#07090E`
- * - Card Container: `#0B0E13` with `#21242C` border (`max-w-md`, `p-3`, `shadow-2xl`)
- * - Inner Container: `#21242C` border with generous `px-8 py-10` breathing room
- * - Top Branding: Scaled custom `<Logo />` orbital Mars/Earth emblem + wordmark
- * - Primary CTA: Large tactile Google Sign-In button (`#1A1D23`, hover `#83CAD8`)
- */
+// Google OAuth authentication page.
 const Login = () => {
-    // ------------------------------------------------------------------------
-    // 1. Authentication Hooks, Router Navigation & Redirect Guard
-    // ------------------------------------------------------------------------
-    /** `signInGoogle` triggers popup/redirect OAuth; `user` tracks active session. */
+    // Authentication, navigation, and redirect tracking
     const { signInGoogle, user } = useAuth();
-    /** Router location used to preserve the protected route the user came from. */
     const location = useLocation();
-    /** Router navigation helper used to redirect authenticated users. */
     const navigate = useNavigate();
-    /** Prevents duplicate post-login navigation if popup resolution and auth effect both fire. */
     const hasCompletedRedirectRef = useRef(false);
-    /** Prevents overlapping double-click popup requests while Google OAuth is active. */
     const [isSigningIn, setIsSigningIn] = useState(false);
 
-    // ------------------------------------------------------------------------
-    // 2. Post-Login Destination Resolution & Redirect Completion Helpers
-    // ------------------------------------------------------------------------
-    /**
-     * Resolves the exact route the user should return to after signing in,
-     * checking React Router `location.state` first, then `sessionStorage`,
-     * and falling back to `"/"` (never looping back to `"/login"`).
-     *
-     * @returns {string} Safe post-authentication destination path.
-     */
+    // Resolves post-login return destination
     const getRedirectDestination = useCallback(() => {
         const fromState =
             typeof location?.state === "string"
@@ -54,11 +27,7 @@ const Login = () => {
         return target === "/login" ? "/" : target;
     }, [location]);
 
-    /**
-     * Completes post-login navigation exactly once: clears the saved redirect
-     * key from `sessionStorage`, displays the deduplicated success toast, and
-     * replaces `/login` in browser history with the resolved destination.
-     */
+    // Completes post-login redirect and shows confirmation toast
     const completeLoginRedirect = useCallback(() => {
         if (hasCompletedRedirectRef.current) return;
         hasCompletedRedirectRef.current = true;
@@ -74,30 +43,14 @@ const Login = () => {
         navigate(destination, { replace: true });
     }, [getRedirectDestination, navigate]);
 
-    // ------------------------------------------------------------------------
-    // 3. Authenticated Session Auto-Redirect Effect
-    // ------------------------------------------------------------------------
-    /**
-     * Watches `user` from AuthContext. As soon as `user` becomes truthy—whether
-     * from a popup sign-in, a returning Google redirect sign-in, or an already
-     * active session—completes the post-login redirect.
-     */
+    // Automatically redirects when authenticated user session is detected
     useEffect(() => {
         if (user) {
             completeLoginRedirect();
         }
     }, [user, completeLoginRedirect]);
 
-    // ------------------------------------------------------------------------
-    // 4. Google OAuth Sign-In Handler
-    // ------------------------------------------------------------------------
-    /**
-     * Persists the target return URL in `sessionStorage` before starting Google
-     * OAuth (so full-page `signInWithRedirect` fallbacks preserve the exact
-     * origin route), then triggers `signInGoogle()`. On popup completion with
-     * `result?.user`, immediately completes redirect; non-fallback errors surface
-     * an error toast.
-     */
+    // Initiates Google OAuth sign-in flow
     const handleGoogleSignIn = () => {
         if (isSigningIn) return;
         setIsSigningIn(true);
@@ -132,26 +85,23 @@ const Login = () => {
             });
     };
 
-    // ------------------------------------------------------------------------
-    // 5. Component Render Block
-    // ------------------------------------------------------------------------
     return (
         <div className="min-h-screen bg-[#07090E] flex flex-col items-center justify-center px-4 relative select-none">
-            {/* Enlarged Outer Authentication Card Container */}
+            {/* Authentication card container */}
             <div className="w-full max-w-md bg-[#0B0E13] border border-[#21242C] rounded-2xl p-3 shadow-2xl">
-                {/* Inner Framed Content Container */}
+                {/* Card content */}
                 <div className="border border-[#21242C] rounded-xl px-8 py-10 text-center">
-                    {/* Centered Custom TerraMatch Orbital Mars/Earth Logo */}
+                    {/* Brand logo */}
                     <div className="flex justify-center mb-6 scale-125">
                         <Logo />
                     </div>ghyyty.
 
-                    {/* Clear Lead Copy (Replaces Legacy "Welcome" Heading) */}
+                    {/* Subtitle */}
                     <p className="text-sm sm:text-base leading-relaxed text-[#8891A0] mb-7 max-w-xs mx-auto">
                         Sign in to access candidate analog sites and compare targets side by side.
                     </p>
 
-                    {/* Large Tactile Google OAuth Login Button */}
+                    {/* Google OAuth button */}
                     <button
                         type="button"
                         onClick={handleGoogleSignIn}
@@ -184,7 +134,7 @@ const Login = () => {
                         <span>Login with Google</span>
                     </button>
 
-                    {/* Support & Legal Links */}
+                    {/* Support and legal links */}
                     <div className="text-xs text-[#8891A0] mt-7 space-y-2">
                         <p>
                             Need help?{" "}
@@ -210,7 +160,7 @@ const Login = () => {
                 </div>
             </div>
 
-            {/* Subtle Bottom Platform Footer Notice */}
+            {/* Platform footer */}
             <div className="absolute bottom-4 text-center">
                 <p className="text-[10px] text-[#8891A0]/70">
                     © 2026 TerraMatch • Planetary Analog Platform

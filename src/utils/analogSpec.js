@@ -1,29 +1,6 @@
-/**
- * ============================================================================
- * Planetary Analog Specification, Recognition & Telemetry Helpers (`analogSpec.js`)
- * ============================================================================
- * Comprehensive scientific derivation and formatting utilities for TerraMatch
- * (NASA Space Apps Challenge: "Identify Earth Locations that Analog the Permanent
- * Moon Base Locations and Mars"):
- * - Real mean surface temperatures (°C)
- * - Target extraterrestrial body classification (Moon, Mars, Moon & Mars)
- * - Recognition status: Emerging / Under-Studied Analogs vs. Established Analogs
- * - 4-Dimension Scientific Fidelity Breakdown (Geology, Terrain, Climate, ISRU/Water)
- * - "Where the Analogy Breaks Down (Earth's Limits)" evaluating Gravity, Atmosphere,
- *   Radiation, and Site-Specific Environmental Boundaries
- */
+// Planetary analog specification, recognition, and telemetry utilities.
 
-// ============================================================================
-// 1. Surface Temperature & Target Body Classification Helpers
-// ============================================================================
-
-/**
- * Resolves a real or climate-derived mean surface temperature (°C) for any
- * planetary analog location document.
- *
- * @param {Object} loc - Planetary analog location object.
- * @returns {number} Mean surface temperature in degrees Celsius.
- */
+// Resolves mean surface temperature (°C) from location data or climate.
 export const getSurfaceTemperature = (loc) => {
     if (typeof loc?.temperature === "number" && !Number.isNaN(loc.temperature)) {
         return loc.temperature;
@@ -59,21 +36,10 @@ export const getSurfaceTemperature = (loc) => {
     return 18;
 };
 
-/**
- * Formats a location's mean surface temperature as a compact `°C` string.
- *
- * @param {Object} loc - Planetary analog location object.
- * @returns {string} Formatted temperature string (e.g. `"-30°C"` or `"18°C"`).
- */
+// Formats mean surface temperature as a °C string.
 export const formatSurfaceTemp = (loc) => `${getSurfaceTemperature(loc)}°C`;
 
-/**
- * Derives target planetary body flags, color-coded badge classes, and canonical
- * specification labels (`Mars Analog`, `Moon Analog`, or `Moon & Mars Analog`).
- *
- * @param {Object} loc - Planetary analog location object.
- * @returns {Object} Target body classification and Tailwind styling metadata.
- */
+// Derives target planetary body classification, styling, and specification labels.
 export const getTargetBodyInfo = (loc) => {
     const types = Array.isArray(loc?.analogType)
         ? loc.analogType.map((t) => String(t).toLowerCase())
@@ -144,12 +110,7 @@ export const getTargetBodyInfo = (loc) => {
     };
 };
 
-/**
- * Returns the primary scientific fidelity focus (`analogCategory`) for a site.
- *
- * @param {Object} loc - Planetary analog location object.
- * @returns {string} Scientific analog testing category.
- */
+// Returns primary scientific fidelity focus category for a location.
 export const getAnalogCategory = (loc) => {
     if (loc?.analogCategory) return loc.analogCategory;
     if (Array.isArray(loc?.terrain) && loc.terrain.length > 0) {
@@ -159,23 +120,12 @@ export const getAnalogCategory = (loc) => {
     return "Planetary Surface Analog";
 };
 
-/**
- * Returns historical rovers, field robotics, or orbital missions tested/correlated
- * at the analog site.
- *
- * @param {Object} loc - Planetary analog location object.
- * @returns {string} Rovers and analog mission campaigns.
- */
+// Returns historical rovers, field robotics, or missions tested at site.
 export const getRoversTested = (loc) =>
     loc?.roversTested ||
     "Planetary Analog Field Campaigns & Orbital Calibration";
 
-/**
- * Returns the primary rock, evaporite, or regolith mineralogy for the site.
- *
- * @param {Object} loc - Planetary analog location object.
- * @returns {string} Mineralogy and regolith composition summary.
- */
+// Returns primary rock, evaporite, or regolith mineralogy for site.
 export const getMineralogy = (loc) => {
     if (loc?.mineralogy) return loc.mineralogy;
     if (Array.isArray(loc?.terrain) && loc.terrain.length > 0) {
@@ -185,14 +135,7 @@ export const getMineralogy = (loc) => {
     return "Basaltic & Silicate Regolith";
 };
 
-// ============================================================================
-// 2. Emerging vs. Established Analog Recognition Classifier
-// ============================================================================
-
-/**
- * Set of well-documented canonical planetary analog sites with extensive
- * historical NASA, ESA, or academic space agency mission campaigns.
- */
+// Established canonical planetary analog keywords.
 const ESTABLISHED_ANALOG_KEYWORDS = [
     "atacama desert",
     "mcmurdo dry valleys",
@@ -220,15 +163,7 @@ const ESTABLISHED_ANALOG_KEYWORDS = [
     "craters of the moon",
 ];
 
-/**
- * Distinguishes well-studied "Established Analogs" from newly recognized or
- * under-studied "Emerging Analogs" (such as Qaidam Basin, Pamir Plateau,
- * Puna de Atacama, Tassili n'Ajjer, Danakil Salt Flats, Badain Jaran, and all
- * Whole-Earth Grid satellite discoveries).
- *
- * @param {Object} loc - Planetary analog location object.
- * @returns {{ label: string, isEmerging: boolean, badgeClass: string, description: string }}
- */
+// Distinguishes established analogs from emerging or under-studied candidates.
 export const getAnalogRecognitionStatus = (loc) => {
     // Whole-Earth grid batch scans and live coordinate probes are always emerging discoveries
     if (loc?.isGlobalDiscovery || loc?.isLiveTelemetry) {
@@ -262,21 +197,7 @@ export const getAnalogRecognitionStatus = (loc) => {
     };
 };
 
-// ============================================================================
-// 3. Multi-Dimensional Scientific Fidelity & Earth's Limits Analysis
-// ============================================================================
-
-/**
- * Generates a comprehensive multi-dimensional fidelity analysis and identifies
- * where the terrestrial analogy breaks down ("Earth's Limits"), directly fulfilling
- * the core NASA Space Apps Challenge judging criteria:
- * "An analog does not have to match everything... Identify what is similar,
- * how similar it is, and what is different. Remember Earth's limits as an analog
- * (gravity, vacuum, thin atmosphere, radiation)."
- *
- * @param {Object} loc - Planetary analog location object.
- * @returns {Object} Structured fidelity breakdown, strengths, and physical limitations.
- */
+// Evaluates multi-dimensional scientific fidelity and terrestrial limitations.
 export const getScientificFidelityAnalysis = (loc) => {
     const { hasMoon, hasMars, isDual } = getTargetBodyInfo(loc);
     const targetBodyName = isDual ? "Moon & Mars" : hasMoon ? "Moon" : "Mars";
@@ -289,9 +210,7 @@ export const getScientificFidelityAnalysis = (loc) => {
     const mineralogy = (loc?.mineralogy || "").toLowerCase();
     const nameLower = (loc?.name || "").toLowerCase();
 
-    // ------------------------------------------------------------------------
-    // 1. Geology & Mineralogy Dimension
-    // ------------------------------------------------------------------------
+    // Geology & mineralogy dimension.
     let geologyScore;
     let geologyPercent;
     let geologyReason;
@@ -342,9 +261,7 @@ export const getScientificFidelityAnalysis = (loc) => {
             "Silicate-rich bedrock and rocky scree provide suitable geomechanical analogs for surface rover trafficability.";
     }
 
-    // ------------------------------------------------------------------------
-    // 2. Topography & Terrain Dimension
-    // ------------------------------------------------------------------------
+    // Topography & terrain dimension.
     let terrainScore;
     let terrainPercent;
     let terrainReason;
@@ -390,9 +307,7 @@ export const getScientificFidelityAnalysis = (loc) => {
             "Rugged desert terrain and scree slopes provide obstacle navigation tests for robotic chassis.";
     }
 
-    // ------------------------------------------------------------------------
-    // 3. Thermal & Climate Regime Dimension
-    // ------------------------------------------------------------------------
+    // Thermal & climate regime dimension.
     let thermalScore;
     let thermalPercent;
     let thermalReason;
@@ -415,9 +330,7 @@ export const getScientificFidelityAnalysis = (loc) => {
         thermalReason = `Temperate climate (${temp}°C) diverges from lunar thermal cycling (+120°C day / -130°C night) and Martian cold.`;
     }
 
-    // ------------------------------------------------------------------------
-    // 4. Water, Ice & ISRU Resources Dimension
-    // ------------------------------------------------------------------------
+    // Water, ice & ISRU resources dimension.
     let waterScore;
     let waterPercent;
     let waterReason;
@@ -458,18 +371,14 @@ export const getScientificFidelityAnalysis = (loc) => {
             "Low-moisture substrate allows testing of volatile prospecting sensors and regolith excavation tools.";
     }
 
-    // ------------------------------------------------------------------------
-    // 5. Why It Is a Strong Analog (What Matches)
-    // ------------------------------------------------------------------------
+    // Matching analog strengths.
     const whatMatches = [
         `Primary planetary geomorphology directly mimics ${targetBodyName} surface features (${getAnalogCategory(loc)}).`,
         `Extensive mineralogical overlap in ${getMineralogy(loc)}, critical for in-situ resource utilization (ISRU) and spectral library calibration.`,
         `Proven track record as a proving ground for field robotics, rover mobility drills, and astronaut training (${getRoversTested(loc)}).`,
     ];
 
-    // ------------------------------------------------------------------------
-    // 6. Where the Analogy Breaks Down (Earth's Limits & Differences)
-    // ------------------------------------------------------------------------
+    // Terrestrial physical limits where analogy breaks down.
     const gravityDifference =
         hasMoon && !hasMars
             ? "Earth 1.0 g (9.81 m/s²) vs. Moon 0.16 g (1.62 m/s²). Lunar gravity is 1/6th of Earth's; regolith shear strength, electrostatic dust levitation, and structural load calculations for base modules differ substantially."
@@ -584,19 +493,7 @@ export const getScientificFidelityAnalysis = (loc) => {
     };
 };
 
-// ============================================================================
-// 6. NASA Worldview & Multi-Agency Planetary Dataset Provenance Helpers
-// ============================================================================
-
-/**
- * Builds an official bounding-box deep-link into NASA Worldview (GIBS Satellite
- * Imagery Portal) focused on any terrestrial coordinate with true-color satellite
- * imagery layers (VIIRS SNPP and MODIS Terra Corrected Reflectance).
- *
- * @param {number|string} lat - Latitude in degrees (-90 to +90).
- * @param {number|string} lon - Longitude in degrees (-180 to +180).
- * @returns {string} Fully qualified NASA Worldview portal URL.
- */
+// Builds official bounding-box deep-link into NASA Worldview.
 export const getNasaWorldviewUrl = (lat, lon) => {
     const parsedLat = typeof lat === "number" ? lat : parseFloat(lat) || 0;
     const parsedLon = typeof lon === "number" ? lon : parseFloat(lon) || 0;
@@ -610,14 +507,7 @@ export const getNasaWorldviewUrl = (lat, lon) => {
     return `https://worldview.earthdata.nasa.gov/?v=${minLon},${minLat},${maxLon},${maxLat}&l=Reference_Labels_15m,Coastlines_15m,VIIRS_SNPP_CorrectedReflectance_TrueColor,MODIS_Terra_CorrectedReflectance_TrueColor`;
 };
 
-/**
- * Maps each candidate planetary analog location to the exact authoritative
- * NASA, CSA, ESA, and JAXA dataset sources used to scientifically characterize it.
- * Covers all 11 official 2026 NASA Space Apps Challenge planetary resources.
- *
- * @param {Object} loc - Candidate planetary analog location object.
- * @returns {Array<Object>} List of multi-agency scientific datasets.
- */
+// Maps candidate analog locations to NASA, CSA, ESA, and JAXA dataset sources.
 export const getAgencyDatasetProvenance = (loc) => {
     if (!loc) return [];
 
@@ -632,7 +522,7 @@ export const getAgencyDatasetProvenance = (loc) => {
 
     const datasets = [];
 
-    // 1. NASA Earthdata Core (Integrated for every terrestrial analog site)
+    // NASA Earthdata Core.
     datasets.push({
         agency: "NASA",
         agencyFullName: "National Aeronautics and Space Administration",
@@ -645,7 +535,7 @@ export const getAgencyDatasetProvenance = (loc) => {
             "Authoritative Earth observation suite providing calibrated topography, thermal diurnal curves, and volumetric soil moisture.",
     });
 
-    // 2. NASA Planetary Data System (PDS) Lunar & Mars Archives
+    // NASA Planetary Data System (PDS) archives.
     if (hasMoon) {
         datasets.push({
             agency: "NASA",
@@ -674,7 +564,7 @@ export const getAgencyDatasetProvenance = (loc) => {
         });
     }
 
-    // 3. CSA RADARSAT Constellation (RCM) & RADARSAT-1 (Canada, Arctic, Cryosphere, Ice, Subarctic)
+    // CSA RADARSAT Constellation & RADARSAT-1.
     const isPolarOrCryo =
         country.includes("canada") ||
         country.includes("norway") ||
@@ -708,7 +598,7 @@ export const getAgencyDatasetProvenance = (loc) => {
         });
     }
 
-    // 4. ESA Copernicus Open Science Data (Europe, Africa, Atlantic, Volcanic & Iron Basalt)
+    // ESA Copernicus Open Science Data.
     const isEsaRegion =
         country.includes("spain") ||
         country.includes("iceland") ||
@@ -742,7 +632,7 @@ export const getAgencyDatasetProvenance = (loc) => {
         });
     }
 
-    // 5. JAXA G-Portal (Asia, East Asia, Deserts, High Plateaus, Pacific Volcanism)
+    // JAXA G-Portal.
     const isJaxaRegion =
         country.includes("china") ||
         country.includes("tibet") ||

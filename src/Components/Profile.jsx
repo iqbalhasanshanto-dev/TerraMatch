@@ -4,45 +4,24 @@ import useAuth from "../Hooks/useAuth";
 import { toast } from "react-toastify";
 import { Link } from "react-router";
 
-/**
- * ============================================================================
- * Profile Component
- * ============================================================================
- * Renders the authenticated user's profile avatar, display name, and account
- * action dropdown inside the top Navbar:
- * - Avatar Priority Chain:
- *   1. Google account profile photo (`user.photoURL`) rendered with
- *      `referrerPolicy="no-referrer"` so Google CDN images are never blocked.
- *   2. Generated `ui-avatars.com` avatar matching the deep-space palette
- *      (`background=1A1D23`, `color=83CAD8`) if `photoURL` is missing or errors.
- *   3. Two-letter uppercase initials badge if external avatar requests fail offline.
- * - Display Name: `user.displayName || user.email.split("@")[0]`.
- * - Dropdown Menu (`#090B10`): Links to `/saved`, `/compare`, and Sign Out (`#D04D39`).
- */
+// Authenticated user avatar, display name, and account dropdown
 const Profile = () => {
-    // ------------------------------------------------------------------------
-    // 1. Authentication Hook & Avatar Error Tracking State
-    // ------------------------------------------------------------------------
     // Active Firebase user session and sign-out action
     const { user, logOut } = useAuth();
 
-    // Tracks image URLs that failed to load so we can gracefully fall back
-    // without triggering synchronous setState inside effects
+    // Tracks avatar image URLs that failed to load
     const [failedImageUrls, setFailedImageUrls] = useState(() => new Set());
 
-    // ------------------------------------------------------------------------
-    // 2. Derived User Identity & Avatar URL Chain
-    // ------------------------------------------------------------------------
-    // Primary readable user name derived from Google displayName or email prefix
+    // Primary user display name derived from profile or email
     const userDisplayName =
         user?.displayName || user?.email?.split("@")[0] || "Explorer";
 
-    // Secondary UI Avatars fallback URL styled with TerraMatch dark tokens
+    // UI Avatars fallback URL styled with dark theme tokens
     const fallbackAvatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
         user?.displayName || user?.email || "User"
     )}&background=1A1D23&color=83CAD8`;
 
-    // Determine which avatar source to render based on availability and prior load errors
+    // Resolves avatar source based on fallback chain
     const primaryPhotoUrl = user?.photoURL || "";
     const activeAvatarSrc =
         primaryPhotoUrl && !failedImageUrls.has(primaryPhotoUrl)
@@ -51,13 +30,7 @@ const Profile = () => {
             ? fallbackAvatarUrl
             : null;
 
-    // ------------------------------------------------------------------------
-    // 3. Helper Functions: Logout, Initials & Image Error Handling
-    // ------------------------------------------------------------------------
-    /**
-     * Records a failed avatar URL so the component automatically switches to
-     * the next tier in the avatar fallback chain.
-     */
+    // Switches to next avatar source if primary fails
     const handleAvatarError = () => {
         if (!activeAvatarSrc) return;
         setFailedImageUrls((prev) => {
@@ -67,9 +40,7 @@ const Profile = () => {
         });
     };
 
-    /**
-     * Terminates the current Firebase session and displays status toast feedback.
-     */
+    // Signs out user and displays toast feedback
     const handleLogout = () => {
         logOut()
             .then(() => {
@@ -81,10 +52,7 @@ const Profile = () => {
             });
     };
 
-    /**
-     * Computes uppercase two-letter initials from the user's name or email
-     * as a final offline fallback if remote avatar images cannot load.
-     */
+    // Computes initials as offline fallback avatar
     const getInitials = (name) => {
         if (!name) return "TM";
         const parts = name.trim().split(/\s+/);
@@ -94,19 +62,16 @@ const Profile = () => {
         return name.slice(0, 2).toUpperCase();
     };
 
-    // ------------------------------------------------------------------------
-    // 4. Component Render Block
-    // ------------------------------------------------------------------------
     return (
         <div className="dropdown dropdown-end select-none">
-            {/* Profile Trigger Pill: Circular Google Photo + Display Name + Chevron */}
+            {/* Profile trigger pill with photo and name */}
             <div
                 tabIndex={0}
                 role="button"
                 aria-label={`Account menu for ${userDisplayName}`}
                 className="flex items-center gap-2 cursor-pointer py-1 px-1.5 rounded-full hover:bg-[#1E2129] hover:ring-1 hover:ring-[#21242C] transition"
             >
-                {/* Circular Profile Avatar with no-referrer policy and fallback chain */}
+                {/* Profile avatar with fallback */}
                 {activeAvatarSrc ? (
                     <img
                         src={activeAvatarSrc}
@@ -123,12 +88,12 @@ const Profile = () => {
                     </div>
                 )}
 
-                {/* User Name Label (Visible on small screens and wider) */}
+                {/* User display name */}
                 <span className="text-xs font-medium text-[#F1EEE9] hidden sm:inline-block max-w-36 truncate">
                     {userDisplayName}
                 </span>
 
-                {/* Dropdown Caret Icon */}
+                {/* Dropdown caret icon */}
                 <ChevronDown
                     size={14}
                     aria-hidden="true"
@@ -136,12 +101,12 @@ const Profile = () => {
                 />
             </div>
 
-            {/* Account Actions Dropdown Menu (Deep-Space Popover Surface `#090B10`) */}
+            {/* Account actions dropdown menu */}
             <ul
                 tabIndex={0}
                 className="dropdown-content z-50 mt-2 w-60 rounded-xl bg-[#090B10] p-2.5 shadow-2xl border border-[#21242C] text-[#F1EEE9]"
             >
-                {/* User Identity Summary Header Card */}
+                {/* User identity summary card */}
                 <li className="mb-2 p-2 bg-[#181A21] rounded-lg border border-[#21242C]">
                     <p className="font-semibold text-xs text-[#F1EEE9] truncate">
                         {userDisplayName}
@@ -151,7 +116,7 @@ const Profile = () => {
                     </p>
                 </li>
 
-                {/* Navigation Link: My Saved Sites */}
+                {/* My saved sites navigation link */}
                 <li>
                     <Link
                         to="/saved"
@@ -162,7 +127,7 @@ const Profile = () => {
                     </Link>
                 </li>
 
-                {/* Navigation Link: Compare Targets */}
+                {/* Compare targets navigation link */}
                 <li>
                     <Link
                         to="/compare"
@@ -173,10 +138,10 @@ const Profile = () => {
                     </Link>
                 </li>
 
-                {/* Visual Section Divider */}
+                {/* Section divider */}
                 <div className="border-t border-[#21242C] my-1.5" />
 
-                {/* Sign Out Action Button */}
+                {/* Sign out action button */}
                 <li>
                     <button
                         type="button"

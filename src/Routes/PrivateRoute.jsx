@@ -5,7 +5,6 @@ import useAuth from "../Hooks/useAuth";
 const PrivateRoute = ({children}) => {
     const {user, loading} = useAuth()
     const location = useLocation()
-    // console.log('location',location);
     if(loading) return <Loader></Loader>
     if(!user) return <Navigate state={location.pathname} to='/login'></Navigate>
     return children

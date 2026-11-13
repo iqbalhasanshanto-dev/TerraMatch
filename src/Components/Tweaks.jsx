@@ -1,6 +1,3 @@
-// ----------------------------------------------------------------------------
-// External Dependencies & UI Icons
-// ----------------------------------------------------------------------------
 import {
     useState,
     useEffect,
@@ -24,10 +21,6 @@ import {
     Radar,
 } from "lucide-react";
 import { toast } from "react-toastify";
-
-// ----------------------------------------------------------------------------
-// Internal Hooks, Contexts & Utility Modules
-// ----------------------------------------------------------------------------
 import useLocations from "../Hooks/useLocations";
 import useSaved from "../Hooks/useSaved";
 import StateContext from "../States/StateContext";
@@ -43,13 +36,9 @@ import {
     scanWholeEarthAnalogs,
 } from "../utils/earthTelemetryApi";
 
-// ============================================================================
-// 1. Mission Filter Option Constants, Keyword Maps & Preset Configurations
-// ============================================================================
+// Mission filter option constants, keyword maps, and preset configurations
 
-/**
- * Exploration & Mission Objective options covering both Permanent Moon Base and Mars exploration.
- */
+// Exploration and mission objective options.
 const MISSION_OBJECTIVE_OPTIONS = [
     "Any objective",
     "Permanent Moon Base & Habitation",
@@ -59,10 +48,7 @@ const MISSION_OBJECTIVE_OPTIONS = [
     "Astrobiology & Biosignatures",
 ];
 
-/**
- * Keyword mapping translating each Exploration Objective option into terms
- * matched against `analogCategory`, `roversTested`, `description`, and `terrain`.
- */
+// Keyword mapping for exploration objectives.
 const MISSION_OBJECTIVE_KEYWORDS = {
     "Permanent Moon Base & Habitation": [
         "moon base",
@@ -157,10 +143,7 @@ const MISSION_OBJECTIVE_KEYWORDS = {
     ],
 };
 
-/**
- * Geological Terrain & Mineralogy options for the Environment accordion row,
- * including Subsurface Caves & Lava Tubes.
- */
+// Geological terrain and mineralogy options.
 const TERRAIN_OPTIONS = [
     "Any",
     "Caves & Lava Tubes",
@@ -173,10 +156,7 @@ const TERRAIN_OPTIONS = [
     "Acidic / Iron",
 ];
 
-/**
- * Keyword mapping linking Terrain & Geology choices to `terrain`,
- * `mineralogy`, `analogCategory`, and `description` catalog fields.
- */
+// Keyword mapping linking terrain choices to catalog fields.
 const TERRAIN_KEYWORD_MAP = {
     "Caves & Lava Tubes": [
         "lava tube",
@@ -272,10 +252,7 @@ const TERRAIN_KEYWORD_MAP = {
     ],
 };
 
-/**
- * Translates UI terrain labels into the canonical keys expected by
- * `scanWholeEarthAnalogs` in `earthTelemetryApi.js`.
- */
+// Maps UI terrain labels to telemetry scan keys.
 const WHOLE_EARTH_TERRAIN_MAP = {
     Any: "Any",
     "Caves & Lava Tubes": "Volcanic Basalt",
@@ -288,15 +265,10 @@ const WHOLE_EARTH_TERRAIN_MAP = {
     "Acidic / Iron": "Acidic / Iron",
 };
 
-/**
- * Aridity & Moisture options displayed in the Environment accordion row.
- */
+// Aridity and moisture options.
 const HUMIDITY_OPTIONS = ["Any", "Very dry", "Dry", "Moderate", "Humid"];
 
-/**
- * Keyword mapping linking Aridity & Moisture labels to `environment.climate`,
- * `environment.humidity`, `analogCategory`, and `terrain` metadata.
- */
+// Keyword mapping linking moisture labels to metadata.
 const HUMIDITY_KEYWORD_MAP = {
     "Very dry": ["hyper-arid", "extremely dry", "very dry", "arid"],
     Dry: ["arid", "dry", "semi-arid", "desert"],
@@ -320,10 +292,7 @@ const HUMIDITY_KEYWORD_MAP = {
     ],
 };
 
-/**
- * Translates UI aridity labels into the canonical keys expected by
- * `scanWholeEarthAnalogs` in `earthTelemetryApi.js`.
- */
+// Maps UI aridity labels to telemetry scan keys.
 const WHOLE_EARTH_HUMIDITY_MAP = {
     Any: "Any",
     "Very dry": "Very dry",
@@ -332,11 +301,7 @@ const WHOLE_EARTH_HUMIDITY_MAP = {
     Humid: "Hydrothermal",
 };
 
-/**
- * Preconfigured Mission Presets for the "Mission preset" dropdown.
- * Selecting a preset automatically populates target body and environment filters
- * covering permanent lunar habitation, subterranean lava tubes, and Mars science.
- */
+// Preconfigured mission presets.
 const MISSION_PRESETS = [
     {
         id: "custom",
@@ -411,132 +376,51 @@ const MISSION_PRESETS = [
     },
 ];
 
-/** Minimum and maximum temperature bounds (°C) for the dual-thumb slider. */
+// Minimum and maximum temperature bounds (°C) for the dual-thumb slider
 const TEMP_SLIDER_MIN = -60;
 const TEMP_SLIDER_MAX = 50;
 
-/** Maximum elevation bound (meters) for the minimum elevation slider. */
+// Maximum elevation bound (meters) for the minimum elevation slider
 const ELEVATION_SLIDER_MAX = 4800;
 
-/**
- * ============================================================================
- * Tweaks Component ("Find a match" Search Console)
- * ============================================================================
- * Structured dark-mode planetary analog search console and telemetry engine:
- * - Header: Displays `"Find a match"`, subtitle, and clickable `"50 sites live"`
- *   directory drawer toggle.
- * - Location / Coordinates: Searches both the curated NASA/ESA catalog and live
- *   OpenStreetMap Nominatim + NASA POWER global telemetry.
- * - Target Planetary Body & Mission Presets: Segmented `Moon` / `Mars` control
- *   plus 1-click preset selector that auto-configures environment parameters.
- * - Environment Accordions & Sliders: Clean expandable rows for Rover objective,
- *   Terrain & geology, and Aridity & moisture, paired with a dual-thumb Surface
- *   temperature range slider (-60°C to 50°C) and Minimum elevation slider
- *   (0 m to 4,800 m).
- * - Search Scope & Results: Toggles between Whole-Earth Scan and NASA catalog
- *   only, executing catalog filtering, Whole-Earth satellite discovery, and
- *   map flyTo / bookmarking actions.
- */
+// Planetary analog search console and satellite telemetry discovery engine
 const Tweaks = ({ onSelectLocation }) => {
-    // ------------------------------------------------------------------------
-    // 2. Context Subscriptions & Custom Hooks
-    // ------------------------------------------------------------------------
-    /** Full catalog of verified planetary analog locations (MongoDB + static fallback). */
+    // Locations catalog, context, and saved bookmarks hooks
     const { locData } = useLocations();
-
-    /** Global filtered locations, map fly-to target, and centralized recent-search logger. */
     const { filteredLoc, setFilteredLoc, setMapTarget, recordRecentSearch } =
         useContext(StateContext);
-
-    /** Centralized saved bookmarks hook for live Saved state indicators and save action. */
     const { savedLoc, saveLocation } = useSaved();
 
-    // ------------------------------------------------------------------------
-    // 3. Search Console Filter & UI Control State Variables
-    // ------------------------------------------------------------------------
-    /** Free-text place name or coordinate query for catalog and global Earth lookups. */
+    // Search console filter and slider state variables
     const [searchQuery, setSearchQuery] = useState("");
-
-    /** Selected target planetary body (`""`, `"moon"`, or `"mars"`). */
     const [targetBody, setTargetBody] = useState("");
-
-    /** Active mission preset identifier (`"custom"` or preset `id`). */
     const [selectedPreset, setSelectedPreset] = useState("custom");
-
-    /** Selected Rover objective filter value. */
     const [missionObjective, setMissionObjective] = useState("Any objective");
-
-    /** Selected Terrain & geology filter value. */
     const [terrain, setTerrain] = useState("Any");
-
-    /** Selected Aridity & moisture filter value. */
     const [humidity, setHumidity] = useState("Any");
-
-    /** Numeric minimum surface temperature bound (`-60°C` to `50°C`). */
     const [tempMin, setTempMin] = useState(TEMP_SLIDER_MIN);
-
-    /** Numeric maximum surface temperature bound (`-60°C` to `50°C`). */
     const [tempMax, setTempMax] = useState(TEMP_SLIDER_MAX);
-
-    /** Tracks which temperature thumb (`"min"` or `"max"`) was interacted with last for z-index layering. */
     const [activeTempThumb, setActiveTempThumb] = useState("max");
-
-    /** Numeric minimum elevation cutoff (`0 m` to `4,800 m`). */
     const [minElevation, setMinElevation] = useState(0);
-
-    /** Tracks whether the user has explicitly submitted a search query yet. */
     const [hasSearched, setHasSearched] = useState(false);
-
-    /**
-     * Active Search Scope mode:
-     * - `"whole-earth"` (default): Scans both NASA catalog sites and non-NASA Earth regions
-     * - `"catalog"`: Filters only the verified NASA/ESA catalog sites
-     */
     const [searchScope, setSearchScope] = useState("whole-earth");
-
-    /** Controls open/closed state of the compact Search scope dropdown menu. */
     const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
 
-    // ------------------------------------------------------------------------
-    // 4. Remote Satellite Telemetry & Whole-Earth Scan State + Refs
-    // ------------------------------------------------------------------------
-    /** Array of live Earth telemetry matches returned by Nominatim + NASA POWER. */
+    // Global telemetry and Whole-Earth batch scan state and refs
     const [globalResults, setGlobalResults] = useState([]);
-
-    /** Loading indicator while querying OpenStreetMap Nominatim & NASA POWER APIs. */
     const [isGlobalSearching, setIsGlobalSearching] = useState(false);
-
-    /** Error message surfaced if the global telemetry API request fails. */
     const [globalSearchError, setGlobalSearchError] = useState(null);
-
-    /** Records the last query string dispatched to `searchGlobalEarthLocation`. */
     const [lastGlobalQuery, setLastGlobalQuery] = useState("");
-
-    /** Array of newly discovered non-NASA Earth sites returned by `scanWholeEarthAnalogs`. */
     const [wholeEarthResults, setWholeEarthResults] = useState([]);
-
-    /** Loading indicator while scanning the 45-point Whole-Earth Grid batch API. */
     const [isWholeEarthScanning, setIsWholeEarthScanning] = useState(false);
-
-    /** Error message surfaced if the Whole-Earth batch satellite scan fails. */
     const [wholeEarthScanError, setWholeEarthScanError] = useState(null);
-
-    /** AbortController ref canceling stale in-flight global Earth telemetry searches. */
     const globalAbortRef = useRef(null);
-
-    /** AbortController ref canceling stale in-flight Whole-Earth batch scan requests. */
     const wholeEarthAbortRef = useRef(null);
-
-    /** DOM ref for the dual-thumb temperature slider track to support click-to-seek. */
     const tempTrackRef = useRef(null);
-
-    /** DOM ref for the Search scope dropdown container to handle outside clicks. */
     const scopeMenuRef = useRef(null);
 
-    // ------------------------------------------------------------------------
-    // 5. Derived Lookups, Slider Percentages & Cleanup Effects
-    // ------------------------------------------------------------------------
-    /** Fast lookup Set containing all saved site IDs and names for Save badges. */
+    // Saved lookup set and slider position calculations
+    // Fast lookup Set containing all saved site IDs and names for Save badges
     const savedLocationIds = useMemo(() => {
         const set = new Set();
         if (savedLoc && savedLoc.length > 0) {
@@ -550,27 +434,27 @@ const Tweaks = ({ onSelectLocation }) => {
         return set;
     }, [savedLoc]);
 
-    /** Memoized list of matching verified NASA/ESA catalog cards (excluding global discoveries). */
+    // Memoized list of matching verified NASA/ESA catalog cards
     const displayedResults = useMemo(() => {
         if (!filteredLoc || filteredLoc.length === 0) return [];
         return filteredLoc.filter((item) => !item.isGlobalDiscovery);
     }, [filteredLoc]);
 
-    /** Trimmed query string used to offer an explicit Global Earth Telemetry lookup CTA. */
+    // Trimmed query string used to offer an explicit Global Earth Telemetry lookup CTA
     const trimmedSearchQuery = searchQuery.trim();
 
-    /** Percentage offset (0–100) for the minimum temperature thumb on the slider track. */
+    // Percentage offset (0–100) for the minimum temperature thumb on the slider track
     const tempMinPercent =
         ((tempMin - TEMP_SLIDER_MIN) / (TEMP_SLIDER_MAX - TEMP_SLIDER_MIN)) * 100;
 
-    /** Percentage offset (0–100) for the maximum temperature thumb on the slider track. */
+    // Percentage offset (0–100) for the maximum temperature thumb on the slider track
     const tempMaxPercent =
         ((tempMax - TEMP_SLIDER_MIN) / (TEMP_SLIDER_MAX - TEMP_SLIDER_MIN)) * 100;
 
-    /** Percentage fill (0–100) for the minimum elevation slider track. */
+    // Percentage fill (0–100) for the minimum elevation slider track
     const elevationPercent = (minElevation / ELEVATION_SLIDER_MAX) * 100;
 
-    /** Aborts any in-flight telemetry or Whole-Earth scan requests on unmount. */
+    // Aborts any in-flight telemetry or Whole-Earth scan requests on unmount
     useEffect(() => {
         return () => {
             if (globalAbortRef.current) {
@@ -582,14 +466,14 @@ const Tweaks = ({ onSelectLocation }) => {
         };
     }, []);
 
-    /** Keeps all catalog markers visible on the map initially and right after reset. */
+    // Keeps all catalog markers visible on the map initially and right after reset
     useEffect(() => {
         if (locData && locData.length > 0 && !hasSearched) {
             setFilteredLoc(locData);
         }
     }, [locData, hasSearched, setFilteredLoc]);
 
-    /** Closes the Search scope dropdown menu when clicking outside its container. */
+    // Closes the Search scope dropdown menu when clicking outside its container
     useEffect(() => {
         if (!scopeMenuOpen) return;
 
@@ -606,31 +490,19 @@ const Tweaks = ({ onSelectLocation }) => {
         return () => document.removeEventListener("mousedown", handleOutsideClick);
     }, [scopeMenuOpen]);
 
-    // ------------------------------------------------------------------------
-    // 6. Helper Functions: Telemetry Resolvers & Catalog Filtering Engine
-    // ------------------------------------------------------------------------
-    /**
-     * Resolves the real mean surface temperature (`°C`) for a candidate site.
-     */
+    // Catalog filtering and telemetry calculation helpers
     const getEstimatedTemperature = useCallback(
         (location) => getSurfaceTemperature(location),
         []
     );
 
-    /**
-     * Resolves the site elevation in meters above sea level (`0 m` fallback).
-     */
+    // Resolves elevation in meters
     const getSiteElevation = useCallback(
         (location) => location?.environment?.elevationMeters ?? 0,
         []
     );
 
-    /**
-     * Filters the verified NASA/ESA analog catalog (`locData`) against all
-     * active console parameters: free-text query, target planetary body,
-     * rover objective, terrain & geology, aridity & moisture, temperature bounds,
-     * and minimum elevation.
-     */
+    // Filters analog catalog against active criteria
     const computeFilteredLocations = useCallback(
         (overrides = {}) => {
             if (!locData || locData.length === 0) return [];
@@ -799,10 +671,7 @@ const Tweaks = ({ onSelectLocation }) => {
         ]
     );
 
-    /**
-     * Flies the satellite map smoothly to any selected site, logs it in Recent
-     * Searches, and collapses the mobile drawer when applicable.
-     */
+    // Centers map on selected site and logs it in recent searches.
     const handleViewOnMap = useCallback(
         (loc) => {
             if (!loc) return;
@@ -830,13 +699,7 @@ const Tweaks = ({ onSelectLocation }) => {
         [recordRecentSearch, setMapTarget, onSelectLocation]
     );
 
-    // ------------------------------------------------------------------------
-    // 7. Live Global Earth Telemetry & Whole-Earth Scan Execution Helpers
-    // ------------------------------------------------------------------------
-    /**
-     * Queries OpenStreetMap Nominatim and NASA POWER / Open-Meteo for `queryText`,
-     * aborting any prior in-flight lookup so rapid searches stay consistent.
-     */
+    // Live global Earth telemetry search and Whole-Earth scan execution
     const runGlobalTelemetrySearch = useCallback(async (queryText) => {
         const cleanedQuery = (queryText || "").trim();
         if (!cleanedQuery) {
@@ -878,13 +741,7 @@ const Tweaks = ({ onSelectLocation }) => {
         }
     }, []);
 
-    /**
-     * Executes the active search across the verified NASA/ESA catalog and, when
-     * `searchScope === "whole-earth"`, simultaneously runs `scanWholeEarthAnalogs`
-     * to discover non-NASA Earth locations and plot them onto the map.
-     * Also automatically runs Nominatim + NASA POWER global place search whenever
-     * a location or coordinate string is entered.
-     */
+    // Executes catalog search and optional Whole-Earth scan.
     const executeSearch = useCallback(
         async (overrides = {}) => {
             const activeScope = overrides.searchScope ?? searchScope;
@@ -1032,21 +889,13 @@ const Tweaks = ({ onSelectLocation }) => {
         ]
     );
 
-    // ------------------------------------------------------------------------
-    // 8. Interactive UI Event Handlers (Presets, Reset, Sliders, Map & Save)
-    // ------------------------------------------------------------------------
-    /**
-     * Submits the currently configured filters via the primary CTA button or Enter key.
-     */
+    // UI event handlers: presets, reset, sliders, and bookmarks
     const handleApplyFilters = () => {
         setScopeMenuOpen(false);
         executeSearch();
     };
 
-    /**
-     * Applies a selected Mission Preset from the dropdown, automatically populating
-     * target planetary body and environment filters below.
-     */
+    // Applies selected mission preset filters.
     const handlePresetChange = (presetId) => {
         setSelectedPreset(presetId);
         const match = MISSION_PRESETS.find((item) => item.id === presetId);
@@ -1067,10 +916,7 @@ const Tweaks = ({ onSelectLocation }) => {
         }
     };
 
-    /**
-     * Restores all search inputs, environment filters, sliders, and telemetry results
-     * back to their neutral default values and resets filteredLoc to null.
-     */
+    // Resets all search filters and sliders to defaults.
     const handleReset = () => {
         if (globalAbortRef.current) {
             globalAbortRef.current.abort();
@@ -1100,10 +946,7 @@ const Tweaks = ({ onSelectLocation }) => {
         toast.info("Filters reset to default.");
     };
 
-    /**
-     * Handles clicking directly along the temperature slider bar to snap the
-     * nearest thumb (`tempMin` or `tempMax`) to the clicked temperature.
-     */
+    // Snaps nearest slider thumb on track click.
     const handleTempTrackClick = (event) => {
         if (!tempTrackRef.current) return;
         const rect = tempTrackRef.current.getBoundingClientRect();
@@ -1130,24 +973,15 @@ const Tweaks = ({ onSelectLocation }) => {
         }
     };
 
-    /**
-     * Saves a catalog or newly discovered Earth site to saved locations
-     * immediately for both signed-in users and guests.
-     */
+    // Saves location to bookmarks.
     const handleSave = (location) => {
         if (!location) return;
         saveLocation?.(location);
     };
 
-    // ------------------------------------------------------------------------
-    // 9. Component Render Block
-    // ------------------------------------------------------------------------
     return (
         <div className="w-full h-full flex flex-col bg-[#0B0E13] text-[#F1EEE9] select-none">
-            {/* ============================================================== */}
-            {/* Header Block: Title & Subtitle                                 */}
-            {/* Right padding (`pr-10`) avoids overlapping the drawer close btn */}
-            {/* ============================================================== */}
+            {/* Header title and description */}
             <div className="pb-3 mb-3 border-b border-[#21242C] shrink-0">
                 <div className="flex items-center justify-between gap-2 pr-10">
                     <h2 className="text-lg font-bold text-[#F1EEE9] tracking-tight leading-tight">
@@ -1159,13 +993,9 @@ const Tweaks = ({ onSelectLocation }) => {
                 </p>
             </div>
 
-            {/* ============================================================== */}
-            {/* Scrollable Search Console Controls & Results Container         */}
-            {/* ============================================================== */}
+            {/* Scrollable search console controls and results */}
             <div className="space-y-4 overflow-y-auto flex-1 pr-1 custom-scrollbar">
-                {/* ---------------------------------------------------------- */}
-                {/* 1. Location or Coordinates Search Input                    */}
-                {/* ---------------------------------------------------------- */}
+                {/* Location or coordinates search input */}
                 <div>
                     <label
                         htmlFor="tweaks-location-search"
@@ -1193,9 +1023,7 @@ const Tweaks = ({ onSelectLocation }) => {
                     </div>
                 </div>
 
-                {/* ---------------------------------------------------------- */}
-                {/* 2. Target Planetary Body Segmented Control (Moon / Mars)   */}
-                {/* ---------------------------------------------------------- */}
+                {/* Target planetary body selector */}
                 <div>
                     <span className="block text-xs font-medium text-[#8891A0] mb-1.5">
                         Target planetary body
@@ -1211,13 +1039,11 @@ const Tweaks = ({ onSelectLocation }) => {
                                     key={body.id}
                                     type="button"
                                     onClick={() => {
-                                        // Toggle selection or set new body
                                         const nextBody =
                                             targetBody === body.id ? "" : body.id;
                                         setTargetBody(nextBody);
                                         setSelectedPreset("custom");
 
-                                        // Conflict resolution between Moon/Mars missions
                                         if (nextBody === "mars") {
                                             if (
                                                 selectedPreset === "moon-base" ||
@@ -1261,9 +1087,7 @@ const Tweaks = ({ onSelectLocation }) => {
                     </div>
                 </div>
 
-                {/* ---------------------------------------------------------- */}
-                {/* 3. Mission Preset Dropdown                                 */}
-                {/* ---------------------------------------------------------- */}
+                {/* Mission preset selector */}
                 <div>
                     <label
                         htmlFor="tweaks-mission-preset"
@@ -1297,9 +1121,7 @@ const Tweaks = ({ onSelectLocation }) => {
                     </div>
                 </div>
 
-                {/* ---------------------------------------------------------- */}
-                {/* 4. Environment Section (Dropdowns + Range Sliders)         */}
-                {/* ---------------------------------------------------------- */}
+                {/* Environment parameter filters */}
                 <div className="pt-1">
                     {/* Environment Section Header + Reset Action */}
                     <div className="flex items-center justify-between pb-3">
@@ -1426,9 +1248,7 @@ const Tweaks = ({ onSelectLocation }) => {
                         </div>
                     </div>
 
-                    {/* ------------------------------------------------------ */}
-                    {/* 5. Surface Temperature Dual-Thumb Range Slider         */}
-                    {/* ------------------------------------------------------ */}
+                    {/* Surface temperature dual-thumb slider */}
                     <div className="py-3.5 border-b border-[#21242C]">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-xs font-medium text-[#F1EEE9]">
@@ -1542,9 +1362,7 @@ const Tweaks = ({ onSelectLocation }) => {
                         </div>
                     </div>
 
-                    {/* ------------------------------------------------------ */}
-                    {/* 6. Minimum Elevation Single-Thumb Slider (0m–4,800m)   */}
-                    {/* ------------------------------------------------------ */}
+                    {/* Minimum elevation slider */}
                     <div className="py-3.5 border-b border-[#21242C]">
                         <div className="flex items-center justify-between mb-3">
                             <label
@@ -1604,9 +1422,7 @@ const Tweaks = ({ onSelectLocation }) => {
                     </div>
                 </div>
 
-                {/* ---------------------------------------------------------- */}
-                {/* 7. Search Scope Row & Primary Search CTA Button            */}
-                {/* ---------------------------------------------------------- */}
+                {/* Search scope selector and submit button */}
                 <div className="space-y-3 pt-1">
                     {/* Horizontal Search Scope Row */}
                     <div
@@ -1742,9 +1558,7 @@ const Tweaks = ({ onSelectLocation }) => {
                         </button>
                     )}
 
-                {/* ========================================================== */}
-                {/* 8. Results Section (Catalog, Whole-Earth Scan & Telemetry) */}
-                {/* ========================================================== */}
+                {/* Results section */}
                 {hasSearched && (
                     <div className="border-t border-[#21242C] pt-4 space-y-4">
                         {/* Section A: Verified NASA/ESA Catalog Matches */}

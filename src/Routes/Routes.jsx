@@ -12,22 +12,10 @@ import ComparePage from "../Pages/ComparePage";
 import AboutPage from "../Pages/AboutPage";
 import DataServerPage from "../Pages/DataServerPage";
 
-/**
- * ============================================================================
- * React Router Configuration
- * ============================================================================
- * Maps application paths to page components within nested layout shells:
- * - All primary exploration tabs (`Dashboard`, `Search`, `Saved`, `Compare`,
- *   `Data Sources`, `About`) are openly browsable by guests as well as
- *   authenticated users without forced redirects.
- * - Guests attempting to save or compare locations are guided to `/login`
- *   via an interactive in-app toast prompt.
- */
+// Application router configuration.
 const router = createBrowserRouter([
     {
-        // --------------------------------------------------------------------
-        // Primary Application Layout Shell (Navbar + Active Route Viewport)
-        // --------------------------------------------------------------------
+        // Primary application layout shell
         path: "/",
         element: <MainLayout />,
         hydrateFallbackElement: <Loader />,
@@ -68,9 +56,7 @@ const router = createBrowserRouter([
         ],
     },
     {
-        // --------------------------------------------------------------------
-        // Standalone Authentication Layout Shell
-        // --------------------------------------------------------------------
+        // Authentication layout shell
         path: "/",
         Component: AuthLayout,
         children: [
