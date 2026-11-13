@@ -2,7 +2,7 @@
 
 > Built for the **2026 NASA Space Apps Challenge**: [Identify Earth Locations that Analog the Permanent Moon Base Locations and Mars](https://www.spaceappschallenge.org/2026/challenges/permanent-moon-base-locations-and-mars/?tab=details)
 
-[![Live App](https://img.shields.io/badge/Live_Web_App-terramatch--ve--nasas.vercel.app-83CAD8?style=for-the-badge&logo=vercel&logoColor=07090E)](https://terramatch-ve-nasas.vercel.app)
+[![Live App](https://img.shields.io/badge/Live_Web_App-terramatch--vu--nexus.vercel.app-83CAD8?style=for-the-badge&logo=vercel&logoColor=07090E)](https://terramatch-vu-nexus.vercel.app)
 [![Demo Video](https://img.shields.io/badge/60s_Demo_Video-YouTube-D67051?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/DVrCYjQ2fG4)
 [![NASA Space Apps](https://img.shields.io/badge/NASA_Space_Apps-2026_Challenge-0B3A60?style=for-the-badge&logo=nasa&logoColor=white)](https://www.spaceappschallenge.org/2026/challenges/permanent-moon-base-locations-and-mars/?tab=details)
 
@@ -10,7 +10,7 @@
 
 ## 📌 Quick Links
 
-- **🌐 Live Web Application:** [https://terramatch-ve-nasas.vercel.app](https://terramatch-ve-nasas.vercel.app)
+- **🌐 Live Web Application:** [https://terramatch-ve-nasas.vercel.app](https://terramatch-vu-nexus.vercel.app)
 - **🎬 60-Second Video Demonstration:** [https://youtu.be/DVrCYjQ2fG4](https://youtu.be/DVrCYjQ2fG4)
 - **🚀 Official NASA Challenge:** [Permanent Moon Base Locations and Mars](https://www.spaceappschallenge.org/2026/challenges/permanent-moon-base-locations-and-mars/?tab=details)
 
