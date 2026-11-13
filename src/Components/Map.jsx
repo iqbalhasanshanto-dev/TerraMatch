@@ -4,7 +4,6 @@ import {
     Marker,
     Popup,
     TileLayer,
-    useMap,
     useMapEvents,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -163,72 +162,6 @@ const MapClickProbeHandler = ({ isProbeActive, onProbeCoordinate }) => {
             onProbeCoordinate(lat, lng);
         },
     });
-
-    return null;
-};
-
-// ============================================================================
-// 4. Helper Sub-Component: Single World Dynamic Viewport & Edge-to-Edge Zoom
-// ============================================================================
-
-/**
- * Dynamic Viewport & Minimum Zoom Controller for Strictly One World:
- * - Measures the map container's exact pixel width and height via ResizeObserver.
- * - In Web Mercator at zoom Z, the single 360° Earth spans exactly 256 * 2^Z pixels.
- * - Computes exactMinZoom = Math.max(Math.log2(width / 256), Math.log2(height / 256)).
- * - Enforces map.setMinZoom(exactMinZoom) and snaps zoom up if needed so that:
- *     1. Strictly ONE single world map is shown (no duplicate repeating continents).
- *     2. The satellite imagery fills 100% of the container width and height edge-to-edge
- *        with zero grey "Map data not yet available" border tiles on any screen size.
- */
-const SingleWorldViewportController = ({ isSidebarOpen }) => {
-    const map = useMap();
-
-    useEffect(() => {
-        if (!map) return;
-
-        const container = map.getContainer();
-        if (!container) return;
-
-        const updateViewportZoom = () => {
-            const containerWidth = container.clientWidth;
-            const containerHeight = container.clientHeight;
-
-            if (!containerWidth || !containerHeight) return;
-
-            // Calculate the exact zoom level where one single 256px base world
-            // fills the container width and height without showing any area outside [-85..85, -180..180]:
-            const minZoomWidth = Math.log2(containerWidth / 256);
-            const minZoomHeight = Math.log2(containerHeight / 256);
-            const exactMinZoom =
-                Math.ceil(Math.max(minZoomWidth, minZoomHeight) * 100) / 100;
-
-            // Invalidate Leaflet canvas size to handle layout changes (sidebar toggle, resize)
-            map.invalidateSize();
-
-            // Enforce dynamic minimum zoom so user can never zoom out into grey borders
-            map.setMinZoom(exactMinZoom);
-
-            // If the current zoom level is below the new minimum, adjust zoom cleanly
-            if (map.getZoom() < exactMinZoom) {
-                map.setZoom(exactMinZoom);
-            }
-        };
-
-        // Run measurement on mount
-        updateViewportZoom();
-
-        // Monitor container size changes (window resize, sidebar expand/collapse)
-        const resizeObserver = new ResizeObserver(() => {
-            updateViewportZoom();
-        });
-
-        resizeObserver.observe(container);
-
-        return () => {
-            resizeObserver.disconnect();
-        };
-    }, [map, isSidebarOpen]);
 
     return null;
 };
@@ -678,49 +611,52 @@ const Map = ({ isSidebarOpen }) => {
             </div>
 
             {/* ============================================================== */}
-            {/* Leaflet Satellite Map Container: Strictly One Single World     */}
+            {/* Leaflet Satellite Map Container: Single World with Free Margin */}
             {/* ============================================================== */}
             {/*
-                1. Strictly One World (Disable Infinity Loop):
-                   - `maxBounds={[[-85, -180], [85, 180]]}`: Strictly locks map boundaries
-                     to a single globe instance (-180° to +180° longitude, -85° to +85° latitude).
-                   - `maxBoundsViscosity={1.0}`: Prevents user from panning past world edges.
-                   - `worldCopyJump={false}`: Prevents jumping between world copies.
-                   - `zoomSnap={0.01}`: Allows ultra-smooth continuous fractional zooming matching
-                     SingleWorldViewportController's exact calculated edge-to-edge minimum zoom.
+                1. Single World Framing & Fractional Zoom:
+                   - `center={[20, 0]}` & `zoom={1.8}`: Centers the full Earth overview cleanly.
+                   - `minZoom={1.5}`: Allows zooming out to view the entire planet at once on any display.
+                   - `maxZoom={18}`: Allows deep zoom down to rover-scale terrain imagery.
+                   - `zoomSnap={0.25}` & `zoomDelta={0.5}`: Enables smooth, responsive quarter-step zooming.
+                   - `style={{ backgroundColor: '#07090E' }}`: Matches the deep-space void canvas background.
 
-                2. Dynamic Minimum Zoom (Fits Edge-to-Edge Without Grey Borders):
-                   - `<SingleWorldViewportController />` measures the container's pixel width
-                     and height, dynamically setting `map.setMinZoom(exactMinZoom)` based on
-                     Math.log2(dimension / 256) so one single world fills 100% of the screen
-                     with zero grey "Map data not yet available" tiles.
+                2. Free Dragging Cushion & Zero Grey Error Tiles:
+                   - `bounds={[[-85.0511, -180], [85.0511, 180]]}` & `noWrap={true}` on `<TileLayer>`:
+                     Locks satellite tile requests strictly to the canonical Web Mercator boundaries
+                     of the single Earth. Esri never requests out-of-bounds tiles, completely eliminating
+                     grey "Map data not yet available" error tiles and preventing duplicate continent loops.
+                   - `maxBounds={[[-90, -240], [90, 240]]}` & `maxBoundsViscosity={0.85}` on `<MapContainer>`:
+                     Provides a 60° deep-space cushion (-240° to +240° longitude, -90° to +90° latitude)
+                     around the single world, giving users comfortable breathing room to drag freely in
+                     all directions (left, right, up, down) at any zoom level without hitting a rigid barrier.
             */}
             <MapContainer
                 center={defaultPosition}
-                zoom={2}
-                minZoom={2}
+                zoom={1.8}
+                minZoom={1.5}
                 maxZoom={18}
+                zoomSnap={0.25}
+                zoomDelta={0.5}
                 maxBounds={[
-                    [-85, -180],
-                    [85, 180],
+                    [-90, -240],
+                    [90, 240],
                 ]}
-                maxBoundsViscosity={1.0}
+                maxBoundsViscosity={0.85}
                 worldCopyJump={false}
-                zoomSnap={0.01}
                 zoomControl={false}
                 scrollWheelZoom={true}
+                style={{ backgroundColor: "#07090E" }}
                 className="h-full w-full z-10"
                 ref={mapRef}
             >
-                {/* Single World Dynamic Viewport & Edge-to-Edge Minimum Zoom Controller */}
-                <SingleWorldViewportController isSidebarOpen={isSidebarOpen} />
-
                 {/* ============================================================== */}
                 {/* High-Resolution Esri World Imagery Satellite Tile Layer        */}
                 {/* ============================================================== */}
                 {/*
-                    - `noWrap={true}` & `bounds={[[-85, -180], [85, 180]]}`: Ensures satellite tiles
-                      render strictly for the single Earth instance without repeating horizontally.
+                    - `noWrap={true}` & `bounds={[[-85.0511, -180], [85.0511, 180]]}`:
+                      Strictly restricts tile queries to the single Earth instance,
+                      preventing horizontal repetition and eliminating grey error tiles.
                     - `keepBuffer={6}` & `updateWhenIdle={false}`: Pre-caches surrounding tiles for fast panning.
                 */}
                 <TileLayer
@@ -728,8 +664,8 @@ const Map = ({ isSidebarOpen }) => {
                     attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
                     noWrap={true}
                     bounds={[
-                        [-85, -180],
-                        [85, 180],
+                        [-85.0511, -180],
+                        [85.0511, 180],
                     ]}
                     maxNativeZoom={18}
                     maxZoom={18}
