@@ -4,7 +4,6 @@ import {
     Marker,
     Popup,
     TileLayer,
-    useMap,
     useMapEvents,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -139,20 +138,6 @@ const MapClickProbeHandler = ({ isProbeActive, onProbeCoordinate }) => {
     return null;
 };
 
-// Fits initial viewport to 2:1 Equirectangular whole-world bounds on mount
-const WorldViewportInitializer = () => {
-    const map = useMap();
-
-    useEffect(() => {
-        map.fitBounds([
-            [-75, -175],
-            [80, 175],
-        ]);
-    }, [map]);
-
-    return null;
-};
-
 // Satellite map with planetary analog markers and live coordinate telemetry probing
 const Map = ({ isSidebarOpen }) => {
     // Context and location data hooks
@@ -172,7 +157,7 @@ const Map = ({ isSidebarOpen }) => {
     const markerRefs = useRef({});
     const probeMarkerRef = useRef(null);
     const prevSidebarOpenRef = useRef(isSidebarOpen);
-    const defaultPosition = [15.0, 0.0];
+    const defaultCenter = [20, 10];
 
     // Fast lookup Set of saved location keys
     const savedLocationIds = useMemo(() => {
@@ -499,20 +484,27 @@ const Map = ({ isSidebarOpen }) => {
                 )}
             </div>
 
-            {/* L.CRS.EPSG4326 renders the Earth as a 2:1 wide rectangle matching NASA Worldview rather than a 1:1 square */}
+            {/* 
+              Standard Web Mercator (EPSG:3857) projection:
+              Removing EPSG4326 restores standard Leaflet projection so all [lat, lng] markers
+              align 100% accurately with continental landmasses without shrinking or vertical distortion.
+              
+              Generous maxBounds cushion:
+              Latitude padding (±110) and longitude padding (±250) with viscosity 0.7 unlock smooth
+              dragging in all directions without freezing and allow Leaflet to auto-pan smoothly when popups open.
+            */}
             <MapContainer
-                crs={L.CRS.EPSG4326}
-                center={defaultPosition}
-                zoom={1}
-                minZoom={1}
-                maxZoom={8}
-                zoomSnap={0.25}
+                center={defaultCenter}
+                zoom={2.2}
+                minZoom={1.8}
+                maxZoom={18}
+                zoomSnap={0.1}
                 zoomDelta={0.5}
                 maxBounds={[
-                    [-90, -180],
-                    [90, 180],
+                    [-110, -250],
+                    [110, 250],
                 ]}
-                maxBoundsViscosity={1.0}
+                maxBoundsViscosity={0.7}
                 worldCopyJump={false}
                 zoomControl={false}
                 scrollWheelZoom={true}
@@ -520,23 +512,20 @@ const Map = ({ isSidebarOpen }) => {
                 className="h-full w-full z-10"
                 ref={mapRef}
             >
-                {/* Fits initial viewport to 2:1 Equirectangular whole-world bounds */}
-                <WorldViewportInitializer />
-
-                {/* NASA GIBS EPSG:4326 Blue Marble 500m global satellite imagery */}
+                {/* 
+                  Esri World Imagery satellite map layer:
+                  noWrap and bounds [[-85.0511, -180], [85.0511, 180]] ensure a single global map is rendered
+                  without requesting out-of-bounds grey error tiles.
+                */}
                 <TileLayer
-                    url="https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/BlueMarble_ShadedRelief_Bathymetry/default/500m/{z}/{y}/{x}.jpeg"
-                    tileSize={256}
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     noWrap={true}
                     bounds={[
-                        [-90, -180],
-                        [90, 180],
+                        [-85.0511, -180],
+                        [85.0511, 180],
                     ]}
-                    attribution="Imagery &copy; NASA GIBS / Earthdata Worldview (EPSG:4326)"
-                    maxNativeZoom={8}
-                    maxZoom={8}
-                    keepBuffer={4}
-                    updateWhenIdle={false}
+                    maxZoom={18}
+                    attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
                 />
 
                 {/* Click-to-probe event listener */}
@@ -560,12 +549,26 @@ const Map = ({ isSidebarOpen }) => {
                                 popupclose: handleDismissTelemetryPin,
                             }}
                         >
+                            {/* 
+                              Top-navbar popup avoidance:
+                              autoPanPaddingTopLeft={[20, 90]} keeps the card at least 90px below the fixed top navbar.
+                              Northern pins (lat > 25) open downward via offset={[0, 260]} and .popup-open-below styling.
+                            */}
                             <Popup
-                                className="terramatch-popup"
+                                className={`terramatch-popup ${
+                                    activeTelemetryPin.coordinates.latitude > 25
+                                        ? "popup-open-below"
+                                        : ""
+                                }`}
                                 closeButton={true}
                                 autoPan={true}
-                                autoPanPaddingTopLeft={[24, 80]}
-                                autoPanPaddingBottomRight={[24, 40]}
+                                autoPanPaddingTopLeft={[20, 90]}
+                                autoPanPaddingBottomRight={[20, 40]}
+                                offset={
+                                    activeTelemetryPin.coordinates.latitude > 25
+                                        ? [0, 260]
+                                        : [0, 0]
+                                }
                             >
                                 <div className="p-1 pr-8 text-[#F1EEE9] min-w-56 max-w-72">
                                     {activeTelemetryPin.isLoading ? (
@@ -820,6 +823,7 @@ const Map = ({ isSidebarOpen }) => {
                     const isDiscoverySite = Boolean(
                         loc.isGlobalDiscovery || loc.isLiveTelemetry
                     );
+                    const isNorthern = loc.coordinates.latitude > 25;
                     const { popupBadges } = getTargetBodyInfo(loc);
                     const surfaceTemp = formatSurfaceTemp(loc);
                     const analogCategory = getAnalogCategory(loc);
@@ -858,13 +862,20 @@ const Map = ({ isSidebarOpen }) => {
                                 click: () => handleMarkerClick(loc),
                             }}
                         >
-                            {/* Analog site popup */}
+                            {/* 
+                              Top-navbar popup avoidance:
+                              autoPanPaddingTopLeft={[20, 90]} ensures popups are always pushed at least 90px below the navbar.
+                              Northern hemisphere pins (lat > 25) open downward via offset={[0, 260]} and popup-open-below class.
+                            */}
                             <Popup
-                                className="terramatch-popup"
+                                className={`terramatch-popup ${
+                                    isNorthern ? "popup-open-below" : ""
+                                }`}
                                 closeButton={true}
                                 autoPan={true}
-                                autoPanPaddingTopLeft={[24, 80]}
-                                autoPanPaddingBottomRight={[24, 40]}
+                                autoPanPaddingTopLeft={[20, 90]}
+                                autoPanPaddingBottomRight={[20, 40]}
+                                offset={isNorthern ? [0, 260] : [0, 0]}
                             >
                                 <div className="p-1 pr-8 text-[#F1EEE9] min-w-52 max-w-68">
                                     {/* Satellite discovery badge */}

@@ -149,6 +149,15 @@ body {
   border: 1px solid #21242C !important;
 }
 
+/* Downward-opening popups for northern hemisphere pins (lat > 25) to avoid top navbar clipping */
+.leaflet-popup.popup-open-below {
+  margin-bottom: 0;
+}
+
+.leaflet-popup.popup-open-below .leaflet-popup-tip-container {
+  display: none !important;
+}
+
 /* Leaflet popup close button. */
 .leaflet-container a.leaflet-popup-close-button {
   top: 14px !important;
