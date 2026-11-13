@@ -227,7 +227,7 @@ const Map = ({ isSidebarOpen }) => {
     const prevSidebarOpenRef = useRef(isSidebarOpen);
 
     /** Global default map center coordinates (equatorial overview). */
-    const defaultPosition = [15.0, 0.0];
+    const defaultPosition = [20.0, 0.0];
 
     // ------------------------------------------------------------------------
     // 4. Derived Saved Keys Lookup & Active Telemetry Pin Resolution
@@ -604,32 +604,32 @@ const Map = ({ isSidebarOpen }) => {
                 )}
             </div>
 
-            {/* Leaflet Satellite Map Container: Locked to single Earth (no infinite wrap) */}
+            {/* Leaflet Satellite Map Container: Edge-to-edge satellite coverage without grey gaps */}
             <MapContainer
                 center={defaultPosition}
                 zoom={2}
-                minZoom={1.8}
+                minZoom={2}
                 maxZoom={17}
                 maxBounds={[
-                    [-85, -195],
-                    [85, 195],
+                    [-85, -180],
+                    [85, 180],
                 ]}
-                maxBoundsViscosity={0.9}
+                maxBoundsViscosity={1.0}
                 worldCopyJump={false}
                 zoomControl={false}
                 scrollWheelZoom={true}
                 className="h-full w-full z-10"
                 ref={mapRef}
             >
-                {/* High-Resolution Esri World Imagery Satellite Tile Layer with Fast Buffering */}
+                {/* High-Resolution Esri World Imagery Satellite Tile Layer:
+                    `noWrap={false}` lets tiles fill wide 16:9 viewports edge-to-edge with real
+                    satellite imagery and eliminates grey "Map data not yet available" tiles,
+                    while MapContainer's `maxBounds={[[-85, -180], [85, 180]]}` restricts user
+                    panning from wandering into repeating worlds. */}
                 <TileLayer
                     url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                     attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
-                    noWrap={true}
-                    bounds={[
-                        [-85, -195],
-                        [85, 195],
-                    ]}
+                    noWrap={false}
                     maxNativeZoom={17}
                     maxZoom={17}
                     keepBuffer={6}

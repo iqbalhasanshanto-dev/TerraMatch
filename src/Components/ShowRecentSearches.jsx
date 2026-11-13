@@ -474,69 +474,68 @@ const ShowRecentSearches = ({ onSelectLocation }) => {
                     isCatalogOpen ? "flex-1" : "shrink-0"
                 }`}
             >
-                <div className="flex items-center justify-between gap-2 mb-2 pr-10 shrink-0">
+                {/* Header Row: Icon + Full Title on Left, Collapse/Expand Toggle on Far Right */}
+                <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
                     <div className="flex items-center gap-1.5 min-w-0">
                         <MapPin size={14} aria-hidden="true" className="text-[#83CAD8] shrink-0" />
-                        <h3 className="font-semibold text-xs text-[#F1EEE9] truncate">
+                        <h3 className="font-semibold text-xs text-[#F1EEE9] whitespace-nowrap">
                             Pinned Analog Sites ({locData.length})
                         </h3>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                        {/* Quick Planetary Filter Pills (All / Moon / Mars) */}
-                        {isCatalogOpen && (
-                            <div className="flex items-center gap-1 bg-[#181A21] border border-[#21242C] p-0.5 rounded-lg shrink-0">
-                                {[
-                                    { id: "all", label: "All" },
-                                    { id: "moon", label: "Moon" },
-                                    { id: "mars", label: "Mars" },
-                                ].map((filter) => {
-                                    const isSelected = pinnedFilter === filter.id;
-                                    return (
-                                        <button
-                                            key={filter.id}
-                                            type="button"
-                                            onClick={() => setPinnedFilter(filter.id)}
-                                            className={`px-2 py-0.5 rounded text-[10px] font-medium transition cursor-pointer ${
-                                                isSelected
-                                                    ? filter.id === "mars"
-                                                        ? "bg-[#D67051] text-[#090D15] font-semibold"
-                                                        : "bg-[#83CAD8] text-[#090D15] font-semibold"
-                                                    : "text-[#8891A0] hover:text-[#F1EEE9]"
-                                            }`}
-                                        >
-                                            {filter.label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                    {/* Expand / Collapse Toggle Button */}
+                    <button
+                        type="button"
+                        onClick={() => setIsCatalogOpen((prev) => !prev)}
+                        aria-expanded={isCatalogOpen}
+                        aria-label={
+                            isCatalogOpen
+                                ? "Collapse pinned analog sites catalog"
+                                : "Expand pinned analog sites catalog"
+                        }
+                        title={
+                            isCatalogOpen
+                                ? "Collapse catalog to give Recent Searches full height"
+                                : "Expand pinned analog sites catalog"
+                        }
+                        className="p-1 rounded-md bg-[#181A21] border border-[#21242C] text-[#8891A0] hover:text-[#83CAD8] hover:border-[#83CAD8]/60 transition cursor-pointer shrink-0"
+                    >
+                        {isCatalogOpen ? (
+                            <ChevronDown size={14} aria-hidden="true" />
+                        ) : (
+                            <ChevronUp size={14} aria-hidden="true" />
                         )}
-
-                        {/* Expand / Collapse Toggle Button */}
-                        <button
-                            type="button"
-                            onClick={() => setIsCatalogOpen((prev) => !prev)}
-                            aria-expanded={isCatalogOpen}
-                            aria-label={
-                                isCatalogOpen
-                                    ? "Collapse pinned analog sites catalog"
-                                    : "Expand pinned analog sites catalog"
-                            }
-                            title={
-                                isCatalogOpen
-                                    ? "Collapse catalog to give Recent Searches full height"
-                                    : "Expand pinned analog sites catalog"
-                            }
-                            className="p-1 rounded-md bg-[#181A21] border border-[#21242C] text-[#8891A0] hover:text-[#83CAD8] hover:border-[#83CAD8]/60 transition cursor-pointer"
-                        >
-                            {isCatalogOpen ? (
-                                <ChevronDown size={14} aria-hidden="true" />
-                            ) : (
-                                <ChevronUp size={14} aria-hidden="true" />
-                            )}
-                        </button>
-                    </div>
+                    </button>
                 </div>
+
+                {/* Dedicated Planetary Filter Pills Row (Visible when isCatalogOpen === true) */}
+                {isCatalogOpen && (
+                    <div className="flex items-center gap-1 bg-[#181A21] border border-[#21242C] p-0.5 rounded-lg mb-2 shrink-0 self-start">
+                        {[
+                            { id: "all", label: "All" },
+                            { id: "moon", label: "Moon" },
+                            { id: "mars", label: "Mars" },
+                        ].map((filter) => {
+                            const isSelected = pinnedFilter === filter.id;
+                            return (
+                                <button
+                                    key={filter.id}
+                                    type="button"
+                                    onClick={() => setPinnedFilter(filter.id)}
+                                    className={`px-2.5 py-0.5 rounded text-[10px] font-medium transition cursor-pointer ${
+                                        isSelected
+                                            ? filter.id === "mars"
+                                                ? "bg-[#D67051] text-[#090D15] font-semibold"
+                                                : "bg-[#83CAD8] text-[#090D15] font-semibold"
+                                            : "text-[#8891A0] hover:text-[#F1EEE9]"
+                                    }`}
+                                >
+                                    {filter.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
 
                 {/* Scrollable List of Pinned Analog Sites (Visible when isCatalogOpen === true) */}
                 {isCatalogOpen && (
