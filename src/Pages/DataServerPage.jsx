@@ -442,6 +442,14 @@ const DataServerPage = () => {
         let isMounted = true;
         const localCustomSources = readCustomSourcesFromStorage();
 
+        if (!API_BASE_URL) {
+            setDatasets(
+                mergeDatasets(localCustomSources, DEFAULT_PLANETARY_ARCHIVES)
+            );
+            setLoadingDatasets(false);
+            return;
+        }
+
         // Query live data sources catalog from Express/MongoDB backend
         fetch(`${API_BASE_URL}/data-sources`)
             .then((res) => {
@@ -592,26 +600,28 @@ const DataServerPage = () => {
         let createdDoc = { ...newSourcePayload, _id: localId };
 
         // Attempt backend persistence when accessible
-        try {
-            const response = await fetch(`${API_BASE_URL}/data-sources`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(newSourcePayload),
-            });
+        if (API_BASE_URL) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/data-sources`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(newSourcePayload),
+                });
 
-            if (response.ok) {
-                const result = await response.json();
-                if (result.success) {
-                    createdDoc = result.data || {
-                        ...newSourcePayload,
-                        _id: result.insertedId || localId,
-                    };
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        createdDoc = result.data || {
+                            ...newSourcePayload,
+                            _id: result.insertedId || localId,
+                        };
+                    }
                 }
+            } catch (err) {
+                console.debug("Backend data-sources POST skipped:", err?.message || err);
             }
-        } catch (err) {
-            console.debug("Backend data-sources POST skipped:", err?.message || err);
         }
 
         // Persist custom source to localStorage and update state
@@ -648,12 +658,14 @@ const DataServerPage = () => {
         toast.info(`Removed archive "${datasetName}".`);
 
         // Sync deletion with backend if online
-        fetch(`${API_BASE_URL}/data-sources/${encodeURIComponent(datasetId)}`, {
-            method: "DELETE",
-            headers: {
-                "Content-Type": "application/json",
-            },
-        }).catch(() => {});
+        if (API_BASE_URL) {
+            fetch(`${API_BASE_URL}/data-sources/${encodeURIComponent(datasetId)}`, {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            }).catch(() => {});
+        }
     };
 
     return (

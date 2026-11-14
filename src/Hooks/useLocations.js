@@ -9,6 +9,20 @@ const useLocations = () => {
     const [error, setError] = useState(null);
 
     useEffect(() => {
+        if (!API_BASE_URL) {
+            axios('/analogLocations.json')
+                .then(res => {
+                    const items = res.data?.locations || [];
+                    setLocData(items.map(l => ({ ...l, _id: l.id || l._id })));
+                })
+                .catch(err => {
+                    console.error("Failed to fetch locations:", err);
+                    setError(err);
+                })
+                .finally(() => setLoading(false));
+            return;
+        }
+
         axios(`${API_BASE_URL}/location`)
             .then(response => {
                 if (Array.isArray(response.data) && response.data.length > 0) {

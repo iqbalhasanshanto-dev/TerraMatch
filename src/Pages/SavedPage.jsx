@@ -106,7 +106,7 @@ const SavedPage = () => {
     // Permanently removes saved location document from backend
     const commitBackendDelete = (itemToDelete) => {
         const idToDelete = itemToDelete?._id || itemToDelete?.id || itemToDelete?.locationId;
-        if (idToDelete) {
+        if (idToDelete && API_BASE_URL) {
             fetch(`${API_BASE_URL}/savedLocs/${idToDelete}`, {
                 method: "DELETE",
                 headers: {

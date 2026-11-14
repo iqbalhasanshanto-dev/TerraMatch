@@ -257,8 +257,8 @@ const StateProvider = ({ children }) => {
     // Fetches and merges saved locations from backend and local storage
     const refetchSaved = useCallback(async () => {
         const localCached = readSavedFromStorage(userEmail);
-        if (!userEmail) {
-            setSavedState({ owner: "guest", items: localCached });
+        if (!userEmail || !API_BASE_URL) {
+            setSavedState({ owner: userEmail || "guest", items: localCached });
             return localCached;
         }
 
@@ -291,10 +291,10 @@ const StateProvider = ({ children }) => {
     useEffect(() => {
         const localCached = readSavedFromStorage(userEmail);
 
-        if (!userEmail) {
-            // Guest mode: update savedState to guest storage cleanly on microtask queue
+        if (!userEmail || !API_BASE_URL) {
+            // Guest mode or static host: update savedState to local storage cleanly on microtask queue
             queueMicrotask(() => {
-                setSavedState({ owner: "guest", items: localCached });
+                setSavedState({ owner: userEmail || "guest", items: localCached });
                 setSavedError(null);
             });
             return;
@@ -352,8 +352,8 @@ const StateProvider = ({ children }) => {
 
             toast.success("Location saved to your profile!");
 
-            // Sync with backend if authenticated
-            if (userEmail) {
+            // Sync with backend if authenticated and API_BASE_URL is configured
+            if (userEmail && API_BASE_URL) {
                 const { _id, ...cleanPayload } = entry;
                 void _id;
 
@@ -389,7 +389,7 @@ const StateProvider = ({ children }) => {
                 )
             );
 
-            if (userEmail) {
+            if (userEmail && API_BASE_URL) {
                 fetch(`${API_BASE_URL}/savedLocs/${encodeURIComponent(idToRemove)}`, {
                     method: "DELETE",
                     headers: {
@@ -404,8 +404,8 @@ const StateProvider = ({ children }) => {
     // Fetches and syncs recent searches from backend and localStorage
     const refetchRecent = useCallback(async () => {
         const localCached = readRecentFromStorage(userEmail);
-        if (!userEmail) {
-            setRecentState({ owner: "guest", items: localCached });
+        if (!userEmail || !API_BASE_URL) {
+            setRecentState({ owner: userEmail || "guest", items: localCached });
             return localCached;
         }
 
@@ -438,9 +438,9 @@ const StateProvider = ({ children }) => {
     useEffect(() => {
         const localCached = readRecentFromStorage(userEmail);
 
-        if (!userEmail) {
+        if (!userEmail || !API_BASE_URL) {
             queueMicrotask(() => {
-                setRecentState({ owner: "guest", items: localCached });
+                setRecentState({ owner: userEmail || "guest", items: localCached });
             });
             return;
         }
@@ -492,8 +492,8 @@ const StateProvider = ({ children }) => {
                 return [entry, ...deduplicated].slice(0, MAX_RECENT_SEARCHES);
             });
 
-            // If authenticated, sync with MongoDB backend
-            if (userEmail) {
+            // If authenticated and API_BASE_URL is configured, sync with MongoDB backend
+            if (userEmail && API_BASE_URL) {
                 try {
                     // Omit internal `_id` to prevent immutable field errors
                     const { _id, ...cleanPayload } = entry;
@@ -522,7 +522,7 @@ const StateProvider = ({ children }) => {
     // Deletes single recent search record from backend
     const deleteRecentSearch = useCallback(
         async (idToDelete) => {
-            if (!userEmail || !idToDelete) return;
+            if (!userEmail || !idToDelete || !API_BASE_URL) return;
 
             try {
                 await fetch(
@@ -543,7 +543,7 @@ const StateProvider = ({ children }) => {
 
     // Clears all recent searches for user in backend
     const clearRecentSearches = useCallback(async () => {
-        if (!userEmail) return;
+        if (!userEmail || !API_BASE_URL) return;
 
         try {
             await fetch(
